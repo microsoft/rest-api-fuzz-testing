@@ -1,0 +1,16 @@
+steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.8' 
+      addToPath: true
+
+  - script: pip3 install -r cli/requirements.txt
+    displayName: Install CLI Python requirements
+
+  - task: AzureCLI@2
+    displayName: "Compile-Fuzz Test"
+    inputs:
+      azureSubscription: $(raft-subscription)
+      scriptType: 'pscore'
+      scriptLocation: 'inlineScript'
+      inlineScript: "python Scripts/Tests/bvt.py --defaults-context-json '$(raft-defaults)' --secret $(bvt-secret) --host $(bvt-host)"

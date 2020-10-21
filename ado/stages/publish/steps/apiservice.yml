@@ -1,0 +1,16 @@
+steps: 
+  - task: DownloadPipelineArtifact@2
+    inputs:
+      artifact: apiservice
+      path: $(Build.SourcesDirectory)/artifacts/apiservice
+    
+  - task: Docker@2
+    displayName: 'Publish APIService imageTag'
+    inputs:
+      buildContext: $(Build.SourcesDirectory)/artifacts/apiservice/
+      command: buildAndPush
+      containerRegistry: $(raft-containerRegistryServiceConnection)
+      repository: restapifuzztesting/apiservice
+      Dockerfile: artifacts/apiservice/Dockerfile
+      tags: |
+        $(imageTag)

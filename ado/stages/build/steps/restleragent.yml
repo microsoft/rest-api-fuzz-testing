@@ -1,0 +1,24 @@
+steps: 
+  - task: NuGetToolInstaller@1
+    displayName: 'Use NuGet 5.4'
+    inputs:
+      versionSpec: 5.4
+
+  - task: NuGetCommand@2
+    displayName: 'NuGet restore'
+    inputs:
+      restoreSolution: '**\RESTlerAgent.sln'
+
+  - task: DotNetCoreCLI@2
+    displayName: 'RESTlerAgent'
+    inputs:
+      command: publish
+      publishWebProjects: false
+      projects: src/Agent/RESTlerAgent/RestlerAgent.fsproj
+      arguments: '-c release /p:version=$(versionNumber)'
+      zipAfterPublish: false
+
+  - task: PublishPipelineArtifact@1
+    inputs:
+      targetPath: src/Agent/RESTlerAgent/bin/release/netcoreapp3.1/publish/
+      artifactName: RestlerAgent

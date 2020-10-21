@@ -1,0 +1,40 @@
+parameters:
+  - name: variable_group
+    type: string
+
+stages:
+  - stage: Publish
+    jobs:
+      - job: APIService
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - template: steps/apiservice.yml
+
+      # It's a requirement to use a deployment job to specify the environment
+      # We only need one deployment, as referencing this job via the environment will show
+      # everything from the whole pipeline. 
+      - deployment: Orchestrator
+        pool:
+          vmImage: 'ubuntu-latest'
+        environment: ${{ parameters.variable_group }}
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - template: steps/orchestrator.yml
+
+      - job: RESTleragent
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - template: steps/restleragent.yml
+
+      - job: TestInfra
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - template: steps/test-infra.yml
+
+
+

@@ -1,0 +1,11 @@
+variables:
+  - name: version.major
+    value: 1
+  - name: version.minor
+    value: 0
+  - name: imageTag
+    value: 'v1.0'
+  - name: devRevision
+    value: 0
+  - name: imageTagWithBuildDate
+    value : $(imageTag)-$(Build.BuildNumber)

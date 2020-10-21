@@ -1,0 +1,8 @@
+ stages:
+  - stage: Deploy
+    jobs:
+      - job: UploadServiceUtilites_Restart
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - template: steps/upload-utils.yml

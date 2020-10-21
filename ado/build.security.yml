@@ -1,0 +1,94 @@
+# Some of these tasks will only run on a windows build machine.
+# A number of variables need to be defined for this pipeline to work correctly. 
+# 
+# BuildConfiguration | Debug
+# BuildPlatform      | Any CPU
+# isSecurityBuild    | True
+
+pool:
+  name: Azure Pipelines
+  demands:
+  - msbuild
+  - visualstudio
+  vmImage: 'windows-2019'
+
+jobs:
+- job: RaftSecurityBuild
+  displayName: 'RAFT Security build'
+
+  steps:
+  - task: NuGetToolInstaller@1
+    displayName: 'Use NuGet 5.4'
+    inputs:
+      versionSpec: 5.4
+  
+  - task: NuGetCommand@2
+    displayName: 'Restore NuGet Packages'
+    inputs:
+      restoreSolution: src\Raft.sln
+  
+  - task: VSBuild@1
+    displayName: 'Build solution src\Raft.sln'
+    inputs:
+      solution: src\Raft.sln
+      platform: '$(BuildPlatform)'
+      configuration: '$(BuildConfiguration)'
+  
+  - task: CopyFiles@2
+    displayName: 'Copy Files to: $(Build.ArtifactStagingDirectory)'
+    inputs:
+      SourceFolder: '$(Build.SourcesDirectory)'
+      Contents: '**\bin\$(BuildConfiguration)\**'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+  
+  - task: ms.vss-governance-buildtask.governance-build-task-component-detection.ComponentGovernanceComponentDetection@0
+    displayName: 'Component Detection'
+  
+  - task: securedevelopmentteam.vss-secure-development-tools.build-task-binskim.BinSkim@3
+    displayName: 'Run BinSkim'
+    inputs:
+      InputType: Basic
+      AnalyzeTarget: '$(Build.ArtifactStagingDirectory)\*.exe;$(Build.ArtifactStagingDirectory)\*.dll'
+      AnalyzeVerbose: true
+      AnalyzeStatistics: true
+      AnalyzeEnvironment: true
+    enabled: false
+  
+  - task: securedevelopmentteam.vss-secure-development-tools.build-task-credscan.CredScan@2
+    displayName: 'Run CredScan'
+    inputs:
+      outputFormat: sarif
+      debugMode: false
+    continueOnError: true
+  
+  - task: securedevelopmentteam.vss-secure-development-tools.build-task-roslynanalyzers.RoslynAnalyzers@2
+    displayName: 'Run Roslyn Analyzers'
+  
+  - task: securedevelopmentteam.vss-secure-development-tools.build-task-vulnerabilityassessment.VulnerabilityAssessment@0
+    displayName: 'Run Vulnerability Assessment'
+  
+  - task: securedevelopmentteam.vss-secure-development-tools.build-task-publishsecurityanalysislogs.PublishSecurityAnalysisLogs@2
+    condition: and(succeeded(), eq(variables['isSecurityBuild'], 'True'))
+    displayName: 'Publish Security Analysis Logs'
+  
+  # For this task there needs to be a pipeline variable `System.AccessToken`
+  # This is a Personal Access Token. These do not have unlimited lifetimes.
+  # The current token expires at the end
+  # of March 2021. 
+  - task: corygehr.air-autoassess.uploadScanResults.uploadScanResults@1
+    condition: and(succeeded(), eq(variables['isSecurityBuild'], 'True'))
+    displayName: 'Upload Scan Results for Analysis'
+    inputs:
+      areaPathParent: Raft
+      uploadUrl: 'https://airbuildscan.azurewebsites.net/api/Upload'
+    env:
+      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+
+  - task: securedevelopmentteam.vss-secure-development-tools.build-task-postanalysis.PostAnalysis@1
+    condition: and(succeeded(),eq(variables['isSecurityBuild'], 'True'))  
+    displayName: 'Post Analysis'
+    inputs:
+      BinSkim: true
+      CredScan: true
+      RoslynAnalyzers: true
+  

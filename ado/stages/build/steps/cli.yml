@@ -1,0 +1,15 @@
+steps: 
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.8'
+      addToPath: true
+
+  - script: |
+      pip install pycodestyle
+      pycodestyle cli/raft.py
+    displayName: 'Run pycodestyle'
+
+  - task: PublishPipelineArtifact@1
+    inputs:
+      targetPath: cli
+      artifactName: cli

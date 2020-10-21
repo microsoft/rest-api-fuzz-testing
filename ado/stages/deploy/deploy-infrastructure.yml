@@ -1,0 +1,8 @@
+stages:
+  - stage: DeployInfrastructure
+    jobs:
+      - job: DeployInfrastructure
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - template: steps/deploy-infrastructure.yml

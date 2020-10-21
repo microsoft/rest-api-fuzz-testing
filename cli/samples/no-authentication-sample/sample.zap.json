@@ -1,0 +1,13 @@
+{
+  "swaggerLocation": { 
+	 "URL" : "https://{sample.host}/swagger/v1/swagger.json" 
+  },
+  "host": "{sample.host}",
+  "tasks": [
+    {
+      "isIdling" :  false,
+      "toolName": "ZAP",
+      "outputFolder" : "zap-out"
+    }
+  ]
+}

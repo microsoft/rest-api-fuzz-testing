@@ -1,0 +1,31 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\Contracts\Telemetry.fs" Link="Telemetry.fs" />
+    <Compile Include="..\..\Contracts\Job.fs" Link="Job.fs" />
+    <Compile Include="..\..\Contracts\JobEvents.fs" Link="JobEvents.fs" />
+    <Compile Include="..\..\Contracts\Webhooks.fs" Link="Webhooks.fs" />
+    <Compile Include="..\..\Contracts\VersionedContract.fs" Link="VersionedContract.fs" />
+    <Compile Include="WebhooksTest.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Azure.Core" Version="1.5.1" />
+    <PackageReference Include="Azure.Storage.Files.Shares" Version="12.4.0" />
+    <PackageReference Include="Microsoft.ApplicationInsights" Version="2.15.0" />
+    <PackageReference Include="Microsoft.ApplicationInsights.PerfCounterCollector" Version="2.15.0" />
+    <PackageReference Include="Microsoft.Azure.Cosmos.Table" Version="1.0.8" />
+    <PackageReference Include="Microsoft.Azure.Management.ContainerInstance.Fluent" Version="1.34.0" />
+    <PackageReference Include="Microsoft.Azure.Management.Fluent" Version="1.34.0" />
+    <PackageReference Include="Microsoft.Azure.Management.ResourceManager.Fluent" Version="1.34.0" />
+    <PackageReference Include="Microsoft.Azure.ServiceBus" Version="5.0.0" />
+    <PackageReference Include="Microsoft.Azure.Storage.Common" Version="11.2.2" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="3.1.8" />
+    <PackageReference Include="Microsoft.FSharpLu.Json" Version="0.11.6" />
+  </ItemGroup>
+
+</Project>

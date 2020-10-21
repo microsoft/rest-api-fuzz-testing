@@ -1,0 +1,16 @@
+steps: 
+  - task: DownloadPipelineArtifact@2
+    inputs:
+      artifact: TestInfraFunc
+      path: $(Build.SourcesDirectory)/artifacts/TestInfraFunc
+    
+  - task: Docker@2
+    displayName: 'Publish Test Infra imageTag'
+    inputs:
+      buildContext: $(Build.SourcesDirectory)/artifacts/TestInfraFunc/
+      command: buildAndPush
+      containerRegistry: $(raft-containerRegistryServiceConnection)
+      repository: restapifuzztesting/test-infra-func
+      Dockerfile: $(Build.SourcesDirectory)/artifacts/TestInfraFunc/Dockerfile
+      tags: $(imageTag)
+        

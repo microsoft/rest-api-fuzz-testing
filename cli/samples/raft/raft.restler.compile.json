@@ -1,0 +1,29 @@
+{
+    "swaggerLocation": {
+        "URL" : "https://{defaults.deploymentName}-raft-apiservice.azurewebsites.net/swagger/v1/swagger.json"
+    },
+    "tasks": [{
+            "toolName": "RESTler",
+            "outputFolder" : "RESTler-compile",
+            "isIdling": false,
+
+            "toolConfiguration": {
+                "task": "compile",
+                "compileConfiguration": {
+                    "useRefreshableToken": true,
+                    "customDictionary": {
+                        "customPayload": {
+                            "duration": ["00:10:00"],
+                            "swaggerLocation": ["{\"URL\": \"https://some.service.azurewebsites.net/swagger.json\"}"],
+                            "authenticationMethod": ["{\"CommandLine\": \"abc\" }"],
+							"targetUrl":["{replace-with-valid-webhook-URL}"],
+							"event": ["JobStatus"],
+							"timeSpanFilter": ["00:10:00"],
+							"eventName": ["JobStatus"]
+                        }
+                    }
+                }
+            }
+        }
+    ]
+}

@@ -1,0 +1,13 @@
+{
+	"container" : "owasp/zap2docker-stable",
+	"run" : {
+		"command" : "bash", 
+		"arguments" : ["-c", 
+		    "touch /.dockerenv; cd $RAFT_RUN_DIRECTORY; ln -s $RAFT_WORK_DIRECTORY /zap/wrk; python3 run.py install; python3 run.py" ]
+	},
+	"idle" : {
+		"command" : "bash",
+		"arguments" : ["-c", "echo DebugMode; while true; do sleep 100000; done;"]
+	}
+}
+

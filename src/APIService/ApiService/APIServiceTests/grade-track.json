@@ -1,0 +1,28 @@
+{
+  "tool": "RESTler",
+  "jobConfig": {
+    "swaggerJsonUrl": "https://a-test-service.azurewebsites.net/swagger/v1/swagger.json",
+    "targetPort": "443",
+    "producerTimingDelay": 5,
+    "useSsl": true,
+    "host": "a-test-service.azurewebsites.net",
+    "pathRegex": null,
+    "duration": "00:06:00",
+    "TargetUri": "https://a-test-service.azurewebsites.net"
+  },
+  "customDictionary": {
+        "fuzzableString": [],
+        "fuzzableInt": [],
+        "fuzzableNumber": [],
+        "fuzzableBool": [],
+        "fuzzableDatetime": [],
+        "fuzzableObject": [],
+        "fuzzableUuid4": [],
+        "args": {}
+  },
+  "fuzzingConfiguration": {
+    "readOnlyFuzz": false,
+    "staticToken": null,
+    "allowGetProducers": false
+  }
+}

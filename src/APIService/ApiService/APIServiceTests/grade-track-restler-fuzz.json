@@ -1,0 +1,61 @@
+{
+  "swaggerLocation": {
+    "URL" : "https://a-test-service.azurewebsites.net/swagger/v1/swagger.json"
+  },
+  "duration": "00:10:00",
+  "host": "a-test-service.azurewebsites.net",
+  "tasks": [
+    {
+      "toolName": "RESTler",
+      "outputFolder": "RESTler-fuzz-1",
+      "toolConfiguration": {
+        "task": "Fuzz",
+
+        "agentConfiguration": {
+          "resultsAnalyzerReportTimeSpanInterval": "00:01:00"
+        },
+        "runConfiguration": {
+          "inputFolderPath": "/job-compile/0-RESTler-Compile",
+          "useSsl": true,
+          "producerTimingDelay": 5
+        }
+      }
+    },
+    {
+      "toolName": "RESTler",
+      "outputFolder": "RESTler-fuzz-2",
+      "toolConfiguration": {
+        "task": "Fuzz",
+        "agentConfiguration": {
+          "resultsAnalyzerReportTimeSpanInterval": "00:01:00"
+        },
+
+        "runConfiguration": {
+          "inputFolderPath": "/job-compile/0-RESTler-Compile",
+          "useSsl": true,
+          "producerTimingDelay": 2
+        }
+      }
+    },
+    {
+      "toolName": "RESTler",
+      "outputFolder": "RESTler-fuzz-3",
+      "toolConfiguration": {
+        "task": "Fuzz",
+        "agentConfiguration": {
+          "resultsAnalyzerReportTimeSpanInterval": "00:01:00"
+        },
+
+        "runConfiguration": {
+          "inputFolderPath": "/job-compile/1",
+          "useSsl": true,
+          "producerTimingDelay": 5,
+          "targetEndpointConfiguration": {
+            "ip": "13.77.182.13",
+            "port": "443"
+          }
+        }
+      }
+    }
+  ]
+}
