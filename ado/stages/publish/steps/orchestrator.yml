@@ -1,0 +1,11 @@
+  steps: 
+  - task: Docker@2
+    displayName: 'Publish Orchestrator imageTag'
+    inputs:
+      buildContext: $(Pipeline.Workspace)/Orchestrator/
+      command: buildAndPush
+      containerRegistry: $(raft-containerRegistryServiceConnection)
+      repository: restapifuzztesting/orchestrator
+      Dockerfile: $(Pipeline.Workspace)/Orchestrator/Dockerfile
+      tags: |
+        $(imageTag)

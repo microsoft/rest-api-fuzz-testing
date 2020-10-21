@@ -1,0 +1,36 @@
+trigger:
+  batch : true
+  branches:
+    include:
+      - '*'
+
+parameters:
+  - name: variable_group
+    displayName: Variable Group
+    default: rolling
+
+  - name: RunBvt
+    displayName: Run BVT?
+    default: Yes
+    values:
+    - Yes
+    - No
+
+variables:
+  - template: 'variables/version-variables.yml'
+  - group: ${{ parameters.variable_group }}
+  - name: version.revision
+    value: $[counter(variables['devRevision'], 1)]
+  - name: versionNumber
+    value: $(version.major).$(version.minor).$(version.revision)
+
+stages:
+  - template: stages/build/build.yml
+  - template: stages/publish/publish.yml
+    parameters:
+      variable_group: ${{ parameters.variable_group }}
+  - template: stages/deploy/deploy-infrastructure.yml  
+  - template: stages/deploy/deploy.yml  
+  - template: stages/test/test.yml
+    parameters: 
+      RunBvt: ${{ parameters.RunBvt }}

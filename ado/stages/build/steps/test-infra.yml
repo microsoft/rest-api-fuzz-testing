@@ -1,0 +1,41 @@
+steps: 
+  - task: NuGetToolInstaller@1
+    displayName: 'Use NuGet 5.4'
+    inputs:
+      versionSpec: 5.4
+
+  - task: NuGetCommand@2
+    displayName: 'NuGet restore'
+    inputs:
+      restoreSolution: '**\TestInfra.sln'
+
+  - task: DotNetCoreCLI@2
+    displayName: 'TestInfra'
+    inputs:
+      command: publish
+      publishWebProjects: false
+      projects: src/Test/TestInfraFunc/TestInfraFunc.csproj
+      arguments: '-c release /p:version=$(versionNumber)'
+      zipAfterPublish: false
+
+  - task: CopyFiles@2
+    displayName: 'Copy Test Infra Dockerfile'
+    inputs:
+      targetFolder: src/Test/TestInfraFunc/bin/release/netcoreapp3.1/publish/
+      sourceFolder: src/Test/
+      contents: Dockerfile
+
+    # Because we are using a a release pipeline we need to publish the Dockerfile
+    # in the artifacts, since the release pipeline does not have access to the code tree.
+  - task: CopyFiles@2
+    displayName: 'Copy TestInfraFunc Dockerfile'
+    inputs:
+      targetFolder: src/Test/TestInfraFunc/bin/release/netcoreapp3.1/publish/
+      sourceFolder: src/Test
+      contents: Dockerfile
+
+  - task: PublishPipelineArtifact@1
+    inputs:
+      targetPath: src/Test/TestInfraFunc/bin/release/netcoreapp3.1/publish/
+      artifactName: TestInfraFunc
+

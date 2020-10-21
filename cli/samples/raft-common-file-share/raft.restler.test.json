@@ -1,0 +1,46 @@
+{
+  "swaggerLocation": {
+	  "Url" : "https://{defaults.deploymentName}-raft-apiservice.azurewebsites.net/swagger/v1/swagger.json"
+  },
+  "host": "{defaults.deploymentName}-raft-apiservice.azurewebsites.net",
+  "rootFileShare" : "raft",
+  "readOnlyFileShareMounts" : [
+    {
+      "FileShareName" : "raft",
+      "MountPath" : "/job-compile"
+    }
+  ],
+  "tasks": [
+    {
+      "toolName" : "RESTler",
+      "outputFolder" : "RESTler-test",
+      "isIdling" : false,
+      "keyVaultSecrets" : ["RaftServicePrincipal"],
+      "authenticationMethod": {
+        "MSAL": "RaftServicePrincipal"
+      },
+      "toolConfiguration" : {
+        "task": "Test",
+        "runConfiguration": {
+          "inputFolderPath": "/job-compile/{compile.jobId}/compile"
+        }
+      }
+    },
+    {
+      "toolName" : "RESTler",
+      "outputFolder" : "RESTler-test-fuzz-lean",
+      "isIdling" : false,
+      "keyVaultSecrets" : ["RaftServicePrincipal"],
+      "authenticationMethod": {
+        "MSAL": "RaftServicePrincipal"
+      },
+      "toolConfiguration" : {
+        "task": "TestFuzzLean",
+        "runConfiguration": {
+          "inputFolderPath": "/job-compile/{compile.jobId}/compile",
+          "authenticationTokenRefreshIntervalSeconds": 300
+        }
+      }
+    }
+  ]
+}

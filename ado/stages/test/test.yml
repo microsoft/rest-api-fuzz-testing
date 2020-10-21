@@ -1,0 +1,14 @@
+parameters:
+  - name: RunBvt
+    type: string
+
+stages:
+  - stage: Test
+    jobs:
+      - job: BuildVerification
+        condition: and(succeeded(), eq('${{parameters.RunBvt}}', 'Yes'))
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - template: steps/webhooks.yml
+          - template: steps/bvt.yml

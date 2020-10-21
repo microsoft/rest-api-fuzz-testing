@@ -1,0 +1,46 @@
+# see https://docs.microsoft.com/en-us/dotnet/core/rid-catalog for definitions of the '-r' flag
+steps: 
+  - task: NuGetToolInstaller@1
+    displayName: 'Use NuGet 5.4'
+    inputs:
+      versionSpec: 5.4
+
+  - task: NuGetCommand@2
+    displayName: 'NuGet restore'
+    inputs:
+      restoreSolution: '**\APIService.sln'
+
+  - task: DotNetCoreCLI@2
+    displayName: 'APIService'
+    inputs:
+      command: publish
+      publishWebProjects: false
+      projects: src/APIService/ApiService/APIService.fsproj
+      arguments: '-c release -r linux-musl-x64 /p:version=$(versionNumber)'
+      zipAfterPublish: false
+
+
+  - task: DotNetCoreCLI@2
+    displayName: 'Run Unit Tests : APIService'
+    inputs:
+      command: test
+      projects: src/APIService/ApiService/APIServiceTests/APIServiceTests.fsproj
+      arguments: -v:detailed 
+
+    # Because we are using a a release pipeline we need to publish the Dockerfile
+    # in the artifacts, since the release pipeline does not have access to the code tree.
+  - task: CopyFiles@2
+    displayName: 'Copy APIService Dockerfile'
+    inputs:
+      targetFolder: src/APIService/ApiService/bin/release/netcoreapp3.1/linux-musl-x64/publish/
+      sourceFolder: src/APIService/ApiService
+      contents: Dockerfile
+
+    # Create files with version information that will be used in the release pipeline
+  - script: echo $(imageTag) > src/APIService/ApiService/bin/release/netcoreapp3.1/linux-musl-x64/publish/imageTag.txt 
+  - script: echo $(imageTagWithBuildDate) > src/APIService/ApiService/bin/release/netcoreapp3.1/linux-musl-x64/publish/imageTagWithBuildDate.txt
+
+  - task: PublishPipelineArtifact@1
+    inputs:
+      targetPath: src/APIService/ApiService/bin/release/netcoreapp3.1/linux-musl-x64/publish
+      artifactName: apiservice

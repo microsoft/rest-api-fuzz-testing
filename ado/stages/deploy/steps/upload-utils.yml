@@ -1,0 +1,22 @@
+steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.8' 
+      addToPath: true
+
+  - script: pip3 install -r cli/requirements.txt
+    displayName: Install CLI Python requirements
+
+  - task: DownloadPipelineArtifact@2
+    inputs:
+      artifact: AzureAuth
+      path: cli/raft-utils/auth/dotnet-core-3.1
+
+  - task: AzureCLI@2
+    displayName: "Upload service utilities"
+    inputs:
+      azureSubscription: $(raft-subscription)
+      scriptType: 'pscore'
+      scriptLocation: 'inlineScript'
+      inlineScript: "python cli/raft.py --defaults-context-json '$(raft-defaults)' --secret $(bvt-secret) service upload-utils"
+

@@ -1,0 +1,262 @@
+{
+    "openapi": "3.0.1",
+    "info": {
+        "title": "RESTler",
+        "version": "v1"
+    },
+    "paths": {},
+    "components": {
+        "schemas": {
+            "CustomDictionary": {
+                "type": "object",
+                "properties": {
+                    "fuzzableString": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "List of string values used as fuzzing inputs. If null then values are auto-generated",
+                        "nullable": true
+                    },
+                    "fuzzableInt": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "List of int values used as fuzzing inputs. If null then values are auto-generated",
+                        "nullable": true
+                    },
+                    "fuzzableNumber": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "List of number values used as fuzzing inputs. If null then values are auto-generated",
+                        "nullable": true
+                    },
+                    "fuzzableBool": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "List of bool values used as fuzzing inputs. If null then values are auto-generated",
+                        "nullable": true
+                    },
+                    "fuzzableDatetime": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "List of date-time values used as fuzzing inputs. If null then values are auto-generated",
+                        "nullable": true
+                    },
+                    "fuzzableObject": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "List of string encoded JSON objects values used as fuzzing inputs",
+                        "nullable": true
+                    },
+                    "fuzzableUuid4": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "List of UUID4 values used as fuzzing inputs",
+                        "nullable": true
+                    },
+                    "customPayload": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "description": "Map of values to use as replacement of parameters defined in Swagger specifications. For example\r\nif { \"userId\" : [\"a\", \"b\"] } is specified then {userId} in URL path /users/{userId} will be replaced\r\nby \"a\" or by \"b\"",
+                        "nullable": true
+                    },
+                    "customPayloadUuid4Suffix": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
+                        },
+                        "description": "Map of values to use as replacement of parameters defined in swagger. The values will\r\nhave a random suffix added. For example {\"publicIpAddressName\": \"publicIpAddrName-\"} will produce publicIpAddrName-f286a0a069 for\r\npublicIpAddressName parameter defined in Swagger specifications.",
+                        "nullable": true
+                    },
+                    "customPayloadHeader": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "description": "User specified custom headers to pass in every request",
+                        "nullable": true
+                    },
+                    "shadowValues": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "description": "RESTler documentation will have more info on this",
+                        "nullable": true
+                    }
+                },
+                "additionalProperties": false
+            },
+            "CompileConfiguration": {
+                "type": "object",
+                "properties": {
+                    "inputJsonGrammarPath": {
+                        "type": "string",
+                        "description": "Path to a JSON grammar to use for compilation\r\nIf set then JSON grammar used for compilation instead of Swagger",
+                        "nullable": true
+                    },
+                    "inputFolderPath": {
+                        "type": "string",
+                        "description": "Grammar is produced by compile step prior. The compile step\r\nfile share is mounted and set here. Agent will not modify\r\nthis share. Agent will make a copy of all needed files to it's work directory\r\nand re-run compile with data passed through this folder.",
+                        "nullable": true
+                    },
+                    "readOnlyFuzz": {
+                        "type": "boolean",
+                        "description": "When true, only fuzz the GET requests"
+                    },
+                    "allowGetProducers": {
+                        "type": "boolean",
+                        "description": "Allows GET requests to be considered.\r\nThis option is present for debugging, and should be\r\nset to 'false' by default.\r\nIn limited cases when GET is a valid producer, the user\r\nshould add an annotation for it."
+                    },
+                    "useRefreshableToken": {
+                        "type": "boolean",
+                        "description": "Use refreshable token for authenticating with service under test"
+                    },
+                    "mutationsSeed": {
+                        "type": "integer",
+                        "description": "Use the seed to generate random value for empty/null customDictitonary fields\r\nif not set then default hard-coded RESTler values are used for populating customDictionary fields",
+                        "format": "int64",
+                        "nullable": true
+                    },
+                    "customDictionary": {
+                        "$ref": "#/components/schemas/CustomDictionary"
+                    }
+                },
+                "additionalProperties": false,
+                "description": "User-specified RESTler compiler configuration"
+            },
+            "TargetEndpointConfiguration": {
+                "type": "object",
+                "properties": {
+                    "ip": {
+                        "type": "string",
+                        "description": "The IP of the endpoint being fuzzed",
+                        "nullable": true
+                    },
+                    "port": {
+                        "type": "integer",
+                        "description": "The port of the endpoint being fuzzed. Defaults to 443.",
+                        "format": "int32"
+                    }
+                },
+                "additionalProperties": false,
+                "description": "Configuration of the endpoint under test"
+            },
+            "RunConfiguration": {
+                "type": "object",
+                "properties": {
+                    "grammarPy": {
+                        "type": "string",
+                        "description": "Path to grammar py relative to compile folder path. If not set then default \"grammar.py\" grammar is assumed",
+                        "nullable": true
+                    },
+                    "inputFolderPath": {
+                        "type": "string",
+                        "description": "For Test or Fuzz tasks: Grammar is produced by compile step. The compile step\r\nfile share is mounted and set here. Agent will not modify\r\nthis share. Agent will make a copy of all needed files to it's work directory.\r\nFor Replay task: path to RESTler Fuzz or Test run that contains bug buckets to replay",
+                        "nullable": true
+                    },
+                    "targetEndpointConfiguration": {
+                        "$ref": "#/components/schemas/TargetEndpointConfiguration"
+                    },
+                    "producerTimingDelay": {
+                        "type": "integer",
+                        "description": "The delay in seconds after invoking an API that creates a new resource",
+                        "format": "int32"
+                    },
+                    "useSsl": {
+                        "type": "boolean",
+                        "description": "Use SSL when connecting to the server"
+                    },
+                    "pathRegex": {
+                        "type": "string",
+                        "description": "Path regex for filtering tested endpoints",
+                        "nullable": true
+                    }
+                },
+                "additionalProperties": false,
+                "description": "RESTler job Test, Fuzz or Replay configuration"
+            },
+            "ReplayConfiguration": {
+                "type": "object",
+                "properties": {
+                    "replayBugBucketsPaths": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "List of paths to RESTler folder runs to replay (names of folders are assigned when mounted readonly/readwrite file share mounts).\r\nIf path is a folder, then all bug buckets replayed in the folder.\r\nIf path is a bug_bucket file - then only that file is replayed.\r\nIf empty - then replay all bugs under RunConfiguration.previousStepOutputFolderPath.",
+                        "nullable": true
+                    },
+                    "runConfiguration": {
+                        "$ref": "#/components/schemas/RunConfiguration"
+                    }
+                },
+                "additionalProperties": false,
+                "description": "RESTler configuration for replaying request sequences that triggered a reproducable bug"
+            },
+            "AgentConfiguration": {
+                "type": "object",
+                "properties": {
+                    "resultsAnalyzerReportTimeSpanInterval": {
+                        "type": "string",
+                        "description": "How often to run result analyzer against RESTler logs. Default is every 1 minute.\r\nIf not set then result analyzer will run only once after RESTler task is over.",
+                        "format": "date-span",
+                        "nullable": true
+                    }
+                },
+                "additionalProperties": false,
+                "description": "Configure behaviour of RESTler agent"
+            },
+            "RESTler": {
+                "type": "object",
+                "properties": {
+                    "task": {
+                        "type": "string",
+						"description": "Can be compile, fuzz, test, replay",
+						"nullable": false
+                    },
+                    "compileConfiguration": {
+                        "$ref": "#/components/schemas/CompileConfiguration"
+                    },
+                    "runConfiguration": {
+                        "$ref": "#/components/schemas/RunConfiguration"
+                    },
+                    "replayConfiguration": {
+                        "$ref": "#/components/schemas/ReplayConfiguration"
+                    },
+                    "agentConfiguration": {
+                        "$ref": "#/components/schemas/AgentConfiguration"
+                    },
+                },
+                "additionalProperties": false,
+				"description": "RESTler payload"
+			}
+        }
+    }
+}

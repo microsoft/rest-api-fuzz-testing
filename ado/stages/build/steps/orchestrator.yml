@@ -1,0 +1,35 @@
+steps: 
+  - task: NuGetToolInstaller@1
+    displayName: 'Use NuGet 5.4'
+    inputs:
+      versionSpec: 5.4
+
+  - task: NuGetCommand@2
+    displayName: 'NuGet restore'
+    inputs:
+      restoreSolution: '**\Orchestrator.sln'
+
+  - task: DotNetCoreCLI@2
+    displayName: 'Orchestrator'
+    inputs:
+      command: publish
+      publishWebProjects: false
+      projects: src/Orchestrator/Orchestrator/Orchestrator.csproj
+      arguments: '-c release /p:version=$(versionNumber)'
+      zipAfterPublish: false
+
+    # Because we are using a deployment job with the orchestrator we need to push the
+    # Dockerfile in with the artifacts. The deployment job does not check out the source code
+    # like a normal job.
+  - task: CopyFiles@2
+    displayName: 'Copy Orchestrator Dockerfile'
+    inputs:
+      targetFolder: src/Orchestrator/Orchestrator/bin/release/netcoreapp3.1/publish/
+      sourceFolder: src/Orchestrator
+      contents: Dockerfile
+
+  - task: PublishPipelineArtifact@1
+    inputs:
+      targetPath: src/Orchestrator/Orchestrator/bin/release/netcoreapp3.1/publish/
+      artifactName: Orchestrator
+

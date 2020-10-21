@@ -1,14 +1,40 @@
+# REST API Fuzz Testing (RAFT)
 
-# Contributing
+## A self hosted REST API Fuzzing-As-A-Service platform 
+RAFT enables painless fuzzing of REST API's using multiple fuzzers in parallel. Using a single command line
+baked into your CI/CD pipeline developers can launch fuzz jobs against their services.
+  
+RAFT has first class integration with Microsoft's Research's [RESTler](https://github.com/microsoft/restler), the first stateful, 
+fuzzing tool designed to automatically test your REST API's driven by your swagger specification.
 
-This project welcomes contributions and suggestions.  Most contributions require you to agree to a
-Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
-the rights to use your contribution. For details, visit https://cla.opensource.microsoft.com.
+RAFT also supports [ZAP](https://www.zaproxy.org/) from OWASP out of the box.
 
-When you submit a pull request, a CLA bot will automatically determine whether you need to provide
-a CLA and decorate the PR appropriately (e.g., status check, comment). Simply follow the instructions
-provided by the bot. You will only need to do this once across all repos using our CLA.
+As a platform, RAFT is designed to host any API fuzzers that are packaged into a docker container. 
+These can be configured and used in the system via configuration files and require no code changes to integrate.
 
-This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
-For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
-contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
+### Getting Started
+This project is designed to run on [Azure](https://azure.microsoft.com). 
+
+To deploy the service download the CLI release and run `python raft.py service deploy`. See
+the [documentation](docs/deploying/deploying.md) for more details.
+
+Once deployed, use the samples to try out the service and fuzzers!
+
+### Documentation
+
+* [Table of Contents](docs/index.md)
+* [Overview](docs/how-it-works/overview.md)
+* [FAQ](docs/faq.md)
+
+### Swagger Documentation
+Once the service is created, you can examine the REST interface of the service by browsing to the swagger page at https://\<deploymentName\>-raft-apiservice.azurewebsites.net/swagger
+
+### Microsoft Open Source Code of Conduct
+https://opensource.microsoft.com/codeofconduct
+
+### Trademarks
+Trademarks This project may contain trademarks or logos for projects, products, or services. Authorized use of Microsoft trademarks or logos is subject to and must follow Microsoft's Trademark & Brand Guidelines. Use of Microsoft trademarks or logos in modified versions of this project must not cause confusion or imply Microsoft sponsorship. Any use of third-party trademarks or logos are subject to those third-party's policies.
+
+### Preferred Languages
+
+We prefer all communications to be in English.

@@ -1,0 +1,45 @@
+stages:
+  - stage: Build
+    jobs:
+      - job: CLI
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - template: steps/cli.yml      
+          
+      - job: ApiService
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - template: steps/apiservice.yml
+
+      - job: RESTlerAgent
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - template: steps/restleragent.yml
+ 
+      - job: Orchestrator
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - template: steps/orchestrator.yml
+
+      - job: TestInfra
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - template: steps/test-infra.yml
+ 
+      - job: ResultAnalyzer
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - template: steps/result-analyzer.yml
+ 
+      - job: AzureAuthUtility
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - template: steps/azure-auth-utility.yml
+ 

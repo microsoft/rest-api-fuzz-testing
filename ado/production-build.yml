@@ -1,0 +1,13 @@
+trigger:
+  batch : true
+  branches:
+    include:
+      - 'main'
+
+variables:
+  versionNumber: 1.0.0
+  imageTag: 'v1.0'
+  imageTagWithBuildDate: $(imageTag)-$(Build.BuildNumber)
+
+stages:
+  - template: stages/build/build.yml

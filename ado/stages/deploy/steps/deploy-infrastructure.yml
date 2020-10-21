@@ -1,0 +1,17 @@
+steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.8' 
+      addToPath: true
+
+  - script: pip3 install -r cli/requirements.txt
+    displayName: Install CLI Python requirements
+
+  - task: AzureCLI@2
+    displayName: "Deploy Service Infrastructure"
+    inputs:
+      azureSubscription: $(raft-subscription)
+      scriptType: 'pscore'
+      scriptLocation: 'inlineScript'
+      inlineScript: "python cli/raft.py --defaults-context-json '$(raft-defaults)' --secret $(bvt-secret) --skip-sp-deployment service deploy"
+
