@@ -503,12 +503,13 @@ let main argv =
                 let! swagger =
                     async {
                         match task.SwaggerLocation with
-                        | Raft.Job.SwaggerLocation.URL url ->
+                        | Some (Raft.Job.SwaggerLocation.URL url) ->
                             let! swagger = downloadFile workDirectory "swagger.json" url
                             printfn "Downloaded swagger spec to :%s" swagger
                             return swagger
-                        | Raft.Job.FilePath path -> 
+                        | Some(Raft.Job.FilePath path) -> 
                             return path
+                        | None -> return failwith "Cannot perform compilation step, since Swagger Grammar location is not set"
                     }
 
                 match validateJsonFile swagger with
@@ -547,8 +548,11 @@ let main argv =
                                                 } : Raft.JobEvents.JobStatus)
             }
 
-        let onBugFound (bugDetails : Raft.JobEvents.RESTlerBugDetails) =
+        let onBugFound (bugDetails : Map<string, string>) =
             async {
+                let bugDetails = 
+                    bugDetails.Add("jobId", jobId).Add("outputFolder", task.OutputFolder)
+
                 printfn "OnBugFound %A" bugDetails
                 do! jobEventSender.SendRaftJobEvent jobId
                                         ({
@@ -556,8 +560,8 @@ let main argv =
                                             JobId = jobId
                                             AgentName = agentName
                                             Metadata = None
-                                            BugDetails = bugDetails
-                                        } : Raft.JobEvents.RESTlerBugDetails Raft.JobEvents.BugFound)
+                                            BugDetails = Some bugDetails
+                                        } : Raft.JobEvents.BugFound)
             }
 
         let getResultReportingInterval() =
@@ -578,33 +582,36 @@ let main argv =
                 | None -> Some defaultInterval
             resultAnalyzerReportInterval
 
-        let getIpAndPort (host: string option) (runConfiguration: RunConfiguration) =
+        let getIpAndPort (host: string option) (useSsl: bool option, targetEndpointConfiguration : TargetEndpointConfiguration option) =
             async {
-                match host, runConfiguration.TargetEndpointConfiguration with 
+                match host, targetEndpointConfiguration with 
                 | None, None ->
-                    printf "Host is not set, Target Endpoint Configuration is not set"
-                    return "", 80
+                    return Result.Error("Host or Target Endpoint Configuration must be set")
                 | Some host, None ->
                     let targetPort = 
-                        match runConfiguration.UseSsl with
+                        match useSsl with
                         | None -> 443
                         | Some useSsl -> if useSsl then 443 else 80
                     let! dns = System.Net.Dns.GetHostAddressesAsync(host) |> Async.AwaitTask
                     printfn "Following IP addresses got retrived for the host %s : %A. Going to use first one" host dns
                     if Array.isEmpty dns then
-                        printfn "Array of host addresses returned by DNS is empty"
-                        return "", 80
+                        return Result.Error("Failed to retrieve IP from DNS")
                     else
-                        return dns.[0].ToString(), targetPort
+                        return Result.Ok(dns.[0].ToString(), targetPort)
                 | _, Some endpointConfiguration ->
                     printfn "Endpoing configuration is set, going to use it: %A" endpointConfiguration
-                    return endpointConfiguration.Ip, endpointConfiguration.Port
+                    return Result.Ok(endpointConfiguration.Ip, endpointConfiguration.Port)
             }
 
         let test (testType: string) checkerOptions (jobConfiguration: RunConfiguration) =
             async {
                 let resultAnalyzerReportInterval = getResultReportingInterval()
-                let! targetIp, targetPort = getIpAndPort task.Host jobConfiguration
+                let! targetIp, targetPort =
+                    async {
+                        match! getIpAndPort task.Host (jobConfiguration.UseSsl, jobConfiguration.TargetEndpointConfiguration) with
+                        | Result.Ok(port, ip) -> return port, ip
+                        | Result.Error msg -> return failwith msg
+                    }
                 let engineParameters = createRESTlerEngineParameters (targetIp, targetPort) grammarPy dictJson task checkerOptions jobConfiguration
                 printfn "Starting RESTler test task"
                 do! Raft.RESTlerDriver.test testType restlerPath workDirectory engineParameters onBugFound (report Raft.JobEvents.JobState.Running) (globalRunStartTime, resultAnalyzerReportInterval)
@@ -613,7 +620,12 @@ let main argv =
         let fuzz (fuzzType:string) checkerOptions (jobConfiguration: RunConfiguration) =
             async {
                 let resultAnalyzerReportInterval = getResultReportingInterval()
-                let! targetIp, targetPort = getIpAndPort task.Host jobConfiguration
+                let! targetIp, targetPort =
+                    async {
+                        match! getIpAndPort task.Host (jobConfiguration.UseSsl, jobConfiguration.TargetEndpointConfiguration) with
+                        | Result.Ok(port, ip) -> return port, ip
+                        | Result.Error msg -> return failwith msg
+                    }
                 let engineParameters = createRESTlerEngineParameters (targetIp, targetPort) grammarPy dictJson task checkerOptions jobConfiguration
                 printfn "Starting RESTler fuzz task"
                 do! Raft.RESTlerDriver.fuzz fuzzType restlerPath workDirectory engineParameters onBugFound (report Raft.JobEvents.JobState.Running) (globalRunStartTime, resultAnalyzerReportInterval)
@@ -622,7 +634,25 @@ let main argv =
         let replay replayLogFile (jobConfiguration: RunConfiguration) =
             async {
                 //same command line parameters as fuzzing, except for fuzzing parameter pass sprintf "--replay_log %s" replayLogFilePath
-                let! targetIp, targetPort = getIpAndPort task.Host jobConfiguration
+                let! targetIp, targetPort =
+                    async {
+                        match task.Host, jobConfiguration.TargetEndpointConfiguration with
+                        | None, None ->
+                            let taskConfigurationPath = jobConfiguration.InputFolderPath ++ ".." ++ ".." ++ ".." ++ IO.FileInfo(taskConfigurationPath).Name
+                            let prevTask: Raft.Job.RaftTask = Json.Compact.deserializeFile taskConfigurationPath
+                            let prevPayload : RESTlerPayload = Json.Compact.deserialize (prevTask.ToolConfiguration.ToString())
+                            match prevPayload.RunConfiguration with
+                            | Some runConfiguration -> 
+                                match! getIpAndPort prevTask.Host (runConfiguration.UseSsl, runConfiguration.TargetEndpointConfiguration) with
+                                | Result.Ok(port, ip) -> return port, ip
+                                | Result.Error msg -> return failwith msg
+                            | None ->
+                                return failwithf "Host nor TargetEndpointConfiguration are not set. Also output of previous task does not have it set."
+                        | _, _ ->
+                            match! getIpAndPort task.Host (jobConfiguration.UseSsl, jobConfiguration.TargetEndpointConfiguration) with
+                            | Result.Ok(port, ip) -> return port, ip
+                            | Result.Error msg -> return failwith msg
+                    }
                 let engineParameters = createRESTlerEngineParameters (targetIp, targetPort) grammarPy dictJson task [] jobConfiguration
                 printfn "Starting RESTler replay task"
                 return! Raft.RESTlerDriver.replay restlerPath workDirectory replayLogFile engineParameters
@@ -718,7 +748,7 @@ let main argv =
                     | TaskType.FuzzRandomWalk ->
                         printfn "Running random-walk fuzz"
                         match restlerPayload.RunConfiguration with
-                        | None -> return failwithf "Job-run configuration is not set for Compile task for job payload: %A" restlerPayload
+                        | None -> return failwithf "Job-run configuration is not set for Fuzz task for job payload: %A" restlerPayload
                         | Some jobConfiguration ->
                             copyDir jobConfiguration.InputFolderPath workDirectory (set [taskConfigurationPath])
                             do! report Raft.JobEvents.Running None
@@ -729,14 +759,15 @@ let main argv =
 
                     | TaskType.Replay ->
                         match restlerPayload.RunConfiguration with
-                        | None -> return failwithf "Replay configuration is not set for Compile task for job payload: %A" restlerPayload
+                        | None -> return failwithf "Job-run configuration is not set Replay task for job payload: %A" restlerPayload
                         | Some replayRunConfiguration ->
                             let replaySourcePath = replayRunConfiguration.InputFolderPath
                             do! report Raft.JobEvents.Running None
 
                             let replayAndReport (bugs: IO.FileInfo seq) =
                                 async {
-                                    let replaySummaryDetails = ResizeArray<string>()
+                                    let replaySummaryDetails = ResizeArray<string * string>()
+
                                     for bug in bugs do
                                         printfn "Running replay on %s" bug.FullName
                                         let! replaySummary = replay bug.FullName replayRunConfiguration
@@ -747,7 +778,7 @@ let main argv =
                                             | Some s ->
                                                 sprintf "%s: %A" bug.Name (s.ResponseCodeCounts |> Map.toList)
 
-                                        replaySummaryDetails.Add(summary)
+                                        replaySummaryDetails.Add(bug.Name, summary)
                                         do! jobEventSender.SendRaftJobEvent jobId
                                                     ({
                                                         AgentName = agentName
@@ -757,7 +788,7 @@ let main argv =
                                                         State = Raft.JobEvents.JobState.Running
                                                         Metrics = None
                                                         UtcEventTime = System.DateTime.UtcNow
-                                                        Details = Some (Seq.cast replaySummaryDetails)
+                                                        Details = Some (Map.ofSeq replaySummaryDetails)
                                                     } : Raft.JobEvents.JobStatus)
 
                                     return replaySummaryDetails
@@ -765,16 +796,12 @@ let main argv =
 
                             let replayAll () =
                                 async {
-                                    let restlerResults = IO.DirectoryInfo(replaySourcePath ++ "RestlerResults")
-                                    if restlerResults.Exists then
-                                        let experiments = restlerResults.EnumerateDirectories("experiment*")
-                                        let bugBuckets = IO.DirectoryInfo((Seq.head experiments).FullName ++ "bug_buckets")
-                                        if bugBuckets.Exists then
-                                            let! details = replayAndReport (bugBuckets.EnumerateFiles())
-                                            return Some details
-                                        else
-                                            return None
+                                    let bugBuckets = IO.DirectoryInfo(replaySourcePath)
+                                    if bugBuckets.Exists then
+                                        let! details = replayAndReport (bugBuckets.EnumerateFiles() |> Seq.filter Raft.RESTlerDriver.isBugFile)
+                                        return Some details
                                     else
+                                        printfn "ReplayAll bugBuckets folder does not exist %s" bugBuckets.FullName
                                         return None
                                 }
                             let! details =
@@ -782,36 +809,36 @@ let main argv =
                                 | None -> replayAll()
                                 | Some replayConfiguration ->
                                     async {
-                                        match replayConfiguration.ReplayBugBucketsPaths with
+                                        match replayConfiguration.BugBuckets with
                                         | Some paths ->
                                             let details = ResizeArray()
                                             for path in paths do
                                                 let fullPath = replaySourcePath ++ path
                                                 printfn "Full path: %s" fullPath
-
                                                 let file = IO.FileInfo(fullPath)
-                                                let dir = IO.DirectoryInfo(fullPath)
-                                    
                                                 if file.Exists then
                                                     printfn "%s is a file, running replay..." fullPath
                                                     let! d = replayAndReport [file]
                                                     details.AddRange d
-                                                else if dir.Exists then
-                                                    printfn "%s is a directory, running replay on every file..." fullPath
-                                                    let! d = replayAndReport (dir.EnumerateFiles() |> Seq.filter Raft.RESTlerDriver.isBugFile)
-                                                    details.AddRange d
                                                 else
+                                                    printfn "Replay bugBuckets file does not exist %s" file.FullName
                                                     failwithf "Cannot run replay since could not find %s" fullPath
                                             return Some details
                                         | None -> return! replayAll()
                                     }
-                            return Raft.JobEvents.Completed, (details |> Option.map Seq.cast), 0, None
+                            return Raft.JobEvents.Completed, (details |> Option.map Map.ofSeq), 0, None
                 with
                 | ex ->
                     printfn "%A" ex
                     let! summary = Raft.RESTlerDriver.processRunSummary workDirectory globalRunStartTime
-                    return Raft.JobEvents.Error, (Some (seq[ex.Message])), 1, summary
+                    return Raft.JobEvents.Error, (Some (Map.empty.Add("Error",  ex.Message))), 1, summary
             }
+
+
+        match Raft.RESTlerDriver.loadTestRunSummary workDirectory globalRunStartTime with
+        | None -> ()
+        | Some status -> ()
+
 
         printfn "Sending final event: %A with summary: %A and details %A" state summary details
         do! jobEventSender.SendRaftJobEvent jobId
@@ -849,7 +876,7 @@ let main argv =
                                     State = Raft.JobEvents.Error
                                     Metrics = None
                                     UtcEventTime = System.DateTime.UtcNow
-                                    Details = Some (seq [ex.Message])
+                                    Details = Some (Map.empty.Add("Error", ex.Message))
                                 } : Raft.JobEvents.JobStatus)
 
                         do! System.Console.Error.FlushAsync().ToAsync
@@ -858,6 +885,8 @@ let main argv =
                 }
             appInsights.Flush()
             do! jobEventSender.CloseAsync().ToAsync
+            do! Console.Out.FlushAsync() |> Async.AwaitTask
+            do! Console.Error.FlushAsync() |> Async.AwaitTask
             return res
         }
     |> Async.RunSynchronously

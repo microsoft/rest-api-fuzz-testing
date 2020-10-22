@@ -25,7 +25,7 @@ type jobsPOSTTests() =
             jobController.ControllerContext.HttpContext <- Fixtures.createFakeContext()
 
             let! jobResult = jobController.Post("", compileJobDefinition) |> Async.AwaitTask
-            let result = jobResult.Value :?> DTOs.CreateJobResponse
+            let result = jobResult.Value :?> DTOs.JobResponse
             Assert.True(result.JobId.StartsWith("grade-track-compile-"))
 
             let parseResult, jobGuid = System.Guid.TryParse(result.JobId.Substring("grade-track-compile-".Length))
@@ -45,7 +45,7 @@ type jobsPOSTTests() =
             jobController.ControllerContext.HttpContext <- Fixtures.createFakeContext()
 
             let! jobResult = jobController.Post("", fuzzJobDefinition) |> Async.AwaitTask
-            let result = jobResult.Value :?> DTOs.CreateJobResponse
+            let result = jobResult.Value :?> DTOs.JobResponse
 
             let parseResult, jobGuid = System.Guid.TryParse(result.JobId)
             Assert.True(parseResult)

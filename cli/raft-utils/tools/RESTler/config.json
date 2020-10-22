@@ -1,5 +1,5 @@
 {
-	"container" : "{PrivateRegistryRestler}/restler-agent:v0.9.0",
+	"container" : "{PrivateRegistryRestler}/restapifuzztesting/restler-agent:v1.0",
 	"run" : {
 		"command" : "/bin/sh", 
 		"arguments" : ["-c",
