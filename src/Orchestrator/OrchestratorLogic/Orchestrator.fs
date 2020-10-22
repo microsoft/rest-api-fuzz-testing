@@ -574,7 +574,7 @@ module ContainerInstances =
             (secrets : IDictionary<string, string>)
             (agentConfig: AgentConfig)
             (dockerConfigs: (string * DockerConfig) seq, toolsConfigs : IDictionary<string, Result<string * ToolConfig, string>>)
-            (jobCreateRequest: Raft.Job.CreateJobRequest) 
+            (jobCreateRequest: Raft.Job.CreateJobRequest)
             (reportDeploymentError : exn -> Async<unit>)
             =
         async {
@@ -602,6 +602,10 @@ module ContainerInstances =
                             .WithLinux()
 
                     let _1_2 =
+                        let dockerConfigs =
+                            dockerConfigs
+                            |> Seq.distinctBy(fun (_, dockerConfig) -> dockerConfig.Repository)
+
                         if Seq.isEmpty dockerConfigs then
                             _1_1.WithPublicImageRegistryOnly()
                         else
@@ -1068,7 +1072,6 @@ module ContainerInstances =
                         ()
                 }
 
-
             let getMetadata jobId =
                 async {
                     let! jobTable = getJobTable agentConfig.StorageTableConnectionString
@@ -1080,9 +1083,10 @@ module ContainerInstances =
                         let webhookDefinition = Microsoft.FSharpLu.Json.Compact.deserialize<Raft.Job.Webhook option>(jobEntity.Webhook)
                         match webhookDefinition with
                         | Some webhook ->
-                            logError "[WEBHOOK] webhook is not set in jobrequest for jobId: %A" jobId 
                             return Some webhook.Metadata 
-                        | None -> return None
+                        | None ->
+                            logError "[WEBHOOK] webhook is not set in jobrequest for jobId: %A" jobId 
+                            return None
                     else
                         logError "[WEBHOOK] Getting job (to find pipeline data) failed with status code %d" retrieveResult.HttpStatusCode
                         return None
