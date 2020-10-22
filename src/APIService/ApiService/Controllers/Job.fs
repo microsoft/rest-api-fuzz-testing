@@ -243,8 +243,6 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                     }
                 })
 
-
-
         requestPayload
 
     [<HttpPost>]

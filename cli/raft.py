@@ -182,7 +182,7 @@ def run(args):
                 substitutionDictionary = json.loads(substitutionParameter)
 
             job_update = cli.update_job(
-                args.get('job-id'),
+                args.get('job_id'),
                 RaftJobConfig(file_path=json_config_path,
                               substitutions=substitutionDictionary))
             print(job_update)
