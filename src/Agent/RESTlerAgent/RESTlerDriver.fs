@@ -422,12 +422,30 @@ let loadTestRunSummary workingDirectory runStartTime =
     | Some experimentFolder ->
         let testingSummaryLog = experimentFolder.FullName ++ "logs" ++ "testing_summary.json"
         if IO.File.Exists testingSummaryLog then
-            let testingSummary: RESTlerTypes.Logs.TestingSummary = Json.Compact.deserializeFile testingSummaryLog
+            let testingSummary: RESTlerTypes.Logs.TestingSummary = Json.Compact.Strict.deserializeFile testingSummaryLog
             Some testingSummary
         else
             None
     | None -> None
 
+
+
+let getListOfBugs workingDirectory (runStartTime: DateTime) =
+    async {
+        match RESTlerInternal.getRunExperimentFolder workingDirectory runStartTime with
+        | None -> return Seq.empty
+
+        | Some experiment ->
+            let bugBuckets = IO.DirectoryInfo(experiment.FullName ++ "bug_buckets")
+            if bugBuckets.Exists then
+                let bugFiles = 
+                    bugBuckets.EnumerateFiles("*.txt") 
+                    |> Seq.filter isBugFile
+                    |> Seq.map (fun f -> f.Name)
+                return bugFiles
+            else
+                return Seq.empty
+    }
 
 let bugFoundPollInterval = TimeSpan.FromSeconds (10.0)
 type OnBugFound = Map<string, string> -> Async<unit>
@@ -443,7 +461,6 @@ let pollForBugFound workingDirectory (token: Threading.CancellationToken) (runSt
                     return! poll()
 
                 | Some experiment ->
-                    let bugBuckets = IO.DirectoryInfo(experiment.FullName ++ "bug_buckets")
                     let restlerExperimentLogs = experiment.FullName ++ "logs"
 
                     if IO.Directory.Exists restlerExperimentLogs then
@@ -457,27 +474,20 @@ let pollForBugFound workingDirectory (token: Threading.CancellationToken) (runSt
                                     return Set.empty
                             }
 
-                        if bugBuckets.Exists then
-                            let bugFiles = 
-                                bugBuckets.EnumerateFiles("*.txt") 
-                                |> Seq.filter isBugFile
-                                |> Seq.map (fun f -> f.Name)
+                        let! bugFiles = getListOfBugs workingDirectory runStartTime
+                        let! _ =
+                            bugFiles
+                            |> Seq.map (fun bugFile ->
+                                async {
+                                    if not <| postedBugs.Contains bugFile then
+                                        printfn "Posting bug found %s" bugFile
+                                        do! onBugFound (Map.empty.Add("Experiment", experiment.Name).Add("BugBucket", bugFile))
+                                    return ()
+                                }
+                            ) |> Async.Sequential
 
-                            let! _ =
-                                bugFiles
-                                |> Seq.map (fun bugFile ->
-                                    async {
-                                        if not <| postedBugs.Contains bugFile then
-                                            printfn "Posting bug found %s" bugFile
-                                            do! onBugFound (Map.empty.Add("Experiment", experiment.Name).Add("BugBucket", bugFile))
-                                        return ()
-                                    }
-                                ) |> Async.Sequential
+                        do! IO.File.WriteAllLinesAsync(bugsFoundPosted, bugFiles) |> Async.AwaitTask
 
-                            do! IO.File.WriteAllLinesAsync(bugsFoundPosted, bugFiles) |> Async.AwaitTask
-
-                        else
-                            ()
                     return! poll()
             }
     poll()

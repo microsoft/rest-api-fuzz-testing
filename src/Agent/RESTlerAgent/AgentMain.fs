@@ -834,11 +834,25 @@ let main argv =
                     return Raft.JobEvents.Error, (Some (Map.empty.Add("Error",  ex.Message))), 1, summary
             }
 
-
-        match Raft.RESTlerDriver.loadTestRunSummary workDirectory globalRunStartTime with
-        | None -> ()
-        | Some status -> ()
-
+        let! bugsList = Raft.RESTlerDriver.getListOfBugs workDirectory globalRunStartTime
+        let details =
+            match Raft.RESTlerDriver.loadTestRunSummary workDirectory globalRunStartTime with
+            | None -> details
+            | Some status ->
+                let d = Option.defaultValue Map.empty details
+                Some( d
+                        .Add("finalSpecCoverage", status.final_spec_coverage)
+                        .Add("numberOfBugsFound", sprintf "%d" (Seq.length bugsList))
+                        //.Add("renderedRequests", status.rendered_requests)
+                        //.Add("renderedRequestsValidStatus", status.rendered_requests_valid_status)
+                        //.Add("numFullyValid", sprintf "%d" status.num_fully_valid)
+                        //.Add("numSequenceFailures", sprintf "%d" status.num_sequence_failures)
+                        //.Add("numInvalidByFailedResourceCreations", sprintf "%d" status.num_invalid_by_failed_resource_creations)
+                        //.Add("throughput", sprintf "%f" status.throughput)
+                        //.Add("totalObjectCreations", sprintf "%d" status.total_object_creations)
+                        //.Add("totalUniqueTestCases", sprintf "%f" status.total_unique_test_cases)
+                        //.Add("totalSequences", sprintf "%d" status.total_sequences)
+                )
 
         printfn "Sending final event: %A with summary: %A and details %A" state summary details
         do! jobEventSender.SendRaftJobEvent jobId
