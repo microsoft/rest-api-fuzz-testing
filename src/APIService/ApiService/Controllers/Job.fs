@@ -93,9 +93,22 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                             MemoryGBs = 1
                         }
                     else
-                        requestPayload.Resources
-            }
+                        if requestPayload.Resources.Cores < 1 ||
+                           requestPayload.Resources.MemoryGBs < 1 then
+                            {
+                                Cores = if requestPayload.Resources.Cores < 1 then
+                                            1
+                                        else
+                                           requestPayload.Resources.Cores
 
+                                MemoryGBs = if requestPayload.Resources.MemoryGBs < 1 then
+                                                1
+                                            else
+                                                requestPayload.Resources.MemoryGBs                                        
+                            }
+                        else
+                            requestPayload.Resources            
+            }
 
         let taskAuthentication =
             requestPayload.Tasks
