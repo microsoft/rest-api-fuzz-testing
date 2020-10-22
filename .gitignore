@@ -84,3 +84,5 @@ __pycache__/
 /cli/raft-utils/auth/dotnet-core-3.1/*
 
 /cli/defaults-*.json
+
+/cli/raft-utils/auth/dotnet-core/*
