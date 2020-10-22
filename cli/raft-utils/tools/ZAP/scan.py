@@ -93,7 +93,7 @@ class StatusReporter(StreamHandler):
             progress='Active Scan progress %:'
             i = txt.find(progress)
             if i != -1:
-                utils.report_status_running([txt[i :]])
+                utils.report_status_running({"Scan progress" : txt[i :]})
 
 def run_zap(token):
     target = utils.get_swagger_target()
@@ -145,7 +145,7 @@ def run(token):
         return run_zap(token)
     except Exception as ex:
         utils.log_exception()
-        utils.report_status_error([f"{ex}"])
+        utils.report_status_error({"Error" : f"{ex}"})
         raise
     finally:
         utils.flush() 

@@ -41,7 +41,7 @@ type DeleteJobTests() =
             jobController.ControllerContext.HttpContext <- Fixtures.createFakeContext()
 
             let! deleteResult = jobController.Delete "29211868-8178-4e81-9b8d-d52025b4c2d4" |> Async.AwaitTask
-            let result = deleteResult.Value :?> DTOs.CreateJobResponse
+            let result = deleteResult.Value :?> DTOs.JobResponse
 
             let parseResult, jobGuid = System.Guid.TryParse(result.JobId)
             Assert.True(parseResult)

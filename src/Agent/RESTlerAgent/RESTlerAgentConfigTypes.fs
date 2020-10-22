@@ -65,7 +65,7 @@ type ReplayConfiguration =
         // if path is a bug_bucket file - then only that file is replayed.
             
         // if empty - then replay all bugs under jobRunConfiguration.previousStepOutputFolderPath
-        ReplayBugBucketsPaths : string array option
+        BugBuckets : string array option
     }
 
 type TargetEndpointConfiguration =

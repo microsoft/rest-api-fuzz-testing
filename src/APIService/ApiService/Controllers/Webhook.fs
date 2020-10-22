@@ -367,7 +367,7 @@ type webhooksController(configuration : IConfiguration, telemetryClient : Teleme
                                     State = JobState.Running
                                     Metrics = None
                                     UtcEventTime = DateTime.UtcNow
-                                    Details = Some (seq [method])
+                                    Details = Some (Map.empty.Add("Method", method))
                                     Metadata = None
                                     }
                     log.Info "Setting JobStatus webhook in webhooks table" ["name", webhookName; "event", eventName; "jobId", sprintf "%A" jobId]
@@ -391,7 +391,7 @@ type webhooksController(configuration : IConfiguration, telemetryClient : Teleme
                                     }
                             }
                 
-                else if eventName.ToLowerInvariant() = Raft.JobEvents.BugFound<_>.EventType.ToLowerInvariant() then
+                else if eventName.ToLowerInvariant() = Raft.JobEvents.BugFound.EventType.ToLowerInvariant() then
                     let jobId = sprintf "webhook-test-bug-found-%O" (Guid.NewGuid())
                     let bugFound = 
                         { 
@@ -399,11 +399,7 @@ type webhooksController(configuration : IConfiguration, telemetryClient : Teleme
                             JobId = jobId
                             AgentName = "1"
                             Metadata = None
-                            BugDetails = 
-                                {
-                                    Experiment = "experiment23"
-                                    BugBucket = "main_driver_500_1.txt"
-                                }
+                            BugDetails = Some(Map.empty.Add("Experiment", "experiment23").Add("BugBucket", "main_driver_500_1.txt"))
                         }
                     log.Info "Setting JobStatus webhook in webhooks table" ["name", webhookName; "event", eventName; "jobId", sprintf "%A" jobId]
                     let entity = Raft.StorageEntities.JobWebhookEntity(jobId, webhookName) :> TableEntity

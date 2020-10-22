@@ -161,7 +161,6 @@ module DTOs =
             /// <summary>
             /// Swagger specification location for the job run
             /// </summary>
-            [<Required>]
             SwaggerLocation : SwaggerLocation
 
             /// <summary> 
@@ -226,18 +225,24 @@ module DTOs =
             Region : string
         }
 
-
-    type DeleteJobRequest() =
-        member val JobId : string = null with get, set
+    [<CLIMutable>]
+    type DeleteJobRequest = 
+        {
+            JobId : string
+        }
+        
 
 
     // We need some way of designating that these types are returned to the customer
     // public? external? ReturnedJobId? 
     // We have types we consume and types we return to the customer. What is the best
     // naming convention?
-    type CreateJobResponse() = 
-        member val JobId : string = null with get, set
-
+    [<CLIMutable>]
+    type JobResponse =
+        {
+            JobId : string
+        }
+        
     type JobState =
         | Creating = 0
         | Created = 1
@@ -247,54 +252,29 @@ module DTOs =
         | Error = 5
         | TimedOut = 6
 
-    let JobStateFromInternal (s : Raft.JobEvents.JobState) =
-        match s with
-        | Raft.JobEvents.JobState.Creating -> JobState.Creating
-        | Raft.JobEvents.JobState.Created -> JobState.Created
-        | Raft.JobEvents.JobState.Running -> JobState.Running
-        | Raft.JobEvents.JobState.Completed -> JobState.Completed
-        | Raft.JobEvents.JobState.ManuallyStopped -> JobState.ManuallyStopped
-        | Raft.JobEvents.JobState.Error -> JobState.Error
-        | Raft.JobEvents.JobState.TimedOut -> JobState.TimedOut
+    [<CLIMutable>]
+    type RunSummary =
+        {
+            TotalRequestCount : int
+            ResponseCodeCounts : Dictionary<int, int>
+            TotalBugBucketsCount : int
+        }
 
-    type RunSummary() =
-        member val TotalRequestCount : int = 0 with get, set
-        member val ResponseCodeCounts : Dictionary<int, int> = Dictionary() with get, set
-        member val TotalBugBucketsCount : int = 0 with get, set
+    [<CLIMutable>]
+    type JobStatus =
+        {
+            Tool : string
 
-        static member FromInternal (s: Raft.JobEvents.RunSummary) =
-            RunSummary(
-                TotalRequestCount = s.TotalRequestCount, 
-                ResponseCodeCounts = Dictionary(s.ResponseCodeCounts), 
-                TotalBugBucketsCount = s.TotalBugBucketsCount)
+            JobId : string
 
-    type JobStatus () =
-        member val Tool : string = "NotSet" with get, set
+            State : JobState
 
-        member val JobId : string = null with get, set
+            Metrics : RunSummary
 
-        member val State : JobState = JobState.Creating with get, set
+            UtcEventTime : DateTime
 
-        member val Metrics : RunSummary = Unchecked.defaultof<_> with get, set
+            Details : IDictionary<string, string>
 
-        member val UtcEventTime : DateTime = DateTime.MinValue with get, set
+            AgentName : string 
 
-        member val Details : (string array) = [||] with get, set
-
-        member val AgentName : string = null with get, set
-
-        static member FromInternal (j : Raft.JobEvents.JobStatus) =
-            JobStatus (
-                Tool = j.Tool,
-
-                JobId = j.JobId,
-                State = JobStateFromInternal j.State,
-                Metrics = (
-                    match j.Metrics with
-                    | None -> Unchecked.defaultof<_>
-                    | Some m -> RunSummary.FromInternal m),
-
-                UtcEventTime = j.UtcEventTime,
-                Details = (match j.Details with Some d -> (d |> Seq.toArray) | None -> [||]),
-                AgentName = j.AgentName
-            )
+        }

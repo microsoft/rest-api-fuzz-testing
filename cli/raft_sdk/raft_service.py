@@ -303,10 +303,10 @@ class RaftCLI():
         for s in status:
             if s['agentName'] == s['jobId']:
                 print(f"{s['jobId']} {s['state']}")
-                if s.get('details') and len(s['details']) > 0:
-                    details = '\n'.join(s['details'])
+                if s.get('details'):
                     print("Details:")
-                    print(f"{details}")
+                    for k in s['details']:
+                        print(f"{k} : {s['details'][k]}")
 
         for s in status:
             if s['agentName'] != s['jobId']:
@@ -334,10 +334,10 @@ class RaftCLI():
                 else:
                     print(agent_status)
 
-                if s.get('details') and len(s['details']) > 0:
-                    details = '\n'.join(s['details'])
+                if s.get('details'):
                     print("Details:")
-                    print(f"{details}")
+                    for k in s['details']:
+                        print(f"{k} : {s['details'][k]}")
 
     def poll(self, job_id, poll_interval=10):
         '''

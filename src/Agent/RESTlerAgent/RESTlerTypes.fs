@@ -301,3 +301,20 @@ module Compiler =
             shadow_values : IDictionary<string, IDictionary<string, string array>> option
             // TODO restler_multipart_formdata :  Map<string, string list> option
         }
+
+module Logs =
+    type TestingSummary =
+        {
+            final_spec_coverage: string
+            rendered_requests: string
+            rendered_requests_valid_status: string
+            num_fully_valid: int
+            num_sequence_failures: int
+            num_invalid_by_failed_resource_creations: int
+            throughput: float
+            total_object_creations: int
+            total_unique_test_cases: int
+            total_sequences: int
+        }
+
+

@@ -61,27 +61,20 @@ type JobStatus =
         State: JobState
         Metrics: RunSummary option
         UtcEventTime: DateTime
-        Details: string seq option
+        Details: Map<string, string> option
         Metadata : Map<string, string> option
         AgentName: string
     }
 
     static member EventType = Events.JobEventTypes.JobStatus.ToString()
 
-
-type RESTlerBugDetails =
-    {
-        Experiment : string
-        BugBucket : string
-    }
-
-type 'a BugFound =
+type BugFound =
     {
         Tool : string
         JobId: string
         AgentName : string
         Metadata : Map<string, string> option
-        BugDetails : 'a
+        BugDetails : Map<string, string> option
     }
 
     static member EventType = Events.JobEventTypes.BugFound.ToString()

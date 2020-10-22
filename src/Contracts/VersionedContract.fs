@@ -38,7 +38,7 @@ module InternalHelpers =
 
 module RaftEvent =
 
-    type RaftJobEvent< ^T when ^T : (static member EventType : string) > =
+    type RaftJobEvent< ^T> =
         {
             EventType : string
             Message: ^T

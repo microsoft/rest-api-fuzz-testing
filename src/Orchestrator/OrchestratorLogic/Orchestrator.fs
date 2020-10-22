@@ -115,7 +115,7 @@ module ContainerInstances =
 
     let containerGroupName (jobId: string) = jobId
 
-    let createJobStatus (jobId: string) (state: JobState) (details: string list option) =
+    let createJobStatus (jobId: string) (state: JobState) (details: Map<string, string> option) =
         let message: JobStatus =
             {
                 AgentName = jobId.ToString()
@@ -124,12 +124,12 @@ module ContainerInstances =
                 State = state
                 Metrics = None
                 UtcEventTime = System.DateTime.UtcNow
-                Details = (match details with None -> None | Some d -> Some (Seq.ofList d))
+                Details = details
                 Metadata = None
             }
         Raft.Message.RaftEvent.createJobEvent message
 
-    let postStatus (jobStatusSender: ServiceBus.Core.MessageSender) (jobId: string) (state: JobState) (details: string list option) =
+    let postStatus (jobStatusSender: ServiceBus.Core.MessageSender) (jobId: string) (state: JobState) (details: Map<string, string> option) =
         async {
             let jobStatus = createJobStatus jobId state details
             do! jobStatusSender.SendAsync( 
@@ -807,14 +807,14 @@ module ContainerInstances =
                         | :? Microsoft.Rest.Azure.CloudException as ce ->
                             // it looks like the error when container group is transitioning states is OK to ignore. Need to get more info on that.
                             logError "Failed to deploy container group %s due to %A (status code : %A)" containerGroupName ex ce.Response.StatusCode
-                            do! postStatus JobState.Error (Some [ex.Message])
+                            do! postStatus JobState.Error (Some (Map.empty.Add("Error", ex.Message)))
 
                         | _ ->
                             logError "Failed to deploy container group %s due to %A" containerGroupName ex
-                            do! postStatus JobState.Error (Some [ex.Message])
+                            do! postStatus JobState.Error (Some (Map.empty.Add ("Error", ex.Message)))
                     | _ ->
                         logError "Failed to deploy container group %s due to %A" containerGroupName ex
-                        do! postStatus JobState.Error (Some [ex.Message])
+                        do! postStatus JobState.Error (Some (Map.empty.Add("Error", ex.Message)))
                 }
 
             match existingContainerGroupOpt with
@@ -847,7 +847,7 @@ module ContainerInstances =
                         stopWatch.Stop()
                         logError "Failed to create container group for job : %A due to %A (Time it took: %f total seconds)" decodedMessage.Message.JobId ex stopWatch.Elapsed.TotalSeconds
                         Central.Telemetry.TrackError (TelemetryValues.Exception ex)
-                        do! postStatus JobState.Error  (Some [ex.Message])
+                        do! postStatus JobState.Error (Some (Map.empty.Add("Error", ex.Message)))
 
             | Some existingContainerGroup ->
                 match Option.ofObj existingContainerGroup.State with
@@ -918,7 +918,7 @@ module ContainerInstances =
             logInfo "[STATUS] Got status message: %s" message
 
             let eventType = RaftEvent.getEventType message
-            if eventType = BugFound<_>.EventType then
+            if eventType = BugFound.EventType then
                 ()
             else if eventType = JobStatus.EventType then
                 let decodedMessage: RaftEvent.RaftJobEvent<JobStatus> = RaftEvent.deserializeEvent message
@@ -1097,8 +1097,8 @@ module ContainerInstances =
                                                          Metadata =  metadata }
                                        }
                 do! processMessage updatedJobStatus.Message.JobId updatedJobStatus
-            else if eventType = BugFound<_>.EventType then
-                let bugFound : RaftEvent.RaftJobEvent<RESTlerBugDetails BugFound> = RaftEvent.deserializeEvent message
+            else if eventType = BugFound.EventType then
+                let bugFound : RaftEvent.RaftJobEvent<BugFound> = RaftEvent.deserializeEvent message
                 let! metadata = getMetadata bugFound.Message.JobId
                 let updatedBugFound = { bugFound with
                                            Message = { bugFound.Message with
@@ -1339,32 +1339,32 @@ module ContainerInstances =
 
                                     let state, details =
                                         if isExpired then
-                                            JobState.TimedOut, []
+                                            JobState.TimedOut, Map.empty
                                         else if jobManuallyStopped then
-                                            JobState.ManuallyStopped, []
+                                            JobState.ManuallyStopped, Map.empty
                                         else if Seq.isEmpty instancesExitedWithError then
-                                            JobState.Completed, []
+                                            JobState.Completed, Map.empty
                                         else
                                             //There is at least one container that terminated with an error
                                             JobState.Error, 
-                                                ([], instancesExitedWithError |> List.ofSeq) 
+                                                (Map.empty, instancesExitedWithError |> List.ofSeq) 
                                                 ||> List.fold (fun details v ->
-                                                        let detail (name) (s: string) =
-                                                            sprintf "[Agent:%s] %s: %s" v.Name name s
-                                                        [
-                                                            detail "Exit Code" (sprintf "%A"  v.InstanceView.CurrentState.ExitCode)
-                                                            detail "State" (sprintf "%A" v.InstanceView.CurrentState.State)
-                                                            detail "Detailed Status" (sprintf "%A" v.InstanceView.CurrentState.DetailStatus)
-                                                        ]
-                                                        @ details)
+                                                        details.Add(
+                                                            (sprintf "[%s] Exit Code" v.Name), sprintf "%A" v.InstanceView.CurrentState.ExitCode
+                                                        ).Add(
+                                                            (sprintf "[%s] State" v.Name), sprintf "%A" v.InstanceView.CurrentState.State
+                                                        ).Add(
+                                                            (sprintf "[%s] Detailed Status" v.Name), (sprintf "%A" v.InstanceView.CurrentState.DetailStatus)
+                                                        )
+                                                    )
 
-                                    let! metricsDetails =
+                                    let! detailsWithUsage =
                                         async {
                                             match calculateContainerGroupLifeSpan g with
                                             | Some (startTime, endTime) ->
                                                 logInfo "[GC] Collecting metrics for %s from %A to %A" g.Name startTime endTime
                                                 match! metrics logger azure g (startTime - TimeSpan.FromMinutes(5.0), endTime + TimeSpan.FromMinutes(5.0)) with
-                                                | None -> return []
+                                                | None -> return details
                                                 | Some ms -> 
                                                     ms
                                                     |> Array.iter(fun metricsEvents ->
@@ -1393,17 +1393,20 @@ module ContainerInstances =
                                                                 )
                                                             )
                                                         )
-                                                    return [
-                                                        sprintf "CPU Average %f" (if List.isEmpty cpu then 0.0 else List.average cpu)
-                                                        sprintf "Network total bytes received: %d" (if List.isEmpty bytesReceived then 0 else int (List.sum bytesReceived))
-                                                        sprintf "Network total bytes sent: %d" (if List.isEmpty bytesSent then 0 else int (List.sum bytesSent))
-                                                    ]
+                                                    return
+                                                        details.Add(
+                                                            "CpuAverage", sprintf "%f" (if List.isEmpty cpu then 0.0 else List.average cpu)
+                                                        ).Add(
+                                                            "NetworkTotalBytesReceived", sprintf "%d" (if List.isEmpty bytesReceived then 0 else int (List.sum bytesReceived))
+                                                        ).Add(
+                                                            "NetworkTotalBytesSent", sprintf"%d" (if List.isEmpty bytesSent then 0 else int (List.sum bytesSent))
+                                                        )
                                             | None ->
                                                 logInfo "[Metrics] ignoring metrics collection since could not calculate container lifespan for container group: %s" g.Name
-                                                return []
+                                                return details
                                         }
 
-                                    do! postStatus communicationClients.JobEventsSender g.Name state (Some (details@metricsDetails))
+                                    do! postStatus communicationClients.JobEventsSender g.Name state (Some detailsWithUsage)
 
                                     for v in instancesExitedWithError do
                                         let! failedContainerLogs = g.GetLogContentAsync(v.Name).ToAsync

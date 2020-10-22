@@ -49,6 +49,20 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
 
         let outputFolders = requestPayload.Tasks |> Array.map (fun t -> t.OutputFolder) |> Array.sort
 
+        // Validate the swagger URL.
+        if not <| isNull (box requestPayload.SwaggerLocation) &&  not <| String.IsNullOrWhiteSpace(requestPayload.SwaggerLocation.URL) then
+            match Uri.TryCreate(requestPayload.SwaggerLocation.URL, UriKind.Absolute) with
+            | true, _ -> ()
+            | false, _ -> raiseApiError({
+                Error = {
+                    Code = ApiErrorCode.ParseError
+                    Message = "Invalid Swagger Uri. The Uri must be a valid, absolute Uri."
+                    Target = "validateAndPatchPayload"
+                    Details = Array.empty
+                    InnerError = {Message = ""}
+                }
+            })
+
         let requestPayload =
             {requestPayload with
                 Tasks =
@@ -145,30 +159,31 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
         requestPayload.Tasks
         |> Array.iter(fun t ->
             let location = t.SwaggerLocation
-            if not <| String.IsNullOrWhiteSpace(location.URL) then
-                match Uri.TryCreate(location.URL, UriKind.Absolute) with
-                | true, _ -> ()
-                | false, _ -> raiseApiError({
-                    Error = {
-                        Code = ApiErrorCode.ParseError
-                        Message = "Invalid Swagger Uri in a task. The Uri must be a valid, absolute Uri."
-                        Target = "validateAndPatchPayload"
-                        Details = Array.empty
-                        InnerError = {Message = ""}
-                    }
-                })
+            if not <| isNull(box location) then
+                if not <| String.IsNullOrWhiteSpace(location.URL) then
+                    match Uri.TryCreate(location.URL, UriKind.Absolute) with
+                    | true, _ -> ()
+                    | false, _ -> raiseApiError({
+                        Error = {
+                            Code = ApiErrorCode.ParseError
+                            Message = "Invalid Swagger Uri in a task. The Uri must be a valid, absolute Uri."
+                            Target = "validateAndPatchPayload"
+                            Details = Array.empty
+                            InnerError = {Message = ""}
+                        }
+                    })
 
-            if not <| String.IsNullOrWhiteSpace location.URL &&
-                not <| String.IsNullOrWhiteSpace location.FilePath then
-                raiseApiError({
-                    Error = {
-                        Code = ApiErrorCode.ParseError
-                        Message = "Only one Swagger Location value is allowed in tasks: Path or URL but not both"
-                        Target = "validateAndPatchPayload"
-                        Details = Array.empty
-                        InnerError = {Message = ""}
-                    }
-                })
+                if not <| String.IsNullOrWhiteSpace location.URL &&
+                    not <| String.IsNullOrWhiteSpace location.FilePath then
+                    raiseApiError({
+                        Error = {
+                            Code = ApiErrorCode.ParseError
+                            Message = "Only one Swagger Location value is allowed in tasks: Path or URL but not both"
+                            Target = "validateAndPatchPayload"
+                            Details = Array.empty
+                            InnerError = {Message = ""}
+                        }
+                    })
         )
         if not <| isNull requestPayload.ReadOnlyFileShareMounts then
             requestPayload.ReadOnlyFileShareMounts
@@ -228,31 +243,7 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                     }
                 })
 
-        // Validate the swagger URL.
-        if not <| String.IsNullOrWhiteSpace(requestPayload.SwaggerLocation.URL) then
-            match Uri.TryCreate(requestPayload.SwaggerLocation.URL, UriKind.Absolute) with
-            | true, _ -> ()
-            | false, _ -> raiseApiError({
-                Error = {
-                    Code = ApiErrorCode.ParseError
-                    Message = "Invalid Swagger Uri. The Uri must be a valid, absolute Uri."
-                    Target = "validateAndPatchPayload"
-                    Details = Array.empty
-                    InnerError = {Message = ""}
-                }
-            })
 
-        if not <| String.IsNullOrWhiteSpace(requestPayload.SwaggerLocation.URL) &&
-           not <| String.IsNullOrWhiteSpace(requestPayload.SwaggerLocation.FilePath) then
-            raiseApiError({
-                Error = {
-                    Code = ApiErrorCode.ParseError
-                    Message = "Only one Swagger Location value is allowed Path or URL but not both"
-                    Target = "validateAndPatchPayload"
-                    Details = Array.empty
-                    InnerError = {Message = ""}
-                }
-            })
 
         requestPayload
 
@@ -338,7 +329,7 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
 
                 stopWatch.Stop()
                 Central.Telemetry.TrackMetric (TelemetryValues.ApiRequest(method, float stopWatch.ElapsedMilliseconds), "milliseconds", this :> ControllerBase)
-                return JsonResult(DTOs.CreateJobResponse(JobId = validatedBody.JobId))
+                return JsonResult({JobId = validatedBody.JobId} : DTOs.JobResponse)
             with
             | Errors.ApiErrorException (apiError) as ex ->
                 Central.Telemetry.TrackError (TelemetryValues.Exception ex)
@@ -393,7 +384,7 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
 
                 stopWatch.Stop()
                 Central.Telemetry.TrackMetric (TelemetryValues.ApiRequest(method, float stopWatch.ElapsedMilliseconds), "milliseconds", this :> ControllerBase)
-                return JsonResult(DTOs.CreateJobResponse(JobId = repost.JobId))
+                return JsonResult({JobId = repost.JobId} : DTOs.JobResponse)
             with
             | Errors.ApiErrorException (apiError) as ex ->
                 Central.Telemetry.TrackError (TelemetryValues.Exception ex)
@@ -434,13 +425,13 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                                                      InnerError = {Message = ""}
                                                    }} 
                 else
-                    let message = DTOs.DeleteJobRequest(JobId = jobId)
+                    let message : DTOs.DeleteJobRequest = {JobId = jobId}
 
                     do! sendCommand Raft.Message.ServiceBus.Queue.delete jobId {  Message = message; MessagePostCount = 0 }
 
                     stopWatch.Stop()
                     Central.Telemetry.TrackMetric (TelemetryValues.ApiRequest(method, float stopWatch.ElapsedMilliseconds), "milliseconds", this :> ControllerBase)
-                    return JsonResult(DTOs.CreateJobResponse (JobId = jobId) )
+                    return JsonResult({JobId = jobId} : DTOs.JobResponse )
             with 
             | Errors.ApiErrorException (apiError) as ex ->
                 Central.Telemetry.TrackError (TelemetryValues.Exception ex)
@@ -475,8 +466,8 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
             else
                 let decodedMessages = 
                     results
-                    |> Seq.map (fun jobStatusEntity -> Raft.Message.RaftEvent.deserializeEvent jobStatusEntity.JobStatus)
-                    |> Seq.map (fun jobStatus -> DTOs.JobStatus.FromInternal jobStatus.Message)
+                    |> Seq.map (fun jobStatusEntity -> (Raft.Message.RaftEvent.deserializeEvent jobStatusEntity.JobStatus): Message.RaftEvent.RaftJobEvent<DTOs.JobStatus>)
+                    |> Seq.map (fun jobStatus -> jobStatus.Message)
 
                 stopWatch.Stop()
                 Central.Telemetry.TrackMetric (TelemetryValues.ApiRequest(method, float stopWatch.ElapsedMilliseconds), "milliseconds", this :> ControllerBase)
@@ -522,7 +513,7 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
 
             let statuses : DTOs.JobStatus seq = result
                                                 |> Seq.map(fun (s: JobStatusEntity) -> Raft.Message.RaftEvent.deserializeEvent s.JobStatus)
-                                                |> Seq.map (fun jobStatus -> DTOs.JobStatus.FromInternal jobStatus.Message)
+                                                |> Seq.map (fun jobStatus -> jobStatus.Message)
 
             stopWatch.Stop()
             Central.Telemetry.TrackMetric (TelemetryValues.ApiRequest(method, float stopWatch.ElapsedMilliseconds), "milliseconds", this :> ControllerBase)

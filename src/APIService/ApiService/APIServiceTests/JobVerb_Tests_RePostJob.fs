@@ -25,7 +25,7 @@ type jobsRePOSTTests() =
             jobController.ControllerContext.HttpContext <- Fixtures.createFakeContext()
 
             let! jobResult = jobController.RePost("29211868-8178-4e81-9b8d-d52025b4c2d4", compileJobDefinition) |> Async.AwaitTask
-            let rePostResult = jobResult.Value :?> DTOs.CreateJobResponse
+            let rePostResult = jobResult.Value :?> DTOs.JobResponse
 
             let parseResult, jobGuid = System.Guid.TryParse(rePostResult.JobId)
             Assert.True(parseResult)

@@ -417,8 +417,20 @@ let resultAnalyzer workingDirectory (token: Threading.CancellationToken) (report
 let isBugFile (file: IO.FileInfo) =
     file.Name <> "bug_buckets.txt"
 
+let loadTestRunSummary workingDirectory runStartTime =
+    match RESTlerInternal.getRunExperimentFolder workingDirectory runStartTime with
+    | Some experimentFolder ->
+        let testingSummaryLog = experimentFolder.FullName ++ "logs" ++ "testing_summary.json"
+        if IO.File.Exists testingSummaryLog then
+            let testingSummary: RESTlerTypes.Logs.TestingSummary = Json.Compact.deserializeFile testingSummaryLog
+            Some testingSummary
+        else
+            None
+    | None -> None
+
+
 let bugFoundPollInterval = TimeSpan.FromSeconds (10.0)
-type OnBugFound = JobEvents.RESTlerBugDetails -> Async<unit>
+type OnBugFound = Map<string, string> -> Async<unit>
 let pollForBugFound workingDirectory (token: Threading.CancellationToken) (runStartTime: DateTime) (onBugFound : OnBugFound) =
     let rec poll() =
         async {
@@ -457,7 +469,7 @@ let pollForBugFound workingDirectory (token: Threading.CancellationToken) (runSt
                                     async {
                                         if not <| postedBugs.Contains bugFile then
                                             printfn "Posting bug found %s" bugFile
-                                            do! onBugFound {Experiment = experiment.Name; BugBucket = bugFile}
+                                            do! onBugFound (Map.empty.Add("Experiment", experiment.Name).Add("BugBucket", bugFile))
                                         return ()
                                     }
                                 ) |> Async.Sequential
