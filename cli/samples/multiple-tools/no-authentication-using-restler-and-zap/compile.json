@@ -1,0 +1,30 @@
+{
+  "swaggerLocation": {
+    "URL": "https://{defaults.deploymentName}-raft-apiservice.azurewebsites.net/swagger/v1/swagger.json"
+  },
+  "tasks": [
+    {
+      "toolName": "RESTler",
+      "isIdling": false,
+      "outputFolder": "{defaults.deploymentName}-compile",
+
+      "toolConfiguration": {
+        "task": "Compile",
+        "compileConfiguration": {
+          "useRefreshableToken": true
+        }
+      }
+    },
+    {
+      "toolName": "RESTler",
+      "isIdling": false,
+      "outputFolder": "sample-compile",
+      "toolConfiguration": {
+        "task": "Compile"
+      },
+      "swaggerLocation": {
+        "URL": "https://{sample.host}/swagger/v1/swagger.json"
+      }
+    }
+  ]
+}

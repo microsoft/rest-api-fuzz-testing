@@ -1,42 +1,41 @@
 {
   "swaggerLocation": {
-	  "Url" : "https://{defaults.deploymentName}-raft-apiservice.azurewebsites.net/swagger/v1/swagger.json"
-  	},
+    "Url": "https://{defaults.deploymentName}-raft-apiservice.azurewebsites.net/swagger/v1/swagger.json"
+  },
   "duration": "00:10:00",
   "host": "{defaults.deploymentName}-raft-apiservice.azurewebsites.net",
-  "rootFileShare" : "raft",
-  "readOnlyFileShareMounts" : [
+  "rootFileShare": "raft",
+  "readOnlyFileShareMounts": [
     {
-      "FileShareName" : "raft",
-      "MountPath" : "/job-compile"
+      "FileShareName": "raft",
+      "MountPath": "/job-compile"
     }
   ],
   "tasks": [
     {
-      "toolName" : "RESTler",
-      "outputFolder" : "fuzz-1",
-      "isIdling" : false,
-      "keyVaultSecrets" : ["RaftServicePrincipal"],
+      "toolName": "RESTler",
+      "outputFolder": "fuzz-1",
+      "isIdling": false,
+      "keyVaultSecrets": [ "RaftServicePrincipal" ],
       "authenticationMethod": {
         "MSAL": "RaftServicePrincipal"
       },
-      "toolConfiguration" : {
+      "toolConfiguration": {
         "task": "Fuzz",
         "runConfiguration": {
           "inputFolderPath": "/job-compile/{compile.jobId}/compile"
         }
       }
     },
-
     {
-      "toolName" : "RESTler",
-      "outputFolder" : "RESTler-fuzz-random-walk-2",
-      "isIdling" : false,
-      "keyVaultSecrets" : ["RaftServicePrincipal"],
+      "toolName": "RESTler",
+      "outputFolder": "RESTler-fuzz-random-walk-2",
+      "isIdling": false,
+      "keyVaultSecrets": [ "RaftServicePrincipal" ],
       "authenticationMethod": {
         "MSAL": "RaftServicePrincipal"
       },
-      "toolConfiguration" : {
+      "toolConfiguration": {
         "task": "FuzzRandomWalk",
         "runConfiguration": {
           "inputFolderPath": "/job-compile/{compile.jobId}/compile"
@@ -44,14 +43,14 @@
       }
     },
     {
-      "toolName" : "RESTler",
-      "outputFolder" : "RESTler-fuzz-bfscheap-3",
-      "isIdling" : false,
-      "keyVaultSecrets" : ["RaftServicePrincipal"],
+      "toolName": "RESTler",
+      "outputFolder": "RESTler-fuzz-bfscheap-3",
+      "isIdling": false,
+      "keyVaultSecrets": [ "RaftServicePrincipal" ],
       "authenticationMethod": {
         "MSAL": "RaftServicePrincipal"
       },
-      "toolConfiguration" : {
+      "toolConfiguration": {
         "task": "FuzzBfsCheap",
         "runConfiguration": {
           "inputFolderPath": "/job-compile/{compile.jobId}/compile"

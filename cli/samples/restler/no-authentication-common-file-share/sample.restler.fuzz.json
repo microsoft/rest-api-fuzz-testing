@@ -1,0 +1,50 @@
+{
+  "swaggerLocation": {
+    "URL": "https://{sample.host}/swagger/v1/swagger.json"
+  },
+  "duration": "00:10:00",
+  "host": "{sample.host}",
+  "rootFileshare": "sample",
+  "webhook": {
+    "name": "sample-fuzz",
+    "metadata": {}
+  },
+  "readOnlyFileShareMounts": [
+    {
+      "FileShareName": "sample",
+      "MountPath": "/compile-out"
+    }
+  ],
+  "tasks": [
+    {
+      "toolName": "RESTler",
+      "outputFolder": "RESTler-fuzz-1",
+      "toolConfiguration": {
+        "task": "Fuzz",
+        "runConfiguration": {
+          "inputFolderPath": "/compile-out/{compile.jobId}/RESTler-compile-1"
+        }
+      }
+    },
+    {
+      "toolName": "RESTler",
+      "outputFolder": "RESTler-fuzz-2",
+      "toolConfiguration": {
+        "task": "Fuzz",
+        "runConfiguration": {
+          "inputFolderPath": "/compile-out/{compile.jobId}/RESTler-Compile-1"
+        }
+      }
+    },
+    {
+      "toolName": "RESTler",
+      "outputFolder": "RESTler-fuzz-3",
+      "toolConfiguration": {
+        "task": "FuzzRandomWalk",
+        "runConfiguration": {
+          "inputFolderPath": "/compile-out/{compile.jobId}/RESTler-compile-2"
+        }
+      }
+    }
+  ]
+}

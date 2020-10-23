@@ -1,28 +1,28 @@
 {
   "swaggerLocation": {
-	  "URL" : "https://{host}/swagger/v1/swagger.json"
+    "URL": "https://{host}/swagger/v1/swagger.json"
   },
   "host": "{host}",
-  "resources" : {
-        "Cores" : 4,
-        "MemoryGBs" : 12
+  "resources": {
+    "Cores": 4,
+    "MemoryGBs": 12
   },
-  "ReadOnlyFileShareMounts" : [
+  "ReadOnlyFileShareMounts": [
     {
-      "fileShareName" : "60-compile",
-      "mountPath" : "/job-compile"
+      "fileShareName": "60-compile",
+      "mountPath": "/job-compile"
     }
   ],
   "tasks": [
     {
-      "toolName" : "RESTler",
+      "toolName": "RESTler",
       "outputFolder": "RESTLer-test-fuzz-lean",
-      "keyVaultSecrets" : ["RaftServicePrincipal"],
+      "keyVaultSecrets": [ "RaftServicePrincipal" ],
       "authenticationMethod": {
         "MSAL": "RaftServicePrincipal"
       },
 
-      "toolConfiguration" : {
+      "toolConfiguration": {
         "task": "TestFuzzLean",
         "runConfiguration": {
           "inputFolderPath": "/job-compile/{compile.jobId}",
@@ -31,13 +31,13 @@
       }
     },
     {
-      "toolName" : "RESTler",
-      "outputFolder" : "RESTler-test",
-      "keyVaultSecrets" : ["RaftServicePrincipal"],
+      "toolName": "RESTler",
+      "outputFolder": "RESTler-test",
+      "keyVaultSecrets": [ "RaftServicePrincipal" ],
       "authenticationMethod": {
         "MSAL": "RaftServicePrincipal"
       },
-      "toolConfiguration" : {
+      "toolConfiguration": {
         "task": "Test",
         "runConfiguration": {
           "inputFolderPath": "/job-compile/{compile.jobId}"
