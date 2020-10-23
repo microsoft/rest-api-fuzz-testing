@@ -9,3 +9,4 @@
       Dockerfile: $(Pipeline.Workspace)/Orchestrator/Dockerfile
       tags: |
         $(imageTag)
+        $(imageTagLatest)

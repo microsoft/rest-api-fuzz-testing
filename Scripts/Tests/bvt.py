@@ -54,7 +54,7 @@ def bvt(cli, definitions, bvt_host):
         t_pre_compile = time.time()
 
         print('Compile')
-        compile_config_path = os.path.abspath(os.path.join(cli_path, 'samples', 'no-authentication-sample', 'sample.restler.compile.json'))
+        compile_config_path = os.path.abspath(os.path.join(cli_path, 'samples', 'restler', 'no-authentication', 'sample.restler.compile.json'))
         subs = {
             '{sample.host}' : bvt_host
         }
@@ -83,7 +83,7 @@ def bvt(cli, definitions, bvt_host):
                             f' {after_compile_pre_fuzz}')
 
         print('Fuzz')
-        fuzz_config_path = os.path.abspath(os.path.join(cli_path, 'samples', 'no-authentication-sample', 'sample.restler.fuzz.json'))
+        fuzz_config_path = os.path.abspath(os.path.join(cli_path, 'samples', 'restler', 'no-authentication', 'sample.restler.fuzz.json'))
         subs['{compile.jobId}'] = compile_job['jobId']
         fuzz_config = raft.RaftJobConfig(file_path=fuzz_config_path, substitutions=subs)
         fuzz_config.config['duration'] = '00:20:00'
