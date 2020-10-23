@@ -95,6 +95,28 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                     else
                         requestPayload.Resources
             }
+        
+        if requestPayload.Resources.Cores < 1 then
+            raiseApiError({
+                Error = {
+                    Code = ApiErrorCode.ParseError
+                    Message = "Number of cores must be a positive integer."
+                    Target = "validateAndPatchPayload"
+                    Details = Array.empty
+                    InnerError = {Message = ""}
+                }
+            })
+
+        if requestPayload.Resources.MemoryGBs < 1 then
+            raiseApiError({
+                Error = {
+                    Code = ApiErrorCode.ParseError
+                    Message = "Memory in GBs allocated for the job must be a positive integer."
+                    Target = "validateAndPatchPayload"
+                    Details = Array.empty
+                    InnerError = {Message = ""}
+                }
+            })
 
 
         let taskAuthentication =
