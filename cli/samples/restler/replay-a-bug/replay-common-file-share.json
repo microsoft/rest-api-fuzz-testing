@@ -1,0 +1,34 @@
+{
+  "rootFileShare": "replay",
+  "readOnlyFileShareMounts": [
+    {
+      "FileShareName": "{rootFileShare}",
+      "MountPath": "/job-run"
+    }
+  ],
+  "tasks": [
+    {
+      "toolName": "RESTler",
+      "outputFolder": "RESTler-replay-{experiment}-bugBucket",
+      "toolConfiguration": {
+        "task": "Replay",
+        "runConfiguration": {
+          "inputFolderPath": "/job-run/{jobId}/{outputFolder}/RestlerResults/{experiment}/bug_buckets"
+        },
+        "replayConfiguration": {
+          "bugBuckets": [ "{bugBucket}" ]
+        }
+      }
+    },
+    {
+      "toolName": "RESTler",
+      "outputFolder": "RESTler-replay-{experiment}-all-bug-buckets",
+      "toolConfiguration": {
+        "task": "Replay",
+        "runConfiguration": {
+          "inputFolderPath": "/job-run/{jobId}/{outputFolder}/RestlerResults/{experiment}/bug_buckets"
+        }
+      }
+    }
+  ]
+}
