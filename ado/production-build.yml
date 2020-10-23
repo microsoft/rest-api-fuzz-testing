@@ -6,8 +6,9 @@ trigger:
 
 variables:
   versionNumber: 1.0.0
-  imageTag: 'v1.0'
+  imageTag: 'v1.0.0'
   imageTagWithBuildDate: $(imageTag)-$(Build.BuildNumber)
+  imageTagLatest: 'v1.latest'
 
 stages:
   - template: stages/build/build.yml

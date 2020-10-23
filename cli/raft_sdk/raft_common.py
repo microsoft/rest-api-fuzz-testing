@@ -132,7 +132,7 @@ class RaftDefinitions():
         self.service_bus = f"{self.deployment}-raft-servicebus"
         self.app_insights = f"{self.deployment}-raft-ai"
         self.asp = f"{self.deployment}-raft-asp"
-        self.container_tag = "v1.0"
+        self.container_tag = "v1.latest"
         self.queues = {
                 'job_events': "raft-jobevents",
                 'create_queue': "raft-jobcreate",
