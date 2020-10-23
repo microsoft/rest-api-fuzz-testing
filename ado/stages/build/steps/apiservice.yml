@@ -39,6 +39,7 @@ steps:
     # Create files with version information that will be used in the release pipeline
   - script: echo $(imageTag) > src/APIService/ApiService/bin/release/netcoreapp3.1/linux-musl-x64/publish/imageTag.txt 
   - script: echo $(imageTagWithBuildDate) > src/APIService/ApiService/bin/release/netcoreapp3.1/linux-musl-x64/publish/imageTagWithBuildDate.txt
+  - script: echo $(imageTagLatest) > src/APIService/ApiService/bin/release/netcoreapp3.1/linux-musl-x64/publish/imageTagLatest.txt
 
   - task: PublishPipelineArtifact@1
     inputs:
