@@ -12,5 +12,7 @@ steps:
       containerRegistry: $(raft-containerRegistryServiceConnection)
       repository: restapifuzztesting/test-infra-func
       Dockerfile: $(Build.SourcesDirectory)/artifacts/TestInfraFunc/Dockerfile
-      tags: $(imageTag)
+      tags: |
+        $(imageTag)
+        $(imageTagLatest)
         

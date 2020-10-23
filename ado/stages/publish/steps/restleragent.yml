@@ -27,4 +27,6 @@
       Dockerfile: src/Agent/Dockerfile
       tags: |
         $(imageTag)
+        $(imageTagLatest)
+
 
