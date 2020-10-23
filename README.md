@@ -12,9 +12,6 @@ RAFT also supports [ZAP](https://www.zaproxy.org/) from OWASP out of the box.
 As a platform, RAFT is designed to host any API fuzzers that are packaged into a docker container. 
 These can be configured and used in the system via configuration files and require no code changes to integrate.
 
-## Interesting in native code fuzzing ? 
-Take a look at our sibling project [OneFuzz](https://github.com/microsoft/onefuzz)
-
 ### Getting Started
 This project is designed to run on [Azure](https://azure.microsoft.com). 
 
@@ -31,6 +28,9 @@ Once deployed, use the samples to try out the service and fuzzers!
 
 ### Swagger Documentation
 Once the service is created, you can examine the REST interface of the service by browsing to the swagger page at https://\<deploymentName\>-raft-apiservice.azurewebsites.net/swagger
+
+### Interesting in native code fuzzing? 
+Take a look at our sibling project [OneFuzz](https://github.com/microsoft/onefuzz)
 
 ### Microsoft Open Source Code of Conduct
 https://opensource.microsoft.com/codeofconduct
