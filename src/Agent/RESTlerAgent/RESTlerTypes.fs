@@ -313,7 +313,7 @@ module Logs =
             num_invalid_by_failed_resource_creations: int
             throughput: float
             total_object_creations: int
-            total_unique_test_cases: int
+            total_unique_test_cases: float
             total_sequences: int
         }
 
