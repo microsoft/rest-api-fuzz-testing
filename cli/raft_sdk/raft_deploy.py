@@ -73,6 +73,7 @@ class RaftServiceCLI():
         self.site_hash = self.hash(
             self.definitions.subscription + self.definitions.deployment)
 
+        az('ad signed-in-user show')
         az(f'account set --subscription {self.definitions.subscription}')
 
     def hash(self, txt):
@@ -243,12 +244,24 @@ class RaftServiceCLI():
 
     def assign_resource_group_roles(self, sp_app_id):
         print('Assigning Resource Group roles')
-        scope = (f'/subscriptions/{self.definitions.subscription}'
-                 f'/resourceGroups/{self.definitions.resource_group}')
-        az('role assignment create'
-           f' --assignee {sp_app_id}'
-           ' --role contributor'
-           f' --scope "{scope}"')
+        try:
+            scope = (f'/subscriptions/{self.definitions.subscription}'
+                    f'/resourceGroups/{self.definitions.resource_group}')
+            az('role assignment create'
+            f' --assignee {sp_app_id}'
+            ' --role contributor'
+            f' --scope "{scope}"')
+        except RaftAzCliException as ex:
+            not_owner = "does not have authorization to perform action"
+            try_again = "does not exist in the directory"
+            if  not_owner in ex.error_message:
+                raise Exception('You must be owner of the'
+                                ' subscription in order to' 
+                                ' deploy the service')
+            if try_again in ex.error_message:
+                print('Service Principal is not in AD yet. Trying again...')
+                time.sleep(3.0)
+                self.assign_resource_group_roles(sp_app_id)
 
     def init_app_insights(self):
         if self.context['useAppInsights']:
@@ -929,25 +942,6 @@ class RaftServiceCLI():
                 else:
                     break
 
-    def test_az_logged_in(self):
-        try:
-            accounts = az_json('account list')
-        except Exception:
-            raise Exception("Make sure that az is installed"
-                            "before running service deployment")
-
-        subscription_found = False
-        for account in accounts:
-            if account['id'] == self.context['subscription']:
-                subscription_found = True
-                break
-
-        if not subscription_found:
-            raise Exception("It looks like your not logged in with az"
-                            " to an account that contains the"
-                            f" subscription {self.context['subscription']}"
-                            " Please run 'az login' before"
-                            " re-running this script.")
 
     def dos2unix(self, file_path):
         print(f'Converting dos2unix {file_path}')
@@ -1019,12 +1013,10 @@ class RaftServiceCLI():
                             'as deployment parameter')
 
         self.test_az_version()
-        self.test_az_logged_in()
 
         # if opt-out-from-metrics is not present, then assume that user
         # is opt-in and patch the defaults.json with that
         print(f'Creating deployment with hash {self.site_hash}')
-        az(f"account set --subscription {self.definitions.subscription}")
         az("group create"
            f" --name {self.definitions.resource_group}"
            f" --location {self.context['region']}")
