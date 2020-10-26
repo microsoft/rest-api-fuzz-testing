@@ -31,6 +31,15 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
     let tags = ["Service", "WebhookService"]
     let log = Log telemetryClient 
 
+    let availableRegions =
+        [
+            let e = Microsoft.Azure.Management.ResourceManager.Fluent.Core.Region.Values.GetEnumerator()
+            while e.MoveNext() do
+                yield e.Current.Name
+        ]
+        |> Set.ofList
+
+
     // Validation function to validate the job request
     // If something does not validate, we want to throw an exception with a a standard error type
     // that is informative for the customer.
@@ -282,10 +291,24 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
     [<ProducesResponseType(typeof<ApiError>, StatusCodes.Status400BadRequest)>]
     member this.Post([<FromQuery>] region : string, [<FromBody>] body : DTOs.JobDefinition ) =
         task {
+            let method = ModuleName + "Post"
+            if (not <| String.IsNullOrWhiteSpace region) && (not <| availableRegions.Contains(region.ToLowerInvariant())) then
+                log.Error (sprintf "Region %s is no valid" region) []
+                raiseApiError ({ 
+                                Error =
+                                    { 
+                                        Code = ApiErrorCode.InternalError
+                                        Message = sprintf "Region %s is not valid. Valid regions are: %s" region (String.Join("; ", availableRegions))
+                                        Target = method
+                                        Details = Array.empty
+                                        InnerError = {Message = ""}
+                                    }
+                                })
+
             let stopWatch = System.Diagnostics.Stopwatch()
             do stopWatch.Start()
 
-            let method = ModuleName + "Post"
+
             try
                 let createQueue = Raft.Message.ServiceBus.Queue.create
 
