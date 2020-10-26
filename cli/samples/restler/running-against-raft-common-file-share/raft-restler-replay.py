@@ -8,7 +8,7 @@ import json
 import urllib.parse
 
 cur_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.join(cur_dir, '..', '..'))
+sys.path.append(os.path.join(cur_dir, '..', '..', '..'))
 from raft_sdk.raft_service import RaftCLI, RaftJobConfig
 
 def run(replay, fuzz_job_id, replay_job_id=None):
