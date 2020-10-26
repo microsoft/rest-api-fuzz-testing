@@ -1,0 +1,31 @@
+{
+  "swaggerLocation" : {
+    "FilePath" : ""
+  },
+  "readOnlyFileShareMounts": [
+    {
+      "FileShareName": "{jobId}",
+      "MountPath": "/job-run"
+    }
+  ],
+  "tasks": [
+    {
+      "toolName": "RESTler",
+      "isIdling" : false,
+      "outputFolder": "RESTler-replay-{experiment}-bugBucket",
+      "keyVaultSecrets": [ "RaftServicePrincipal" ],
+      "authenticationMethod": {
+        "MSAL": "RaftServicePrincipal"
+      },
+      "toolConfiguration": {
+        "task": "Replay",
+        "runConfiguration": {
+          "inputFolderPath": "/job-run/{outputFolder}/RestlerResults/{experiment}/bug_buckets"
+        },
+        "replayConfiguration": {
+          "bugBuckets": [ "{bugBucket}" ]
+        }
+      }
+    }
+  ]
+}

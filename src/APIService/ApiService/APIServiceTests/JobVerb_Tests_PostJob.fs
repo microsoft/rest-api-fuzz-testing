@@ -17,6 +17,7 @@ type jobsPOSTTests() =
         async {
             let fakeMessageSender = Fixtures.createFakeMessageSender Raft.Message.ServiceBus.Queue.create
             Raft.Utilities.raftStorage <- Fixtures.createFakeRaftStorage None
+            Raft.Utilities.toolsSchemas <- Map.empty.Add("RESTler", None)
 
             let contents = File.ReadAllText("grade-track-restler-compile.json")
             let compileJobDefinition = Newtonsoft.Json.JsonConvert.DeserializeObject<DTOs.JobDefinition>(contents, Fixtures.createSerializerSettings())
@@ -37,6 +38,7 @@ type jobsPOSTTests() =
         async {
             let fakeMessageSender = Fixtures.createFakeMessageSender Raft.Message.ServiceBus.Queue.create
             Raft.Utilities.raftStorage <- Fixtures.createFakeRaftStorage None
+            Raft.Utilities.toolsSchemas <- Map.empty.Add("RESTler", None)
 
             let contents = File.ReadAllText("grade-track-restler-fuzz.json")
             let fuzzJobDefinition = Newtonsoft.Json.JsonConvert.DeserializeObject<DTOs.JobDefinition>(contents, Fixtures.createSerializerSettings())

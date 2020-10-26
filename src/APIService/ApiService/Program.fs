@@ -65,9 +65,8 @@ module main =
             return! loadAllConfigs Map.empty
         }
 
-    let getSchemaDocuments () =
+    let getSchemaDocuments (schemaEntities: Map<string, string option>) =
         async {
-            let! schemaEntities = loadSchemaDocuments()
             return schemaEntities
                    |> Map.map (fun tool schema -> 
                                        let reader = Microsoft.OpenApi.Readers.OpenApiStringReader()
@@ -90,7 +89,7 @@ module main =
     type RaftSwaggerDocumentFilter() =
         interface IDocumentFilter with
             member this.Apply(swaggerDoc : OpenApiDocument, context : DocumentFilterContext): unit =
-                let schemaDocuments = getSchemaDocuments () |> Async.RunSynchronously
+                let schemaDocuments = getSchemaDocuments (Utilities.toolsSchemas) |> Async.RunSynchronously
                 schemaDocuments
                 |> Map.iter(fun toolName schemaDocument ->
                             // Add all the schema references to the global schema repository if it does not already exist. 
@@ -106,7 +105,7 @@ module main =
                    context.MemberInfo.Name = "TaskConfiguration" &&
                    context.MemberInfo.DeclaringType.Name = "RaftTask" then
 
-                   let schemaDocuments = getSchemaDocuments () |> Async.RunSynchronously
+                   let schemaDocuments = getSchemaDocuments (Utilities.toolsSchemas) |> Async.RunSynchronously
                    schemaDocuments
                    |> Map.iter(fun toolName schemaDocument ->
                                 for pair in schemaDocument.Components.Schemas do
@@ -145,6 +144,7 @@ module main =
         printfn "Initializing central telemetry"
         ignore <| Central.Initialize (TelemetryClient(new TelemetryConfiguration(metricsKey), InstrumentationKey = metricsKey)) siteHash
 
+        Raft.Utilities.toolsSchemas <- loadSchemaDocuments () |> Async.RunSynchronously
         Raft.Utilities.serviceStartTime <- System.DateTimeOffset.UtcNow
         Raft.Utilities.raftStorage <- Raft.Storage.RaftStorage(settings.[Constants.StorageTableConnectionString])
         Raft.Utilities.serviceBusSenders <- Map.empty

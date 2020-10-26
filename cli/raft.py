@@ -97,7 +97,8 @@ def run(args):
         raft_sdk.raft_common.delete_token_cache()
     elif service_action:
         service_cli = RaftServiceCLI(defaults, defaults_path)
-
+        if not args.get('secret'):
+            service_cli.is_logged_in()
         if service_action == 'restart':
             service_cli.restart()
         elif service_action == 'info':

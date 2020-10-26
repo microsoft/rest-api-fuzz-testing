@@ -31,38 +31,12 @@ class RaftJobConfig():
         else:
             raise Exception('Expected file_path or json to be set')
 
-    def add_read_only_mount(self, file_share, mount_as):
-        fs = [{"FileShareName": file_share, "MountPath": mount_as}]
-        if 'readOnlyFileShareMounts' in self.config:
-            self.config['readOnlyFileShareMounts'] += fs
-        else:
-            self.config['readOnlyFileShareMounts'] = fs
-
-    def add_read_write_mount(self, file_share, mount_as):
-        fs = [{"FileShareName": file_share, "MountPath": mount_as}]
-        if 'readWriteFileShareMounts' in self.config:
-            self.config['readWriteFileShareMounts'] += fs
-        else:
-            self.config['readWriteFileShareMounts'] = fs
-
-    def add_read_only_mounts(self, read_only_mounts):
-        if 'readOnlyMounts' in self.config:
-            self.config['readOnlyFileShareMounts'] += read_only_mounts
-        else:
-            self.config['readOnlyFileShareMounts'] = read_only_mounts
-
-    def add_read_write_mounts(self, read_write_mounts):
-        if 'readWriteFileShareMounts' in self.config:
-            self.config['readWriteFileShareMounts'] += read_write_mounts
-        else:
-            self.config['readWriteFileShareMounts'] = read_write_mounts
-
     def add_metadata(self, data):
         if 'webhook' in self.config:
             if 'metadata' in self.config['webhook']:
-                self.config['metadata'] += data
+                self.config['webhook']['metadata'].update(data)
             else:
-                self.config['metadata'] = data
+                self.config['webhook']['metadata'] = data
 
 
 class RaftJobError(Exception):
@@ -338,6 +312,7 @@ class RaftCLI():
                     print("Details:")
                     for k in s['details']:
                         print(f"{k} : {s['details'][k]}")
+                print('======================')
 
     def poll(self, job_id, poll_interval=10):
         '''

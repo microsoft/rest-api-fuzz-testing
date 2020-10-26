@@ -2,7 +2,7 @@
   "message": {
     "tool": "RESTler",
     "jobId": "29211868-8178-4e81-9b8d-d52025b4c2d4",
-    "state": "Completed",
+    "state": "Created",
     "metrics": {
       "totalRequestCount": 60,
       "responseCodeCounts": { "409": 60 },

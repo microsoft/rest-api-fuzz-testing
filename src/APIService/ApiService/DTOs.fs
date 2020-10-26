@@ -179,6 +179,7 @@ module DTOs =
             /// <summary>
             /// RAFT Task definitions
             /// </summary>
+            [<Required>]
             Tasks : RaftTask array
 
             /// <summary>

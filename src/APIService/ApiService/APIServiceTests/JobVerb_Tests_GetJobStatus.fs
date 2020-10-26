@@ -44,7 +44,7 @@ type GetJobStatusTests() =
             let jobStatus = Seq.head jobStatusSeq
             Assert.True(jobStatus.AgentName = "1")
             Assert.True(jobStatus.Tool = "RESTler")
-            Assert.True(jobStatus.State = DTOs.JobState.Completed)
+            Assert.True(jobStatus.State = DTOs.JobState.Created)
             let testTimeUtc = DateTime.Parse("2020-05-01T00:36:56.7525482Z").ToUniversalTime()
             Assert.True(DateTime.Compare(jobStatus.UtcEventTime, testTimeUtc) = 0)
         }
