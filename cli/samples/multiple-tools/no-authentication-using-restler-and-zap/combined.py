@@ -8,7 +8,7 @@ import json
 import urllib.parse
 
 cur_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.join(cur_dir, '..', '..'))
+sys.path.append(os.path.join(cur_dir, '..', '..', '..'))
 import raft
 
 def run(compile, fuzz, sample_host):
