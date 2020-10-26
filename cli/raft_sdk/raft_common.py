@@ -140,15 +140,15 @@ class RaftDefinitions():
             }
 
         self.orchestrator = f"{self.deployment}-raft-orchestrator"
-        self.storage_suffix = self.subscription.split('-')[1]
-        self.storage_account = f"{self.deployment}raft" + self.storage_suffix
+        self.sub_suffix = self.subscription.split('-')[1]
+        self.storage_account = f"{self.deployment}raft" + self.sub_suffix
         self.event_domain = f"{self.deployment}-raft-events"
-        self.storage_utils = f"{self.deployment}raftutil" + self.storage_suffix
-        self.storage_results = f"{self.deployment}raftrslt" + self.storage_suffix
+        self.storage_utils = f"{self.deployment}raftutil" + self.sub_suffix
+        self.storage_results = f"{self.deployment}raftrslt" + self.sub_suffix
         self.api_service_webapp = f"{self.deployment}-raft-apiservice"
         self.endpoint = f"https://{self.api_service_webapp}.azurewebsites.net"
 
         self.test_infra = f"{self.deployment}-raft-test-infra"
         self.test_infra_storage = (f"{self.deployment}rafttest"
-                                   f"{self.storage_suffix}")
-        self.key_vault = f"{self.deployment}-raft-kv"
+                                   f"{self.sub_suffix}")
+        self.key_vault = f"{self.deployment}-raft-kv" + self.sub_suffix
