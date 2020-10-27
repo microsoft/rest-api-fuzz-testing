@@ -73,8 +73,10 @@ class RaftServiceCLI():
         self.site_hash = self.hash(
             self.definitions.subscription + self.definitions.deployment)
 
-        az('ad signed-in-user show')
         az(f'account set --subscription {self.definitions.subscription}')
+
+    def is_logged_in(self):
+        az('ad signed-in-user show')
 
     def hash(self, txt):
         h = hashlib.md5()

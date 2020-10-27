@@ -18,6 +18,7 @@ module Utilities =
     let mutable serviceStartTime = System.DateTimeOffset.MinValue
     let mutable serviceBusSenders : Map<string, IMessageSender> = Map.empty
     let mutable raftStorage : IRaftStorage = RaftStorage("") :> IRaftStorage
+    let mutable toolsSchemas : Map<string, string option> = Map.empty
 
     let tryGetQueryStringValue (request:HttpRequest) (key:string) =
         request.Query

@@ -31,6 +31,15 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
     let tags = ["Service", "WebhookService"]
     let log = Log telemetryClient 
 
+    let availableRegions =
+        [
+            let e = Microsoft.Azure.Management.ResourceManager.Fluent.Core.Region.Values.GetEnumerator()
+            while e.MoveNext() do
+                yield e.Current.Name
+        ]
+        |> Set.ofList
+
+
     // Validation function to validate the job request
     // If something does not validate, we want to throw an exception with a a standard error type
     // that is informative for the customer.
@@ -49,19 +58,34 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
 
         let outputFolders = requestPayload.Tasks |> Array.map (fun t -> t.OutputFolder) |> Array.sort
 
-        // Validate the swagger URL.
-        if not <| isNull (box requestPayload.SwaggerLocation) &&  not <| String.IsNullOrWhiteSpace(requestPayload.SwaggerLocation.URL) then
-            match Uri.TryCreate(requestPayload.SwaggerLocation.URL, UriKind.Absolute) with
-            | true, _ -> ()
-            | false, _ -> raiseApiError({
-                Error = {
-                    Code = ApiErrorCode.ParseError
-                    Message = "Invalid Swagger Uri. The Uri must be a valid, absolute Uri."
-                    Target = "validateAndPatchPayload"
-                    Details = Array.empty
-                    InnerError = {Message = ""}
-                }
-            })
+        let validateSwaggerLocation (swaggerLocation:DTOs.SwaggerLocation) =
+            // Validate the swagger URL.
+            if not <| isNull (box swaggerLocation) then
+                if not <| String.IsNullOrWhiteSpace(swaggerLocation.URL) then
+                    if not <| String.IsNullOrWhiteSpace(swaggerLocation.FilePath) then
+                        raiseApiError({
+                            Error = {
+                                Code = ApiErrorCode.ParseError
+                                Message = "Only one value is allowed to be set for Swagger location (FilePath or URL)"
+                                Target = "validateAndPatchPayload"
+                                Details = Array.empty
+                                InnerError = {Message = ""}
+                            }
+                        })
+                    else
+                        match Uri.TryCreate(swaggerLocation.URL, UriKind.Absolute) with
+                        | true, _ -> ()
+                        | false, _ -> raiseApiError({
+                            Error = {
+                                Code = ApiErrorCode.ParseError
+                                Message = "Invalid Swagger Uri. The Uri must be a valid, absolute Uri."
+                                Target = "validateAndPatchPayload"
+                                Details = Array.empty
+                                InnerError = {Message = ""}
+                            }
+                        })
+
+        validateSwaggerLocation requestPayload.SwaggerLocation
 
         let requestPayload =
             {requestPayload with
@@ -95,6 +119,28 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                     else
                         requestPayload.Resources
             }
+        
+        if requestPayload.Resources.Cores < 1 then
+            raiseApiError({
+                Error = {
+                    Code = ApiErrorCode.ParseError
+                    Message = "Number of cores must be a positive integer."
+                    Target = "validateAndPatchPayload"
+                    Details = Array.empty
+                    InnerError = {Message = ""}
+                }
+            })
+
+        if requestPayload.Resources.MemoryGBs < 1 then
+            raiseApiError({
+                Error = {
+                    Code = ApiErrorCode.ParseError
+                    Message = "Memory in GBs allocated for the job must be a positive integer."
+                    Target = "validateAndPatchPayload"
+                    Details = Array.empty
+                    InnerError = {Message = ""}
+                }
+            })
 
 
         let taskAuthentication =
@@ -124,6 +170,18 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                     not <| String.IsNullOrWhiteSpace auth.MSAL
                 ]
                 |> List.map (fun b -> if b then 1 else 0)
+
+            if List.sum enabled = 0 then
+                raiseApiError ({ 
+                                Error =
+                                    { 
+                                        Code = ApiErrorCode.ParseError
+                                        Message = sprintf "Authentication method is defined but the method itself is not set"
+                                        Target = "validateAndPatchPayload"
+                                        Details = Array.empty
+                                        InnerError = {Message = ""}
+                                    }
+                                })
 
             if List.sum enabled > 1 then
                 raiseApiError ({ 
@@ -158,33 +216,21 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
 
         requestPayload.Tasks
         |> Array.iter(fun t ->
-            let location = t.SwaggerLocation
-            if not <| isNull(box location) then
-                if not <| String.IsNullOrWhiteSpace(location.URL) then
-                    match Uri.TryCreate(location.URL, UriKind.Absolute) with
-                    | true, _ -> ()
-                    | false, _ -> raiseApiError({
-                        Error = {
-                            Code = ApiErrorCode.ParseError
-                            Message = "Invalid Swagger Uri in a task. The Uri must be a valid, absolute Uri."
-                            Target = "validateAndPatchPayload"
-                            Details = Array.empty
-                            InnerError = {Message = ""}
-                        }
-                    })
+            if not <| Utilities.toolsSchemas.ContainsKey t.ToolName then
+                raiseApiError({
+                    Error = {
+                        Code = ApiErrorCode.ParseError
+                        Message = sprintf "Tool %s is not supported" t.ToolName
+                        Target = "validateAndPatchPayload"
+                        Details = Array.empty
+                        InnerError = {Message = ""}
+                    }
+                })
 
-                if not <| String.IsNullOrWhiteSpace location.URL &&
-                    not <| String.IsNullOrWhiteSpace location.FilePath then
-                    raiseApiError({
-                        Error = {
-                            Code = ApiErrorCode.ParseError
-                            Message = "Only one Swagger Location value is allowed in tasks: Path or URL but not both"
-                            Target = "validateAndPatchPayload"
-                            Details = Array.empty
-                            InnerError = {Message = ""}
-                        }
-                    })
+            if not <| isNull(box t.SwaggerLocation) then
+                validateSwaggerLocation t.SwaggerLocation
         )
+
         if not <| isNull requestPayload.ReadOnlyFileShareMounts then
             requestPayload.ReadOnlyFileShareMounts
             |> Array.iter(fun fs ->
@@ -245,6 +291,16 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
 
         requestPayload
 
+    let jobStatusEntities(jobId) =
+        task {
+            let query = TableQuery<JobStatusEntity>().Where(TableQuery.GenerateFilterCondition(Constants.PartitionKey, QueryComparisons.Equal, jobId))
+            let! results = Utilities.raftStorage.GetJobStatusEntities query
+
+            match results |> Seq.tryFind (fun (r:JobStatusEntity) -> r.PartitionKey = r.RowKey) with
+            | None -> return None
+            | Some r -> return Some (r, results)
+        }
+
     [<HttpPost>]
     /// <summary>
     /// Submit a job definition.
@@ -260,11 +316,24 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
     [<ProducesResponseType(typeof<ApiError>, StatusCodes.Status400BadRequest)>]
     member this.Post([<FromQuery>] region : string, [<FromBody>] body : DTOs.JobDefinition ) =
         task {
-            let stopWatch = System.Diagnostics.Stopwatch()
-            do stopWatch.Start()
-
-            let method = ModuleName + "Post"
             try
+                let method = ModuleName + "Post"
+                if (not <| String.IsNullOrWhiteSpace region) && (not <| availableRegions.Contains(region.ToLowerInvariant())) then
+                    log.Error (sprintf "Invalid region set: %s" region) []
+                    raiseApiError ({ 
+                                    Error =
+                                        { 
+                                            Code = ApiErrorCode.InternalError
+                                            Message = sprintf "Region %s is not valid. Valid regions are: %s" region (String.Join("; ", availableRegions))
+                                            Target = method
+                                            Details = Array.empty
+                                            InnerError = {Message = ""}
+                                        }
+                                    })
+
+                let stopWatch = System.Diagnostics.Stopwatch()
+                do stopWatch.Start()
+
                 let createQueue = Raft.Message.ServiceBus.Queue.create
 
                 let validatedPayload = validateAndPatchPayload body
@@ -358,9 +427,8 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
             let method = ModuleName + "RePost"
 
             try
-                match! Utilities.raftStorage.TableEntryExists Raft.StorageEntities.JobTableName jobId jobId with
-                | Result.Ok() -> ()
-                | Result.Error err -> 
+                match! jobStatusEntities jobId with
+                | None ->
                     raiseApiError ({ 
                                     Error =
                                         { 
@@ -368,10 +436,24 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                                             Message = "JobId was not found. The jobId must already exist and have been created with the IsIdling flag set to true."
                                             Target = method
                                             Details = Array.empty
-                                            InnerError = {Message = sprintf "Job table search for %O failed with HttpStatus %d" jobId err}
+                                            InnerError = {Message = sprintf "Job table search for job with ID %O failed" jobId}
                                         }
                                     })
-
+                | Some (r, _) ->
+                    let status : Message.RaftEvent.RaftJobEvent<DTOs.JobStatus> = Raft.Message.RaftEvent.deserializeEvent r.JobStatus
+                    match status.Message.State with
+                    | DTOs.JobState.Created | DTOs.JobState.Running -> ()
+                    | _ ->
+                        raiseApiError ({ 
+                                        Error =
+                                            { 
+                                                Code = ApiErrorCode.InvalidJob
+                                                Message = "Job must be in active state to re-post"
+                                                Target = method
+                                                Details = Array.empty
+                                                InnerError = {Message = sprintf "Job %O is in %A state" jobId status.Message.State}
+                                            }
+                                        })
 
                 let createQueue = Raft.Message.ServiceBus.Queue.create
                 let validatedPayload = validateAndPatchPayload body
@@ -450,10 +532,9 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
             do stopWatch.Start()
 
             let method = ModuleName + "GetJobStatus"
-
-            let query = TableQuery<JobStatusEntity>().Where(TableQuery.GenerateFilterCondition(Constants.PartitionKey, QueryComparisons.Equal, jobId))
-            let! results = Utilities.raftStorage.GetJobStatusEntities query
-            if results |> Seq.tryFind (fun (r:JobStatusEntity) -> r.PartitionKey = r.RowKey) = None then
+            let! results = jobStatusEntities jobId
+            match results with
+            | None ->
                 printfn "Results sequence is discarded since overall job status is not yet set after executing table query for job: %A" jobId
                 return setApiErrorStatusCode { Error = { Code = ApiErrorCode.NotFound
                                                          Message = sprintf "Job status for job id %O not found." jobId
@@ -461,7 +542,7 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                                                          Details = [||]
                                                          InnerError = {Message = ""}
                                                 }} Microsoft.AspNetCore.Http.StatusCodes.Status404NotFound
-            else
+            | Some (_, results) ->
                 let decodedMessages = 
                     results
                     |> Seq.map (fun jobStatusEntity -> (Raft.Message.RaftEvent.deserializeEvent jobStatusEntity.JobStatus): Message.RaftEvent.RaftJobEvent<DTOs.JobStatus>)

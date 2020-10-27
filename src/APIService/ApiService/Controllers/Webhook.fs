@@ -158,7 +158,7 @@ type webhooksController(configuration : IConfiguration, telemetryClient : Teleme
                    || String.IsNullOrWhiteSpace webhookRequest.Event
                    || String.IsNullOrWhiteSpace (webhookRequest.TargetUrl.ToString()) then
                     raiseApiError { Error = {   Code = ApiErrorCode.ParseError
-                                                Message = "Fields cannot be null"
+                                                Message = "Webhook fields cannot be null"
                                                 Target = "PUT"
                                                 Details = [||]
                                                 InnerError = {Message = "Verify you are using the correct data structure and values."}

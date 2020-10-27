@@ -99,8 +99,11 @@ module RaftCommand =
     let inline deserializeBytes (bytes: byte array) =
         bytes |> System.Text.Encoding.UTF8.GetString |> deserializeJson
 
-    let inline deserializeCommand (message: string)  =
-        deserializeJson message
+    let inline tryDeserializeJson (json: string) =
+        Json.Compact.tryDeserialize< RaftCommand<_> > json
+
+    let inline tryDeserializeCommand (message: string)  =
+        tryDeserializeJson message
 
 
 

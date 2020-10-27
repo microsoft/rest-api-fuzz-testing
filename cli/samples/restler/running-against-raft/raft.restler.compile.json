@@ -13,13 +13,17 @@
           "useRefreshableToken": true,
           "customDictionary": {
             "customPayload": {
+              "cores" : ["1"],
+              "memoryGBs" : ["1"],
+              "toolName" : ["ZAP"],
               "duration": [ "00:10:00" ],
-              "swaggerLocation": [ "{\"URL\": \"https://some.service.azurewebsites.net/swagger.json\"}" ],
+              "swaggerLocation": [ "{\"URL\": \"https://some.service.azurewebsites.net/swagger.json\"}", "{\"FilePath\": \"/swagger-folder/swagger.json\"}" ],
               "authenticationMethod": [ "{\"CommandLine\": \"abc\" }" ],
               "targetUrl": [ "{replace-with-valid-webhook-URL}" ],
               "event": [ "JobStatus" ],
               "timeSpanFilter": [ "00:10:00" ],
-              "eventName": [ "JobStatus" ]
+              "eventName": [ "JobStatus" ],
+              "region" : ["eastus2"]
             }
           }
         }

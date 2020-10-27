@@ -784,7 +784,12 @@ module ContainerInstances =
             stopWatch.Start()
             
             logInfo "Got queue message: %s" message
-            let decodedMessage: RaftCommand.RaftCommand<Raft.Job.CreateJobRequest> = RaftCommand.deserializeCommand message
+            let decodedMessage: RaftCommand.RaftCommand<Raft.Job.CreateJobRequest> =
+                match RaftCommand.tryDeserializeCommand message with
+                | Choice1Of2 j -> j
+                | Choice2Of2 err -> 
+                    logError "Failed to deserialize JSON due to %s. JSON: %s" err message
+                    failwithf "Failed to deserialize JSON due to %s" err
             
             let postStatus = postStatus communicationClients.JobEventsSender decodedMessage.Message.JobId
 
@@ -882,10 +887,14 @@ module ContainerInstances =
         } |> Async.StartAsTask
 
 
-    let stopJob (containerGroup: IContainerGroup) =
+    let stopJob (containerGroupOpt: IContainerGroup option) =
         async {
-            let! _ = containerGroup.Update().WithTag(Tags.GCReady, sprintf "%A" true).ApplyAsync().ToAsync
-            do! containerGroup.StopAsync().ToAsync
+            match containerGroupOpt with
+            | None ->
+                return ()
+            | Some containerGroup ->
+                let! _ = containerGroup.Update().WithTag(Tags.GCReady, sprintf "%A" true).ApplyAsync().ToAsync
+                do! containerGroup.StopAsync().ToAsync
         }
 
     let delete (logger:ILogger) (azure: IAzure, agentConfig: AgentConfig, communicationClients: CommunicationClients) (message: string) =
@@ -896,16 +905,19 @@ module ContainerInstances =
             let stopWatch = System.Diagnostics.Stopwatch()
             stopWatch.Start()
 
-            let decodedMessage: RaftCommand.RaftCommand<Raft.Job.DeleteJobRequest> = RaftCommand.deserializeCommand message
+            let decodedMessage: RaftCommand.RaftCommand<Raft.Job.DeleteJobRequest> = 
+                match RaftCommand.tryDeserializeCommand message with
+                | Choice1Of2 j -> j
+                | Choice2Of2 err ->
+                    logError "Failed to deserialize deletion message due to %s. JSON: %s" err message
+                    failwithf "Failed to deserialize deletion message due to %s" err
             logInfo "Got delete queue message: %A" decodedMessage
 
             let postStatus = postStatus communicationClients.JobEventsSender decodedMessage.Message.JobId
 
             let containerGroupName = containerGroupName decodedMessage.Message.JobId
-            
             let! containerGroup = azure.ContainerGroups.GetByResourceGroupAsync(agentConfig.ResourceGroup, containerGroupName).ToAsync
-
-            do! stopJob containerGroup
+            do! stopJob (containerGroup |> Option.ofObj)
             do! postStatus JobState.Completed None
             stopWatch.Stop()
             logInfo "Time took to stop job: %s total seconds %f" containerGroupName stopWatch.Elapsed.TotalSeconds
@@ -1085,7 +1097,6 @@ module ContainerInstances =
                         | Some webhook ->
                             return Some webhook.Metadata 
                         | None ->
-                            logError "[WEBHOOK] webhook is not set in jobrequest for jobId: %A" jobId 
                             return None
                     else
                         logError "[WEBHOOK] Getting job (to find pipeline data) failed with status code %d" retrieveResult.HttpStatusCode
@@ -1329,7 +1340,7 @@ module ContainerInstances =
                                         else if isJobExpired logger g then
                                             //since job is expired, need to stop it and garbage collect it
                                             logInfo "[GC] Stopping running job since it expired: %s" g.Name
-                                            do! stopJob g
+                                            do! stopJob (g |> Option.ofObj)
                                             return true
                                         else
                                             return false

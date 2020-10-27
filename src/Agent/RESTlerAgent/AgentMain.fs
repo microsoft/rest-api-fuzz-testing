@@ -534,6 +534,7 @@ let main argv =
         let report state (summary: Raft.JobEvents.RunSummary option) =
             async {
                 printfn "Reporting summary [%A]: %A" state summary
+                let! bugsList = Raft.RESTlerDriver.getListOfBugs workDirectory globalRunStartTime
                 do! jobEventSender.SendRaftJobEvent jobId
                                                 ({
                                                     AgentName = agentName
@@ -544,7 +545,7 @@ let main argv =
 
                                                     Metrics = summary
                                                     UtcEventTime = System.DateTime.UtcNow
-                                                    Details = None
+                                                    Details = Some <| Map.empty.Add("numberOfBugsFound", sprintf "%d" (Seq.length bugsList))
                                                 } : Raft.JobEvents.JobStatus)
             }
 
