@@ -8,13 +8,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Include="job-status.json">
+    <Content Include="test-job-status.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="grade-track-restler-fuzz.json">
+    <Content Include="test-restler-fuzz.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="grade-track-restler-compile.json">
+    <Content Include="test-restler-compile.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Compile Include="Fixtures.fs" />

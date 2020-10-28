@@ -32,7 +32,7 @@ type DeleteJobTests() =
         async {
             let fakeMessageSender = Fixtures.createFakeMessageSender Raft.Message.ServiceBus.Queue.delete
 
-            let jobStatusJson = File.ReadAllText("job-status.json")
+            let jobStatusJson = File.ReadAllText("test-job-status.json")
             let entity = JobStatusEntity(System.Guid.Parse("29211868-8178-4e81-9b8d-d52025b4c2d4").ToString(), "testAgent", jobStatusJson)
 
             Raft.Utilities.raftStorage <- Fixtures.createFakeRaftStorage (Some entity)

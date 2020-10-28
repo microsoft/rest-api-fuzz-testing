@@ -1,7 +1,4 @@
 {
-  "swaggerLocation": {
-    "URL": "https://{sample.host}/swagger/v1/swagger.json"
-  },
   "duration": "00:10:00",
   "host": "{sample.host}",
   "rootFileshare": "sample",

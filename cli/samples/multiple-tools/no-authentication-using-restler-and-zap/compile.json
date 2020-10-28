@@ -5,7 +5,6 @@
   "tasks": [
     {
       "toolName": "RESTler",
-      "isIdling": false,
       "outputFolder": "{defaults.deploymentName}-compile",
 
       "toolConfiguration": {
@@ -17,7 +16,6 @@
     },
     {
       "toolName": "RESTler",
-      "isIdling": false,
       "outputFolder": "sample-compile",
       "toolConfiguration": {
         "task": "Compile"

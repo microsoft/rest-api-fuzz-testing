@@ -11,7 +11,6 @@
     {
       "toolName": "RESTler",
       "outputFolder": "RESTler-compile",
-      "isIdling": false,
 
       "toolConfiguration": {
         "task": "compile",

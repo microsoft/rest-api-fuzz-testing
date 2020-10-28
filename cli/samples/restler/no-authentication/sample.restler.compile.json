@@ -10,7 +10,6 @@
   "tasks": [
     {
       "toolName": "RESTler",
-      "isIdling": false,
       "outputFolder": "compile-1",
       "toolConfiguration": {
         "task": "Compile"
