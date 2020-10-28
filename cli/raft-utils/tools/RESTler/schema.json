@@ -151,6 +151,20 @@
                 "additionalProperties": false,
                 "description": "User-specified RESTler compiler configuration"
             },
+            "ReplayConfiguration": {
+                "type": "object",
+                "properties": {
+                    "bugBuckets": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "List of paths to RESTler folder runs to replay (names of folders are assigned when mounted readonly/readwrite file share mounts).\r\nIf path is a folder, then all bug buckets replayed in the folder.\r\nIf path is a bug_bucket file - then only that file is replayed.\r\nIf empty - then replay all bugs under RunConfiguration.previousStepOutputFolderPath.",
+                        "nullable": true
+                    }                },
+                "additionalProperties": false,
+                "description": "RESTler configuration for replaying request sequences that triggered a reproducable bug"
+            },
             "TargetEndpointConfiguration": {
                 "type": "object",
                 "properties": {
@@ -197,28 +211,15 @@
                         "type": "string",
                         "description": "Path regex for filtering tested endpoints",
                         "nullable": true
+                    },
+                    "authenticationTokenRefreshIntervalSeconds" : {
+                        "type": "integer",
+                        "description": "Authentciation token refresh interval",
+                        "format": "int32"
                     }
                 },
                 "additionalProperties": false,
                 "description": "RESTler job Test, Fuzz or Replay configuration"
-            },
-            "ReplayConfiguration": {
-                "type": "object",
-                "properties": {
-                    "replayBugBucketsPaths": {
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        },
-                        "description": "List of paths to RESTler folder runs to replay (names of folders are assigned when mounted readonly/readwrite file share mounts).\r\nIf path is a folder, then all bug buckets replayed in the folder.\r\nIf path is a bug_bucket file - then only that file is replayed.\r\nIf empty - then replay all bugs under RunConfiguration.previousStepOutputFolderPath.",
-                        "nullable": true
-                    },
-                    "runConfiguration": {
-                        "$ref": "#/components/schemas/RunConfiguration"
-                    }
-                },
-                "additionalProperties": false,
-                "description": "RESTler configuration for replaying request sequences that triggered a reproducable bug"
             },
             "AgentConfiguration": {
                 "type": "object",
@@ -239,7 +240,8 @@
                     "task": {
                         "type": "string",
 						"description": "Can be compile, fuzz, test, replay",
-						"nullable": false
+                        "nullable": false,
+                        "enum" : ["compile", "test", "fuzz", "replay"]
                     },
                     "compileConfiguration": {
                         "$ref": "#/components/schemas/CompileConfiguration"
