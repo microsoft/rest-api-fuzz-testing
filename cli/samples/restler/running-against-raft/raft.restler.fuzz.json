@@ -1,7 +1,4 @@
 {
-  "swaggerLocation": {
-    "URL": "https://{defaults.deploymentName}-raft-apiservice.azurewebsites.net/swagger/v1/swagger.json"
-  },
   "host": "{defaults.deploymentName}-raft-apiservice.azurewebsites.net",
   "duration": "00:10:00",
   "ReadOnlyFileShareMounts": [
@@ -13,7 +10,6 @@
   "tasks": [
     {
       "toolName": "RESTler",
-      "isIdling": false,
       "outputFolder": "RESTler-random-walk-fuzz",
       "keyVaultSecrets": [ "RaftServicePrincipal" ],
       "authenticationMethod": {
@@ -32,7 +28,6 @@
     {
       "toolName": "RESTler",
       "outputFolder": "RESTler-fuzz",
-      "isIdling": false,
       "keyVaultSecrets": [ "RaftServicePrincipal" ],
       "authenticationMethod": {
         "MSAL": "RaftServicePrincipal"

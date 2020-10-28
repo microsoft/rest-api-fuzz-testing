@@ -19,12 +19,12 @@ type jobsRePOSTTests() =
             let fakeMessageSender = Fixtures.createFakeMessageSender Raft.Message.ServiceBus.Queue.create
             let jobId = System.Guid.NewGuid().ToString()
 
-            let jobStatusJson = File.ReadAllText("job-status.json")
+            let jobStatusJson = File.ReadAllText("test-job-status.json")
             let entity = JobStatusEntity(jobId, jobId, jobStatusJson)
             Raft.Utilities.raftStorage <- Fixtures.createFakeRaftStorage (Some entity)
             Raft.Utilities.toolsSchemas <- Map.empty.Add("RESTler", None)
 
-            let contents = File.ReadAllText("grade-track-restler-compile.json")
+            let contents = File.ReadAllText("test-restler-compile.json")
             let compileJobDefinition = Newtonsoft.Json.JsonConvert.DeserializeObject<DTOs.JobDefinition>(contents, Fixtures.createSerializerSettings())
 
             let jobController = jobsController(Fixtures.createFakeTelemetryClient, Fixtures.createFakeLogger<jobsController>)
@@ -42,7 +42,7 @@ type jobsRePOSTTests() =
             Raft.Utilities.raftStorage <- Fixtures.createFakeRaftStorageJobEnity None
             Raft.Utilities.toolsSchemas <- Map.empty.Add("RESTler", None)
 
-            let contents = File.ReadAllText("grade-track-restler-compile.json")
+            let contents = File.ReadAllText("test-restler-compile.json")
             let compileJobDefinition = Newtonsoft.Json.JsonConvert.DeserializeObject<DTOs.JobDefinition>(contents, Fixtures.createSerializerSettings())
 
             let jobController = jobsController(Fixtures.createFakeTelemetryClient, Fixtures.createFakeLogger<jobsController>)

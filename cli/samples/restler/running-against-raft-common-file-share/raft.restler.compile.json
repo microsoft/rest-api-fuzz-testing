@@ -7,8 +7,6 @@
     {
       "toolName": "RESTler",
       "outputFolder": "compile",
-      "isIdling": false,
-
       "toolConfiguration": {
         "task": "compile",
         "compileConfiguration": {

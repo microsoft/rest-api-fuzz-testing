@@ -12,7 +12,6 @@
   "tasks": [
     {
       "toolName": "RESTler",
-      "isIdling": false,
       "outputFolder": "RESTler-compile-1",
       "toolConfiguration": {
         "task": "Compile"

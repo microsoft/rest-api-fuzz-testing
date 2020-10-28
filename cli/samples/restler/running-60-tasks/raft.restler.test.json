@@ -1,7 +1,4 @@
 {
-  "swaggerLocation": {
-    "URL": "https://{host}/swagger/v1/swagger.json"
-  },
   "host": "{host}",
   "resources": {
     "Cores": 4,

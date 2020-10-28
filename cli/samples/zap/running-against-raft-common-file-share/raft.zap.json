@@ -6,7 +6,6 @@
   "rootFileshare": "raft",
   "tasks": [
     {
-      "isIdling": false,
       "toolName": "ZAP",
       "outputFolder": "zap-out",
       "keyVaultSecrets": [ "RaftServicePrincipal" ],

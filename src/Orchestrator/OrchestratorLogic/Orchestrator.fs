@@ -768,7 +768,7 @@ module ContainerInstances =
         let [<Literal>] Pending = "Pending"
         let [<Literal>] Succeeded = "Succeeded"
         let [<Literal>] Failed = "Failed"
-
+        let [<Literal>] Repairing = "Repairing"
 
     let createJob
             (logger:ILogger)
@@ -874,7 +874,7 @@ module ContainerInstances =
                             let! _ = existingContainerGroup.Update().WithTag(Tags.GCReady, sprintf "%A" true).ApplyAsync().ToAsync
                             ()
 
-                    | ContainerGroupStates.Pending | null ->
+                    | ContainerGroupStates.Pending | ContainerGroupStates.Repairing | null ->
                         do! rePostJobCreate communicationClients.JobCreationSender decodedMessage
                 
                     | state ->

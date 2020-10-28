@@ -1,7 +1,4 @@
 {
-  "swaggerLocation": {
-    "URL": "https://{defaults.deploymentName}-raft-apiservice.azurewebsites.net/swagger/v1/swagger.json"
-  },
   "host": "{defaults.deploymentName}-raft-apiservice.azurewebsites.net",
   "ReadOnlyFileShareMounts": [
     {
@@ -18,7 +15,6 @@
       "duration": "00:20:00",
       "toolName": "RESTler",
       "outputFolder": "{defaults.deploymentName}-RESTler-fuzz",
-      "isIdling": false,
       "keyVaultSecrets": [ "RaftServicePrincipal" ],
       "authenticationMethod": {
         "MSAL": "RaftServicePrincipal"
@@ -33,31 +29,29 @@
       }
     },
     {
-      "isIdling": false,
       "toolName": "ZAP",
       "keyVaultSecrets": [ "RaftServicePrincipal" ],
       "outputFolder": "{defaults.deploymentName}-ZAP-out",
+      "swaggerLocation": {
+        "URL": "https://{defaults.deploymentName}-raft-apiservice.azurewebsites.net/swagger/v1/swagger.json"
+      },
 
       "authenticationMethod": {
         "MSAL": "RaftServicePrincipal"
       }
     },
     {
+      "host": "{sample.host}",
+      "toolName": "ZAP",
       "swaggerLocation": {
         "URL": "https://{sample.host}/swagger/v1/swagger.json"
       },
-      "host": "{sample.host}",
-      "isIdling": false,
-      "toolName": "ZAP",
       "outputFolder": "sample-zap-out"
     },
     {
       "duration": "00:10:00",
       "toolName": "RESTler",
 
-      "swaggerLocation": {
-        "URL": "https://{sample.host}/swagger/v1/swagger.json"
-      },
       "host": "{sample.host}",
       "outputFolder": "sample-RESTler-fuzz",
 
@@ -71,10 +65,6 @@
     {
       "duration": "00:10:00",
       "toolName": "RESTler",
-
-      "swaggerLocation": {
-        "URL": "https://{sample.host}/swagger/v1/swagger.json"
-      },
       "host": "{sample.host}",
       "outputFolder": "sample-RESTler-fuzz-random-walk",
 
@@ -88,10 +78,6 @@
     {
       "duration": "00:10:00",
       "toolName": "RESTler",
-
-      "swaggerLocation": {
-        "URL": "https://{sample.host}/swagger/v1/swagger.json"
-      },
       "host": "{sample.host}",
       "outputFolder": "sample-RESTler-fuzz-bfs-cheap",
 
