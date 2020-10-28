@@ -679,7 +679,7 @@ class RaftServiceCLI():
         os.remove(settings_path)
 
         print("    updating container registry settings")
-        container_image_name = self.container_image_name('test-infra-func')
+        container_image_name = self.container_image_name('test-infra')
 
         if container_registry_password and container_registry_username:
             functionAppConfig = az(
