@@ -18,9 +18,8 @@ steps:
       arguments: '-c release /p:version=$(versionNumber)'
       zipAfterPublish: false
 
-    # Because we are using a deployment job with the orchestrator we need to push the
-    # Dockerfile in with the artifacts. The deployment job does not check out the source code
-    # like a normal job.
+    # Because we are using a a release pipeline we need to publish the Dockerfile
+    # in the artifacts, since the release pipeline does not have access to the code tree.
   - task: CopyFiles@2
     displayName: 'Copy Orchestrator Dockerfile'
     inputs:

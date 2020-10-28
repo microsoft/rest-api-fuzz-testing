@@ -10,7 +10,7 @@ steps:
       buildContext: $(Build.SourcesDirectory)/artifacts/TestInfraFunc/
       command: buildAndPush
       containerRegistry: $(raft-containerRegistryServiceConnection)
-      repository: restapifuzztesting/test-infra-func
+      repository: restapifuzztesting/test-infra
       Dockerfile: $(Build.SourcesDirectory)/artifacts/TestInfraFunc/Dockerfile
       tags: |
         $(imageTag)
