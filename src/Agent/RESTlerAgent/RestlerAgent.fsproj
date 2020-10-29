@@ -12,6 +12,7 @@
     <Compile Include="RESTlerTypes.fs" />
     <Compile Include="RESTlerDriver.fs" />
     <Compile Include="RESTlerAgentConfigTypes.fs" />
+    <Compile Include="Telemetry.fs" />
     <Compile Include="AgentMain.fs" />
   </ItemGroup>
 

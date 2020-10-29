@@ -315,6 +315,6 @@ module Logs =
             total_object_creations: int
             total_unique_test_cases: float
             total_sequences: int
+            total_requests_sent : IDictionary<string, int>
+            bug_buckets : IDictionary<string, int>
         }
-
-
