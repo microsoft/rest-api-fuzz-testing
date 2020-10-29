@@ -2,16 +2,17 @@
 # Licensed under the MIT License.
 
 import json
+import yaml
 import os
 import sys
 import time
+from pathlib import Path
 
 import tabulate
 from .raft_common import RaftApiException, RestApiClient, RaftDefinitions
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 dos2unix_file_types = [".sh", ".bash"]
-
 
 class RaftJobConfig():
     def __init__(self,
@@ -24,7 +25,15 @@ class RaftJobConfig():
                 c = config_file.read()
                 for src in substitutions:
                     c = c.replace(src, substitutions[src])
-                config = json.loads(c)
+
+                ext = Path(file_path).suffix
+                if ext == '.json': 
+                    config = json.loads(c)
+                elif ext == '.yml' or ext == '.yaml':
+                    config= yaml.load(c, Loader= yaml.FullLoader)
+                else:
+                    raise Exception('Unsupported config file type')
+
             self.config = config
         elif json:
             self.config = json_config

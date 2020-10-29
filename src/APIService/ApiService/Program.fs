@@ -127,7 +127,12 @@ module main =
            .UseExceptionHandler(fun options -> options.Run(RequestDelegate ErrorHandling.handleExceptions)) 
            .UseMvc()
            .UseSwagger()
-           .UseSwaggerUI(fun config -> config.SwaggerEndpoint("/swagger/v1/swagger.json", "RAFT API"))
+           .UseSwaggerUI(fun config ->
+                config.ConfigObject.Urls <- [
+                    Swashbuckle.AspNetCore.SwaggerUI.UrlDescriptor(Name = "RAFT API Json", Url = "/swagger/v1/swagger.json")
+                    Swashbuckle.AspNetCore.SwaggerUI.UrlDescriptor(Name = "RAFT API Yaml", Url = "/swagger/v1/swagger.yaml")
+                ]
+            )
            |> ignore
 
         if Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") <> "Development" then

@@ -16,7 +16,6 @@ def run(compile, fuzz, sample_host):
     subs = {
         '{sample.host}' : sample_host,
         '{defaults.deploymentName}' : cli.definitions.deployment
-
     }
     compile_job_config = raft.RaftJobConfig(file_path=compile, substitutions=subs)
     print('Compile')
@@ -35,6 +34,6 @@ if __name__ == "__main__":
 substitute {sample.host} in compile.json and fuzz.json config files')
     else:
         host = sys.argv[1]
-    run(os.path.join(cur_dir, "compile.json"),
+    run(os.path.join(cur_dir, "compile.yaml"),
         os.path.join(cur_dir, "fuzz.json"),
         host)

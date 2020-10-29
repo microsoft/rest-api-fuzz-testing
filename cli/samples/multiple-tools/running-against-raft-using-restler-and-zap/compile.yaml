@@ -1,0 +1,19 @@
+swaggerLocation:
+  URL: "https://{defaults.deploymentName}-raft-apiservice.azurewebsites.net/swagger/v1/swagger.json"
+
+tasks:
+- toolName: "RESTler"
+  outputFolder: "{defaults.deploymentName}-compile"
+  toolConfiguration:
+    task : Compile
+    compileConfiguration:
+      useRefreshableToken: true
+
+- toolName: "RESTler"
+  outputFolder: "sample-compile"
+  swaggerLocation:
+    URL: "https://{sample.host}/swagger/v1/swagger.json"
+  toolConfiguration:
+    task : Compile
+    compileConfiguration:
+      useRefreshableToken: true
