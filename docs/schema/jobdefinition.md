@@ -137,7 +137,7 @@ authTokenConfiguration object.
 
 ## NamePrefix (optional string)
 
-The “namePrefix” is prepended to the job id guid.
+The “namePrefix” is prepended to the Job ID guid.
 This makes finding results in storage easily searchable by the prefix.
 By combining the prefix with the timestamp it becomes easy to find job results. 
 

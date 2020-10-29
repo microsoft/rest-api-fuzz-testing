@@ -39,11 +39,30 @@ region - Region to deploy RAFT (e.g. westus2)
     See https://azure.microsoft.com/en-us/global-infrastructure/regions/
     for a list of regions
 
+isDevelop - Is this deployment for developing the RAFT service?
+    Setting this value to true will generate yaml variables for use in your
+    build pipelines.
+
 metricsOptIn - allow Microsoft collect anonymized metrics from the deployment.
 
 useAppInsights - deploy AppInsights and use it to write all service logs
 
-registry - registry which stores service images.
+containerRegistryServiceConnection - service connection to the azure container
+    registry which stores images.
+
+    If your deployment uses a private registry, then this value should
+    reference a Service Connection in your project
+    (see Project Settings -> Pipelines -> Service connections).
+    This allows the build pipeline to access the registry.
+
+    Also, you will need to manually add the newly Service Principal that is
+    created when the deployment script is run, to your private registry
+    access control, granting the AcrPull role to it.
+    https://docs.microsoft.com/en-us/azure/container-registry/container-registry-auth-service-principal#create-a-service-principal
+    https://docs.microsoft.com/en-us/azure/container-registry/container-registry-auth-aci
+
+getToken - Needed because we don't have images in public repositories yet.
+    Only needed for Microsoft internal deployments.
 
 -------------------------
 To apply any changes made to the defaults.json file,
