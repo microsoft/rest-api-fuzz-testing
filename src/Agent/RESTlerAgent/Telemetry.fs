@@ -1,6 +1,9 @@
 ﻿// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+//Copied from RESTler repo (need to keep in sync)
+//https://github.com/microsoft/restler-fuzzer/blob/main/src/compiler/Restler.Compiler/Telemetry.fs
+
 module Restler.Telemetry
 
 //Instrumentation key is from app insights resource in Azure Portal

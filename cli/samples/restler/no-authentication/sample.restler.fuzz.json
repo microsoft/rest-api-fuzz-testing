@@ -3,7 +3,7 @@
   "duration": "00:10:00",
   "rootFileshare": "sample-fuzz",
   "webhook": {
-    "name": "sample-fuzz",
+    "name": "LogicApp",
     "metadata": {}
   },
   "readonlyFileShareMounts": [

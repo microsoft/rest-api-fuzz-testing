@@ -24,7 +24,12 @@ you've cloned the RAFT repo to `/home/git/rest-api-fuzz-testing` on your local m
 Please adjust this command as necessary:
 
 ```bash
-$ alias raft='python /home/git/rest-api-fuzz-testing/cli/raft.py --defaults-context-path /home/git/rest-api-fuzz-testing/cli/defaults.json $*'
+$ alias raft='python /home/git/rest-api-fuzz-testing/cli/raft.py $*'
+```
+
+Azure Portal Shell
+```bash
+$ alias raft='/opt/az/bin/python3 /home/git/rest-api-fuzz-testing/cli/raft.py'
 ```
 
 For PowerShell, you may create an alias with the following command.  Note that this assumes
@@ -32,7 +37,7 @@ you've cloned the RAFT repo to `D:\git\rest-api-fuzz-testing` on your local mach
 adjust this command as necessary:
 
 ```powershell
-> function InvokeRaftCLI { python d:\git\rest-api-fuzz-testing\cli\raft.py --defaults-context-path d:\git\rest-api-fuzz-testing\cli\defaults.json $args}
+> function InvokeRaftCLI { python d:\git\rest-api-fuzz-testing\cli\raft.py $args}
 > set-alias raft InvokeRaftCLI
 ```
 
@@ -46,8 +51,8 @@ For interactive authentication, all you need to do is execute a command from an
 unauthenticated state; this will cause the system to prompt you to authenticate.
 All subsequent commands are authenticated until you call the `logout` command.
 
-For unattended scripting scenarios, you must include an API key in each call via
-the `-secret` argument.  This can be obtained either by using the Azure Portal or the `az` cli. 
+For unattended scripting scenarios, you must include an Service Principal secret in each call via
+the `--secret` argument.  This can be obtained either by using the Azure Portal or the `az` cli. 
 
 In the portal, navigate to your deployment's App Registration under the Azure Active 
 Directory resource. The app registration will be named **[deploymentName]-raft**. 
@@ -58,21 +63,21 @@ To create a secret using the `az` cli, see the documentation for [az ad sp crede
 ##### Usage
 
 ```
-$ raft  [-secret SECRET_VALUE]
+$ raft  [--secret SECRET_VALUE]
         [--skip-sp-deployment]
         command subcommand ...
 ```
 
 ##### Authentication arguments
 
-- `-secret SECRET_VALUE`    Used for scripting, where each individual call must be authenticated.
+- `--secret SECRET_VALUE`    Used for scripting, where each individual call must be authenticated.
 
 ##### Optional arguments
 
-- `--skip-sp-deployment`    is used, new secret generation is not executed.
+- `--skip-sp-deployment`    is used, creation of new Service Principal is not executed.
                                 However, the deployment will overwrite configuration settings for the APIService and the Orchestrator.
                                 These services need to know the service principal secret.
-                                Use this parameter to pass the secret to the deployment process.
+                                Use this parameter to pass the secret to the service re-deployment process.
 
 ##### Available commands
 
@@ -80,7 +85,7 @@ $ raft  [-secret SECRET_VALUE]
 
       job create          Creates a new job
       job status          Returns the status of the given job
-      job list            Returns the status of all jobs started in the last _n_ hours
+      job list            Returns the status of all jobs started in the last 24 hours
       job update          Deploys a job definition to an existing, idling job
       job delete          Deletes a running job
       job results         Returns a url to where the job's results are stored
@@ -182,57 +187,52 @@ $ raft job status
 ##### Example
 
 ```bash
-$ raft job status --job-id ffc4a296-f85d-4122-b49b-8074b88c9755
-[
-    {
-        "tool": "RESTler",
-        "jobId": "9ef309ab-df0a-4a98-a930-be6df04da47e",
-        "state": "Completed",
-        "metrics": {
-            "totalRequestCount": 905,
-            "responseCodeCounts": {
-                "200": 99,
-                "400": 683,
-                "404": 82,
-                "500": 41
-            },
-            "totalBugBucketsCount": 8
-        },
-        "utcEventTime": "2020-10-12T17:18:09.2568235Z",
-        "details": [],
-        "agentName": "0-restler-fuzz-1"
-    },
-    {
-        "tool": "RESTler",
-        "jobId": "9ef309ab-df0a-4a98-a930-be6df04da47e",
-        "state": "Completed",
-        "metrics": {
-            "totalRequestCount": 899,
-            "responseCodeCounts": {
-                "200": 79,
-                "400": 674,
-                "404": 106,
-                "500": 40
-            },
-            "totalBugBucketsCount": 8
-        },
-        "utcEventTime": "2020-10-12T17:18:13.9189848Z",
-        "details": [],
-        "agentName": "1-restler-3"
-    },
-    {
-        "tool": "",
-        "jobId": "9ef309ab-df0a-4a98-a930-be6df04da47e",
-        "state": "Completed",
-        "utcEventTime": "2020-10-12T17:19:00.5900998Z",
-        "details": [
-            "CPU Average 19.409091",
-            "Network total bytes received: 944423",
-            "Network total bytes sent: 728473"
-        ],
-        "agentName": "9ef309ab-df0a-4a98-a930-be6df04da47e"
-    }
-]
+$ raft job status --job-id e3405ee2-c451-4dc0-b72a-14da2cafc715
+
+e3405ee2-c451-4dc0-b72a-14da2cafc715 Completed
+Details:
+cpuAverage : 11.166667
+networkTotalBytesReceived : 946815
+networkTotalBytesSent : 918968
+Agent: 0-fuzz-1    Tool: RESTler    State: Completed     Total Request Count: 224
+  Response Code    Count
+---------------  -------
+            200        4
+            201        7
+            400      105
+            409      106
+            500        2
+
+Details:
+finalSpecCoverage : 6 / 27
+numberOfBugsFound : 1
+======================
+Agent: 1-fuzz-2    Tool: RESTler    State: Completed     Total Request Count: 247
+  Response Code    Count
+---------------  -------
+            200        4
+            201       19
+            400      101
+            409      121
+            500        2
+
+Details:
+finalSpecCoverage : 5 / 27
+numberOfBugsFound : 1
+======================
+Agent: 2-fuzz-3    Tool: RESTler    State: Completed     Total Request Count: 488
+  Response Code    Count
+---------------  -------
+            200       48
+            201      175
+            400      230
+            409       33
+            500        2
+
+Details:
+finalSpecCoverage : 6 / 27
+numberOfBugsFound : 1
+======================
 ```
 
 <br/>
@@ -256,133 +256,29 @@ $ raft job list
 ##### Example
 
 ```bash
-$ raft job list --look-back-hours 8
-[
-    {
-        "tool": "",
-        "jobId": "02c7b598c-bce2-4a19-ab2d-5ee7fc7a0028",
-        "state": "Error",
-        "utcEventTime": "2020-10-12T16:59:52.504944Z",
-        "details": [
-            "Failed to get configuration for unsupported tool: \"fuzzstring\""
-        ],
-        "agentName": "02c7b598c-bce2-4a19-ab2d-5ee7fc7a0028"
-    },
-    {
-        "tool": "",
-        "jobId": "039b42d54-84a4-4413-9ab0-cd1351284d37",
-        "state": "Error",
-        "utcEventTime": "2020-10-12T17:11:19.0013263Z",
-        "details": [
-            "Failed to get configuration for unsupported tool: \"fuzzstring\""
-        ],
-        "agentName": "039b42d54-84a4-4413-9ab0-cd1351284d37"
-    },
-    {
-        "tool": "",
-        "jobId": "06bdc1817-4512-47d5-8fce-348ff4ffcb06",
-        "state": "Error",
-        "utcEventTime": "2020-10-12T17:09:14.0202546Z",
-        "details": [
-            "Failed to get configuration for unsupported tool: \"fuzzstring\""
-        ],
-        "agentName": "06bdc1817-4512-47d5-8fce-348ff4ffcb06"
-    },
-    {
-        "tool": "",
-        "jobId": "091379c3e-d146-4f5d-9357-32b566af03f3",
-        "state": "Error",
-        "utcEventTime": "2020-10-12T16:52:30.9707085Z",
-        "details": [
-            "Failed to get configuration for unsupported tool: \"fuzzstring\""
-        ],
-        "agentName": "091379c3e-d146-4f5d-9357-32b566af03f3"
-    },
-    {
-        "tool": "RESTler",
-        "jobId": "61a50b73-02cf-4b07-9208-fab9dc7f08ad",
-        "state": "Completed",
-        "metrics": {
-            "totalRequestCount": 900,
-            "responseCodeCounts": {
-                "200": 65,
-                "400": 690,
-                "404": 105,
-                "500": 40
-            },
-            "totalBugBucketsCount": 8
-        },
-        "utcEventTime": "2020-10-12T17:06:37.9648198Z",
-        "details": [],
-        "agentName": "0-restler-test-fuzz-lean-1"
-    },
-    {
-        "tool": "RESTler",
-        "jobId": "61a50b73-02cf-4b07-9208-fab9dc7f08ad",
-        "state": "Completed",
-        "metrics": {
-            "totalRequestCount": 16,
-            "responseCodeCounts": {
-                "200": 7,
-                "400": 1,
-                "404": 4,
-                "500": 4
-            },
-            "totalBugBucketsCount": 2
-        },
-        "utcEventTime": "2020-10-12T16:56:07.621813Z",
-        "details": [],
-        "agentName": "1-restler-test-2"
-    },
-    {
-        "tool": "",
-        "jobId": "61a50b73-02cf-4b07-9208-fab9dc7f08ad",
-        "state": "Completed",
-        "utcEventTime": "2020-10-12T17:07:00.7120105Z",
-        "details": [
-            "CPU Average 16.989583",
-            "Network total bytes received: 603156",
-            "Network total bytes sent: 410004"
-        ],
-        "agentName": "61a50b73-02cf-4b07-9208-fab9dc7f08ad"
-    },
-    {
-        "tool": "RESTler",
-        "jobId": "9ef309ab-df0a-4a98-a930-be6df04da47e",
-        "state": "Completed",
-        "metrics": {
-            "totalRequestCount": 905,
-            "responseCodeCounts": {
-                "200": 99,
-                "400": 683,
-                "404": 82,
-                "500": 41
-            },
-            "totalBugBucketsCount": 8
-        },
-        "utcEventTime": "2020-10-12T17:18:09.2568235Z",
-        "details": [],
-        "agentName": "0-restler-fuzz-1"
-    },
-    {
-        "tool": "RESTler",
-        "jobId": "9ef309ab-df0a-4a98-a930-be6df04da47e",
-        "state": "Completed",
-        "metrics": {
-            "totalRequestCount": 899,
-            "responseCodeCounts": {
-                "200": 79,
-                "400": 674,
-                "404": 106,
-                "500": 40
-            },
-            "totalBugBucketsCount": 8
-        },
-        "utcEventTime": "2020-10-12T17:18:13.9189848Z",
-        "details": [],
-        "agentName": "1-restler-3"
-    }
-]
+$ raft job list --look-back-hours 1
+
+sample-compile-28e72091-3c49-47fc-8343-ca15fb084456 Completed
+Details:
+cpuAverage : 0.000000
+networkTotalBytesReceived : 0
+networkTotalBytesSent : 0
+Agent: 0-compile-1    Tool: RESTler    State: Completed
+======================
+Agent: 1-compile-2    Tool: RESTler    State: Completed
+======================
+
+sample-compile-8d993113-d283-446a-a49f-e520309498a7 Completed
+Details:
+cpuAverage : 0.000000
+networkTotalBytesReceived : 0
+networkTotalBytesSent : 0
+Agent: 0-compile-1    Tool: RESTler    State: Completed
+======================
+Agent: 1-compile-2    Tool: RESTler    State: Completed
+======================
+
+Total number of jobs: 2
 ```
 
 <br/>
@@ -391,12 +287,11 @@ $ raft job list --look-back-hours 8
 
 The `job update` command deploys a job definition to an existing job that
 was created with the `isIdling` flag set to true, which tells the service
-to not delete the container when the job has completed.  This lets you
-quickly deploy a new job without waiting for container creation.
+to not run the execution command but instead keep container in an idling state. This lets you
+quickly run a new job config over and over without waiting for container creation.
 
 > [!NOTE]
 > It is also possible to use `ssh` to log into the container if manual exploration of the container is needed.
-> If the container is not running for some reason, the job will be created as normal.
 > If the job container creation failed for some reason, the job will not be created. You can check the application insights log for failures.
 
 ##### Usage
@@ -453,7 +348,7 @@ $ raft job delete --job-id 76d90e69-86ec-4f86-8870-f3d733f833e0
 ## job results
 
 The `job results` command returns the path to the storage account where the job results
-are stored.  You may browse to this URL to see results using a browser.
+are stored.  You may browse to this URL to see results using a web browser.
 
 ##### Usage
 
@@ -509,9 +404,9 @@ indicates the App Service Plan size; the default is `B2`.  Note that these are L
 ##### Examples
 
 ```javascript
-$ raft service deploy --sku SHARED
+$ raft service deploy --sku B2
 
-$ raft service deploy --skip-sp-deployment --secret PYqL447A7j.VYURqIrvIE2ur_ITI984r
+$ raft service deploy --skip-sp-deployment --secret PYqL447A7jVYURqIrvIE2ur_ITI984r
 ```
 
 <br/>
@@ -520,6 +415,7 @@ $ raft service deploy --skip-sp-deployment --secret PYqL447A7j.VYURqIrvIE2ur_ITI
 
 The `service restart` command restarts the API service and the orchestrator. If there
 is a new version of RAFT available, it will be automatically be downloaded and installed.
+Also any changes that are made to the keyvault secrets will require a service restart in order for the service to start using the new secrets.
 
 ##### Usage
 

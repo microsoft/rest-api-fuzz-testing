@@ -325,7 +325,7 @@ upload-utils - Uploads the tool definitions to the service
     allowed_skus = [
         'B1', 'B2', 'B3', 'D1', 'F1',
         'I1', 'I2', 'I3', 'P1V2', 'P2V2', 'P3V2',
-        'PC2', 'PC3', 'PC4', 'S1', 'S2', 'S3', 'SHARED']
+        'PC2', 'PC3', 'PC4', 'S1', 'S2', 'S3']
 
     service_parser.add_argument(
         '--sku', default='B2',

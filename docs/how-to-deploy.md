@@ -4,20 +4,25 @@ The following guide should get you up and running with an instance of RAFT.
 
 <br/>
 
+### The first option is to setup all the dependencies on your workstation and use the RAFT CLI from there. The second option is to use the Azure Portal Shell. When using the portal's shell, you will only need to upload the CLI package as all required dependencies are already installed.
+
 ## Step 1: Enable the RAFT Command Line Interface (CLI)
 
 Let's start out by getting the RAFT command line interface (CLI from now on)
 up and running.   It functions just the same on Windows and Linux clients.
 
+These two steps are required if you've decided to run the CLI from your workstation:
 - First, you'll need to [install Python](https://www.python.org/downloads/) if
 you don't have it installed already; RAFT requires at least **version 3.6**.
 
 - Next, you'll need to [install the Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli)
 if you haven't already; RAFT requires at least **version 2.12**.
 
+If you've decided to use the Azure Portal Shell, keep in mind that the path to Python is `/opt/az/bin/python3`
+
 - Now download the RAFT CLI, either just the binaries or the source tree if you intend to build them from source:
 
-    - Get the RAFT CLI from [releases](https://github.com/microsoft/raft/releases)
+    - Get the RAFT CLI from [releases](https://github.com/microsoft/rest-api-fuzz-testing/releases)
     - Clone the repo at https://github.com/microsoft/raft
 
 - At this point, you're able to run a the one-time prep script using Python's
@@ -94,25 +99,17 @@ Note that only four of these are required.
 | `metricsOptIn`* | Yes | Whether you want the service to send us anonymized usage data; we use this to improve the service and respond to errors and other problems proactively (Note: to change you choice, just update the field and redeploy) |
 | `isDevelop` | No | Is this deployment for developing the RAFT service?    Setting this value to true will generate yaml variables for use in your build pipelines |
 | `useAppInsights` | No | deploy AppInsights and use it to write all service logs |
-| `containerRegistryServiceConnection`** | No | service connection to the azure container registry which stores images |
+| `registry`** | No | registry which stores service images. Default: mcr.microsoft.com |
 
 *By default, we collect anonymous usage data from your RAFT instance, which helps
 us understand how users use RAFT and the problems they experience, which in turn
 helps us improve the quality of the offering over time.  Specifically, We do **not**
 collect any data about the targets and results of tools you might run.  The data
-fields we collect are defined in the `telemetry.fs` source file.   To opt-out of
+fields we collect are defined in the `src/Contracts/Telemetry.fs` source file.   To opt-out of
 sending this data to Microsoft, simply set the `metricsOptIn` field in the `defaults.json`
 file set to false.  You may also manually opt out by clearing the value from the setting
 `RAFT_METRICS_APP_INSIGHTS_KEY` in the apiservice and the orchestrator function app.
 (Do not delete the setting; simply clear the value.)
-
-**If your deployment uses a private registry, then this value should reference a
-Service Connection in your project (see Project Settings -> Pipelines -> Service connections).
-This allows the build pipeline to access the registry.  Also, you will need to manually
-[add a service principal](https://docs.microsoft.com/en-us/azure/container-registry/container-registry-auth-service-principal#create-a-service-principal)
-and [grant it access](https://docs.microsoft.com/en-us/azure/container-registry/container-registry-auth-aci)
-to your private registry access control, granting the AcrPull role to it.
-
 <br/>
 
 ## Step 4: Run the Deployment Script
@@ -143,23 +140,8 @@ metricsOptIn - allow Microsoft collect anonymized metrics from the deployment.
 
 useAppInsights - deploy AppInsights and use it to write all service logs
 
-containerRegistryServiceConnection - service connection to the azure container
-    registry which stores images.
-
-    If your deployment uses a private registry, then this value should
-    reference a Service Connection in your project
-    (see Project Settings -> Pipelines -> Service connections).
-    This allows the build pipeline to access the registry.
-
-    Also, you will need to manually add the newly Service Principal that is
-    created when the deployment script is run, to your private registry
-    access control, granting the AcrPull role to it.
-    https://docs.microsoft.com/en-us/azure/container-registry/container-registry-auth-service-principal#create-a-service-principal
-    https://docs.microsoft.com/en-us/azure/container-registry/container-registry-auth-aci
-
-getToken - Needed because we don't have images in public repositories yet.
-    Only needed for Microsoft internal deployments.
-
+registry - registry which stores service images.
+    Default: mcr.microsoft.com
 -------------------------
 To apply any changes made to the defaults.json file,
 please run 'raft.py service deploy'
