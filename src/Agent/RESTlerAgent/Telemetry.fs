@@ -13,14 +13,14 @@ type TelemetryClient(machineId: string, instrumentationKey: string) =
         // Make sure to not send any instance names or IP addresses
         // These must be non-empty strings to override sending the values obtained by the framework
         c.Context.Cloud.RoleName <- "none"
-        c.Context.Cloud.RoleInstance <- "none"
+        c.Context.Cloud.RoleInstance <- "RAFT"
         c.Context.Location.Ip <- "0.0.0.0"
         c
 
     member __.RestlerStarted(version, task, executionId, featureList) =
         client.TrackEvent("restler started",
             dict ([
-                "machineId", sprintf "%A" machineId
+                "machineId", sprintf "%s" machineId
                 "version", version
                 "task", task
                 "executionId", sprintf "%A" executionId
@@ -35,7 +35,7 @@ type TelemetryClient(machineId: string, instrumentationKey: string) =
                 "version", version
                 "task", task
                 "executionId", sprintf "%A" executionId
-                "status", sprintf "%A" status
+                "status", sprintf "%s" status
             ]@bugBucketCounts@specCoverageCounts))
 
     member __.ResultsAnalyzerFinished(version, task, executionId, status) =
@@ -45,7 +45,7 @@ type TelemetryClient(machineId: string, instrumentationKey: string) =
                 "version", version
                 "task", task
                 "executionId", sprintf "%A" executionId
-                "status", sprintf "%A" status
+                "status", sprintf "%s" status
             ]))
 
     interface System.IDisposable with
