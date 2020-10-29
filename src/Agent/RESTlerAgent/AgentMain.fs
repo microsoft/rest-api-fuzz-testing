@@ -30,9 +30,9 @@ type ServiceBus.Core.MessageSender with
             do! x.SendAsync(message).ToAsync
         }
 
-module CommandLineArguments =
+module Arguments =
 
-    type ParsedArguments =
+    type AgentArguments =
         {
             AgentName: string option
             JobId: string option
@@ -42,6 +42,9 @@ module CommandLineArguments =
             RestlerPath: string option
             WorkDirectory: string option
             AppInsightsInstrumentationKey: string option
+
+            SiteHash : string option
+            TelemetryOptOut : bool
         }
 
         static member Empty =
@@ -53,6 +56,13 @@ module CommandLineArguments =
                 RestlerPath = None
                 WorkDirectory = None
                 AppInsightsInstrumentationKey = None
+
+                SiteHash = System.Environment.GetEnvironmentVariable("RAFT_SITE_HASH") |> Option.ofObj
+                TelemetryOptOut = 
+                    match System.Environment.GetEnvironmentVariable("RESTLER_TELEMETRY_OPTOUT") |> Option.ofObj with
+                    | None -> false
+                    | Some v when v.ToLowerInvariant() = "true" || v.ToLowerInvariant() = "1" -> true
+                    | Some _ -> false
             }
 
     let [<Literal>] AgentName = "--agent-name"
@@ -78,7 +88,7 @@ module CommandLineArguments =
         if Array.isEmpty argv then
             failwithf "Expected command line arguments %s" usage
 
-        let rec parse (currentConfig: ParsedArguments) (args: string list) =
+        let rec parse (currentConfig: AgentArguments) (args: string list) =
             match args with
             | [] -> currentConfig
 
@@ -112,7 +122,7 @@ module CommandLineArguments =
 
             | arg :: _ -> failwithf "Unhnandled command line parameter: %s" arg
 
-        parse ParsedArguments.Empty (argv |> Array.toList)
+        parse AgentArguments.Empty (argv |> Array.toList)
 
 
 let downloadFile workDirectory filename (fileUrl: string) =
@@ -424,7 +434,7 @@ let copyDir srcDir destDir (doNotOverwriteFilePaths: string Set) =
 [<EntryPoint>]
 let main argv =
     printfn "Arguments: %A" argv
-    let agentConfiguration = CommandLineArguments.parseCommandLine argv
+    let agentConfiguration = Arguments.parseCommandLine argv
     let appInsights =
         match agentConfiguration.AppInsightsInstrumentationKey with
         | None -> failwith "AppInsights configuration is not set"
@@ -455,6 +465,12 @@ let main argv =
             ServiceBus.Core.MessageSender(ServiceBus.ServiceBusConnectionStringBuilder(sas), ServiceBus.RetryPolicy.Default)
 
     async {
+        let siteHash =
+            match agentConfiguration.SiteHash with
+            | None -> "NotSet"
+            | Some h -> h
+        use telemetryClient = new Restler.Telemetry.TelemetryClient(siteHash, if agentConfiguration.TelemetryOptOut then "" else Restler.Telemetry.InstrumentationKey)
+
         if not <| IO.Directory.Exists workDirectory then
             appInsights.TrackTrace((sprintf "Workd directory does not exist: %s" workDirectory),
                 DataContracts.SeverityLevel.Error,
@@ -659,6 +675,8 @@ let main argv =
                 return! Raft.RESTlerDriver.replay restlerPath workDirectory replayLogFile engineParameters
             }
 
+        let executionId = Guid.NewGuid()
+        telemetryClient.RestlerStarted(Raft.RESTlerDriver.RESTler.version, sprintf "%A" restlerPayload.Task, executionId, [])
         // Start RESTler process with following flags
         // compile, test, fuzz 
         // --telemetryRootDirPath
@@ -836,8 +854,11 @@ let main argv =
             }
 
         let! bugsList = Raft.RESTlerDriver.getListOfBugs workDirectory globalRunStartTime
+
+        let testingSummary = Raft.RESTlerDriver.loadTestRunSummary workDirectory globalRunStartTime
+
         let details =
-            match Raft.RESTlerDriver.loadTestRunSummary workDirectory globalRunStartTime with
+            match testingSummary with
             | None -> details
             | Some status ->
                 let d = Option.defaultValue Map.empty details
@@ -868,6 +889,14 @@ let main argv =
                         Details = details
                     } : Raft.JobEvents.JobStatus)
 
+        let restlerTelemetry = Restler.Telemetry.getDataFromTestingSummary testingSummary
+        telemetryClient.RestlerFinished(
+            Raft.RESTlerDriver.RESTler.version,
+            sprintf "%A" restlerPayload.Task,
+            executionId,
+            sprintf "%A" state,
+            restlerTelemetry.specCoverageCounts,
+            restlerTelemetry.bugBucketCounts)
         return exitCode
     } 
     |> Async.Catch

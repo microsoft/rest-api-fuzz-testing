@@ -162,6 +162,7 @@ module ContainerInstances =
             IdleCommandArguments: string array
             
             Secrets : string array option
+            UserDefinedEnvironmentVariables : Map<string, string> option
         }
 
     type ContainerToolRun =
@@ -197,6 +198,8 @@ module ContainerInstances =
 
             Run : ToolCommand
             Idle : ToolCommand
+
+            EnvironmentVariables : Map<string, string> option
         }
 
     let getStorageKey (azure: IAzure) (resourceGroup: string, storageAccount: string) =
@@ -308,6 +311,7 @@ module ContainerInstances =
 
                             Command = c.Run.Command
                             CommandArguments = c.Run.Arguments
+                            UserDefinedEnvironmentVariables = c.EnvironmentVariables
                         }
                 | true, Result.Error(err) ->
                     return failwithf "Cannot get %s tool configuration: %s" task.ToolName err
@@ -663,7 +667,7 @@ module ContainerInstances =
                                     | None -> async.Return [||]
     
                                 let predefinedEnvironmentVariablesDict =
-                                    dict [|
+                                    dict ([
                                         "RAFT_JOB_ID", jobCreateRequest.JobId
                                         "RAFT_TASK_INDEX", sprintf "%d" i
                                         "RAFT_CONTAINER_GROUP_NAME", containerGroupName
@@ -672,7 +676,8 @@ module ContainerInstances =
                                         "RAFT_WORK_DIRECTORY", config.WorkDirectory
                                         "RAFT_RUN_DIRECTORY", config.RunDirectory
                                         "RAFT_RUN_CMD", getContainerRunCommandString config.ToolConfiguration.Command config.ToolConfiguration.CommandArguments
-                                    |]
+                                        "RAFT_SITE_HASH", agentConfig.SiteHash
+                                    ]@ (Map.toList (Option.defaultValue Map.empty config.ToolConfiguration.UserDefinedEnvironmentVariables)))
 
                                 let secretsDict = dict (Array.append secrets [|"RAFT_SB_OUT_SAS", agentConfig.OutputSas|])
                                 return config, secretsDict, predefinedEnvironmentVariablesDict
