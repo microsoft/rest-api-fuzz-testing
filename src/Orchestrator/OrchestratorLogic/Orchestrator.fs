@@ -1225,10 +1225,13 @@ module ContainerInstances =
     let isJobManuallyStopped (g: IContainerGroup) =
         g.State = ContainerGroupStates.Stopped
     
+    let isJobProvisioningFailed (g:IContainerGroup) =
+        g.State = ContainerGroupStates.Failed || g.ProvisioningState = ContainerGroupStates.Failed
+
     /// Job is finished if every container is terminated
     let isJobRunFinished (g: IContainerGroup) =
         if Tags.isGcReady g.Tags then
-            (g.State = ContainerGroupStates.Failed || g.ProvisioningState = ContainerGroupStates.Failed)
+            isJobProvisioningFailed g
             ||
             (
                 (g.State = ContainerGroupStates.Succeeded || g.State = ContainerGroupStates.Stopped)
@@ -1355,10 +1358,20 @@ module ContainerInstances =
                                     logInfo "[GC] All containers [Count: %d] terminated for container group: %s" g.Containers.Count g.Name
 
                                 if jobRunFinished || jobManuallyStopped || isExpired then
+                                    let containerGroupFailedToProvision = isJobProvisioningFailed g
                                     let instancesExitedWithError = getContainersExitedWithError g
 
                                     let state, details =
-                                        if isExpired then
+                                        if containerGroupFailedToProvision then
+                                            JobState.Error, 
+                                                (Map.empty, g.Events |> List.ofSeq)
+                                                ||> List.fold( fun details v ->
+                                                    details
+                                                        .Add("Name", v.Name)
+                                                        .Add("Message", v.Message)
+                                                        .Add("Type", v.Type)
+                                                )
+                                        else if isExpired then
                                             JobState.TimedOut, Map.empty
                                         else if jobManuallyStopped then
                                             JobState.ManuallyStopped, Map.empty
@@ -1367,7 +1380,7 @@ module ContainerInstances =
                                         else
                                             //There is at least one container that terminated with an error
                                             JobState.Error, 
-                                                (Map.empty, instancesExitedWithError |> List.ofSeq) 
+                                                (Map.empty, instancesExitedWithError |> List.ofSeq)
                                                 ||> List.fold (fun details v ->
                                                         details.Add(
                                                             (sprintf "[%s] Exit Code" v.Name), sprintf "%A" v.InstanceView.CurrentState.ExitCode
