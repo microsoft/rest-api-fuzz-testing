@@ -6,8 +6,7 @@
 **Why use file shares?**
 </br>File shares can be mounted to the containers running tools. This provides an easy way to share data.
 
-The use of file shares makes it easy to upload your custom swagger files, and authentication configurations files. 
-You can also view real time log changes and results in the files share during the job run, 
+The use of file shares makes it easy to upload your custom swagger files and also passing data between different jobs. For example RESTler requires an initial compile step that is consumed by the Test and Fuzz steps. The output of the compilation step can be mounted to multiple containers. Each of these containers (tasks) may be configured differently to get different behavior from the tool. You can also view real time log changes and results in the files share during the job run, 
 and mount these file shares to your computer for a better user experience. 
 
 To mount the file share, use the connect button on the azure portal.

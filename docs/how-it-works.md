@@ -55,6 +55,8 @@ Here's a breakdown of the estimated Azure spend for running RAFT:
 In summary, a RAFT instance that ran a series of daily tests against ten REST
 APIs would cost less than $100 a month.
 
+NOTE: `defaults.json` provides a flag to disable deployment of Application Insights during the initial service deployment. This will reduce Azure costs without affecting service functionality.
+
 <br/>
 
 ## How a job executes
@@ -69,7 +71,7 @@ Job configurations are submitted via a JSON blob to the RAFT service front-end v
 CLI or other client app (e.g., Postman or some code you've written calling the REST API).
 
 Note that upon running `job create` or calling `POST /jobs/v1` with the job
-definition JSON, you're handed back a Job ID GUID; you'll need this to identify
+definition JSON, you're handed back a Job ID; you'll need this to identify
 the specific Azure resources created for this job.
 
 Further note that this step causes the `jobStatus` webhook to fire.
