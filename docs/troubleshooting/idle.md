@@ -5,7 +5,7 @@ or to try out commands, see environment variables, etc use SSH or the shell avai
 on the container through the portal.
 
 When adding a tool to use in the system, or using an existing tool, you can find
-the commands used to run the tool in the `cli/raft-utils/tools` folder. Each
+the commands used to run the tool in the `cli/raft-tools/tools` folder. Each
 tool has a `config.json` file that defines the command to run when launching
 a job and also a command to run when the tool configuration value `isIdle` is set to `true`.
 

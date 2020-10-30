@@ -232,7 +232,7 @@ module ContainerInstances =
                                 let fileClient = directoryClient.GetSubdirectoryClient(asyncEnum.Current.Name).GetFileClient("config.json")
                                 let! file = fileClient.DownloadAsync().ToAsync
                                 let toolConfig : ToolConfig = Microsoft.FSharpLu.Json.Compact.deserializeStream(file.Value.Content)
-                                return! loadAllConfigs ((asyncEnum.Current.Name, Result.Ok((sprintf "/raft-utils/tools/%s" asyncEnum.Current.Name), toolConfig)) :: allConfigs)
+                                return! loadAllConfigs ((asyncEnum.Current.Name, Result.Ok((sprintf "/raft-tools/tools/%s" asyncEnum.Current.Name), toolConfig)) :: allConfigs)
                             with ex ->
                                 return! loadAllConfigs ((asyncEnum.Current.Name, Result.Error(ex.Message)) :: allConfigs)
                         else
@@ -631,7 +631,7 @@ module ContainerInstances =
                                 (agentConfig.ResultsStorageAccount, agentConfig.ResultsStorageAccountKey)
                                 (jobCreateRequest.JobDefinition.ReadOnlyFileShareMounts, true)
 
-                    let utilsFileShares = [| { FileShareName = agentConfig.UtilsFileShare; MountPath = "/raft-utils" } |]
+                    let utilsFileShares = [| { FileShareName = agentConfig.UtilsFileShare; MountPath = "/raft-tools" } |]
                     let _2 = RaftContainerGroup.mountShare _2_1 
                                 (agentConfig.UtilsStorageAccount, agentConfig.UtilsStorageAccountKey) 
                                 ((Some utilsFileShares), true)
@@ -674,7 +674,7 @@ module ContainerInstances =
                                         "RAFT_CONTAINER_NAME", config.ContainerName
                                         "RAFT_APP_INSIGHTS_KEY", agentConfig.AppInsightsKey
                                         "RAFT_WORK_DIRECTORY", config.WorkDirectory
-                                        "RAFT_RUN_DIRECTORY", config.RunDirectory
+                                        "RAFT_TOOL_RUN_DIRECTORY", config.RunDirectory
                                         "RAFT_RUN_CMD", getContainerRunCommandString config.ToolConfiguration.Command config.ToolConfiguration.CommandArguments
                                         "RAFT_SITE_HASH", agentConfig.SiteHash
                                     ]@ (Map.toList (Option.defaultValue Map.empty config.ToolConfiguration.UserDefinedEnvironmentVariables)))

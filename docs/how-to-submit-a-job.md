@@ -170,7 +170,7 @@ the Azure portal.
 As we discussed above, it's recommended that you configure a given job in Debug mode,
 so that the container is not deleted upon tool error or completion.
 
-To configure this, find the tool's `config.json` file in the `cli/raft-utils/tools`
+To configure this, find the tool's `config.json` file in the `cli/raft-tools/tools`
 folder, and set the `isIdle` value to TRUE.  You also will want to set a command
 to keep the container occupied. TODO
 

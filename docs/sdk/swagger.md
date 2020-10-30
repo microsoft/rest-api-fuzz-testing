@@ -707,7 +707,7 @@ For RESTler jobs - time limit is only useful for Fuzz task format: date-span</di
     <h3><a name="RaftTask"><code>RaftTask</code></a> </h3>
     <div class='model-description'>RAFT task to run.</div>
     <div class="field-items">
-      <div class="param">toolName (optional)</div><div class="param-desc"><span class="param-type"><a href="#string">String</a></span> Tool defined by folder name located in cli/raft-utils/tools/{ToolName} </div>
+      <div class="param">toolName (optional)</div><div class="param-desc"><span class="param-type"><a href="#string">String</a></span> Tool defined by folder name located in cli/raft-tools/tools/{ToolName} </div>
 <div class="param">nameSuffix (optional)</div><div class="param-desc"><span class="param-type"><a href="#string">String</a></span> User assigned string appended to agent name, and agent generated results folder.
 Must not contain: /*?:|&amp;lt;&amp;gt;" </div>
 <div class="param">swagger (optional)</div><div class="param-desc"><span class="param-type"><a href="#"></a></span> Override swagger specification location </div>

@@ -10,7 +10,7 @@ steps:
   - task: DownloadPipelineArtifact@2
     inputs:
       artifact: AzureAuth
-      path: cli/raft-utils/auth/dotnet-core-3.1
+      path: cli/raft-tools/auth/dotnet-core-3.1
 
   - task: AzureCLI@2
     displayName: "Upload service utilities"
@@ -18,5 +18,5 @@ steps:
       azureSubscription: $(raft-subscription)
       scriptType: 'pscore'
       scriptLocation: 'inlineScript'
-      inlineScript: "python cli/raft.py --defaults-context-json '$(raft-defaults)' --secret $(bvt-secret) service upload-utils"
+      inlineScript: "python cli/raft.py --defaults-context-json '$(raft-defaults)' --secret $(bvt-secret) service upload-tools"
 

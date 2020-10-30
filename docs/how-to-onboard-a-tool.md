@@ -36,7 +36,7 @@ starts up and provides continual monitoring of the security tool you're running;
   - Register a bug found (which would in turn trigger a web hook)
 - and tool-specific output processing or serialization needed
  
-For example, see the **raft\cli\raft-utils\tools\ZAP\run.py** python file.  This is 
+For example, see the **raft\cli\raft-tools\tools\ZAP\run.py** python file.  This is 
 an agent we wrote to get ZAP to run inside RAFT.  The `report_status` function,
 for example, notifies the service bus of ZAP event of note.
 
@@ -73,7 +73,7 @@ Hold onto this, you'll need it in JSON blob in Step Three.
 
 ## Step Two: Create the Tool Folder
 
-Your first step is to create a folder in the **cli/raft-utils/tools** folder under
+Your first step is to create a folder in the **cli/raft-tools/tools** folder under
 the RAFT repo.  The name of the folder should be same name you will use in the
 tool's `toolName` field in the Job Definition JSON blob you construct to execute
 the tool.  Note that tool names are case sensitive.
@@ -100,7 +100,7 @@ Here's a simple example:
   "run" : {
     "command" : "bash", 
     "arguments" : ["-c", 
-      "cd $RAFT_RUN_DIRECTORY; ln -s $RAFT_WORK_DIRECTORY /demoTool; python3 run.py install; python3 run.py --run-faster $RUN_FASTER" ]
+      "cd $RAFT_TOOL_RUN_DIRECTORY; ln -s $RAFT_WORK_DIRECTORY /demoTool; python3 run.py install; python3 run.py --run-faster $RUN_FASTER" ]
   },
   "idle" : {
     "command" : "bash",
@@ -155,12 +155,12 @@ been populated for you by the orchestration:
 | RAFT_CONTAINER_NAME | The name of the parent's container |
 | RAFT_APP_INSIGHTS_KEY | The key needed to identify this container in messages logged to Application Insights |
 | RAFT_WORK_DIRECTORY | The absolute path to the file share mounted to the container (contains the **task-config.json** file) |
-| RAFT_RUN_DIRECTORY | The absolute path to the tool folder created in Step Two that gets mounted as read-only to the container as well* |
+| RAFT_TOOL_RUN_DIRECTORY | The absolute path to the tool folder created in Step Two that gets mounted as read-only to the container as well* |
 | RAFT_RUN_CMD | The command text provided in the `command` parameter |
 | RAFT_TASK_INDEX | Array index of the task defined in job definition JSON blob
 | RAFT_SITE_HASH | RAFT deployment hash
 
-*When the tool is uploaded to the file share via the cli command `python raft.py service upload-utils` a unique file share is created and mounted to the container as read-only. The path to the tool folder running the task within the file share is set in **RAFT_RUN_DIRECTORY** environment variable.
+*When the tool is uploaded to the file share via the cli command `python raft.py service upload-tools` a unique file share is created and mounted to the container as read-only. The path to the tool folder running the task within the file share is set in **RAFT_TOOL_RUN_DIRECTORY** environment variable.
 
 #### Referencing the task-config.json file
 
@@ -205,7 +205,7 @@ After you've saved the updated **config.json** file, you'll need to push the new
 tool definition to your RAFT deployment.  You can do this via the following command:
 
 ```javascript
-D:\REPO\raft\cli>py raft.py service upload-utils
+D:\REPO\raft\cli>py raft.py service upload-tools
 ```
 
 This also has the effect of restarting the local service.

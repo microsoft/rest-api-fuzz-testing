@@ -47,7 +47,7 @@ module DTOs =
     type RaftTask =
         {
             /// <summary>
-            /// Tool defined by folder name located in cli/raft-utils/tools/{ToolName}
+            /// Tool defined by folder name located in cli/raft-tools/tools/{ToolName}
             /// </summary>
             [<Required>]
             ToolName: string
