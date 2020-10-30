@@ -5,4 +5,4 @@
         pool:
           vmImage: 'ubuntu-latest'
         steps:
-          - template: steps/upload-utils.yml
+          - template: steps/upload-tools.yml

@@ -4,19 +4,19 @@ import subprocess
 import sys
 
 work_directory = os.environ['RAFT_WORK_DIRECTORY']
-run_directory = os.environ['RAFT_RUN_DIRECTORY']
+run_directory = os.environ['RAFT_TOOL_RUN_DIRECTORY']
 
 def auth_token(init):
     with open(os.path.join(work_directory, "task-config.json"), 'r') as task_config:
         config = json.load(task_config)
         auth_config = config.get("authenticationMethod")
         if auth_config:
-            if auth_config.get("TxtToken"): 
-                token = os.environ.get(f"RAFT_{auth_config['TxtToken']}") or os.environ.get(auth_config["TxtToken"])
+            if auth_config.get("txtToken"): 
+                token = os.environ.get(f"RAFT_{auth_config['txtToken']}") or os.environ.get(auth_config["txtToken"])
                 return token
-            elif auth_config.get("CommandLine"):
-                subprocess.getoutput(auth_config.get("CommandLine"))
-            elif auth_config.get("MSAL"):
+            elif auth_config.get("commandLine"):
+                subprocess.getoutput(auth_config.get("commandLine"))
+            elif auth_config.get("msal"):
                 msal_dir = os.path.join(run_directory, "..", "..", "auth", "python3", "msal")
 
                 if init:
@@ -25,7 +25,7 @@ def auth_token(init):
                 else:
                     print("Retrieving MSAL token")
                     sys.path.append(msal_dir)
-                    authentication_environment_variable = auth_config["MSAL"]
+                    authentication_environment_variable = auth_config["msal"]
                     import msal_token
                     token = msal_token.token_from_env_variable( authentication_environment_variable )
                     if token:

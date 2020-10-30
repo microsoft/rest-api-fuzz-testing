@@ -6,10 +6,6 @@
       "mountPath": "/job-compile"
     }
   ],
-  "webhook" : {
-    "name" : "LogicApp",
-    "metadata" : {"ExecutionStep": "Test"}
-  },
   "tasks": [
     {
       "toolName": "RESTler",

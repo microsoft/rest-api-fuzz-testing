@@ -966,7 +966,7 @@ class RaftServiceCLI():
                     self.dos2unix(file_path)
 
     def upload_utils(self, file_share):
-        utils = os.path.join(f'{script_dir}', '..', 'raft-utils')
+        utils = os.path.join(f'{script_dir}', '..', 'raft-tools')
         self.convert_dir_dos2unix(utils)
 
         connection_string = self.storage_account_connection_string(

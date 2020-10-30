@@ -179,6 +179,6 @@ get familiar with the output.
 
 Two tools are deployed by default: [RESTler](https://github.com/microsoft/restler) and [ZAP](https://www.zaproxy.org/).
 
-You can see their configuration under the `cli/raft-utils/tools` folder.
+You can see their configuration under the `cli/raft-tools/tools` folder.
 
 See an explanation of the `config.json` file in [How a job executes](how-it-works/how-a-job-executes.md).
