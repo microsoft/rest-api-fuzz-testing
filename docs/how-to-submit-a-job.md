@@ -4,12 +4,13 @@ This page describes how to prepare, submit, observe, and get results from a
 REST API Fuzz Testing (RAFT) job.
 
 A RAFT **job** is the execution of one or more security tools against one or
-more targets.  While most tools can be run and RAFT, and most targets can be
-targeted, the service is designed to test REST APIs, typically from within a
-CI/CD pipeline.  Jobs run in container groups, and execute either till the tool
+more targets.  While most docker packaged security tools can be run in RAFT
+against most targets, 
+the service is designed to test REST APIs, typically from within a
+CI/CD pipeline.  Jobs run in container groups, and execute either until the tool
 completes or until the configurable duration has expired.
 
-The following tutorial walks through the exact process needed to submit a job.
+The following tutorial walks you through the exact process needed to submit a job.
 This assumes that you've correctly [deployed](how-to-deploy.md) the RAFT service
 to an Azure subscription.
 
@@ -18,12 +19,11 @@ to an Azure subscription.
 ## Step One: Pick the Tool and Target
 
 RAFT was built to streamline the execution of security tools against web sites and services.
-So it makes sense, then, to use RAFT, you need to 
-
 RAFT comes with two registered tools:
 
 - [RESTler](https://github.com/microsoft/restler-fuzzer), a stateful REST API fuzzer from [NSV at Microsoft Research](https://www.microsoft.com/en-us/research/group/new-security-ventures/)
-- [ZAP](https://www.zaproxy.org/), a web scanner from the [OWASP Foundation](https://owasp.org/)
+- [ZAP](https://www.zaproxy.org/), a web scanner from the [OWASP Foundation](https://owasp.org/) that is
+configured to test REST API's.
 
 To register additional tools, please see please see the
 [Onboarding a Tool](how-to-onboard-a-tool.md) page.
@@ -46,22 +46,27 @@ We'll provide a quick summary here, but you should take the time to browse the
 At a high level, a valid job definition must include the following:
 
 - From one to 60 tasks; a **task** is the execution of a single docker container
-- Either a global swagger file or swagger files for each tool that requires one
+- Either a global swagger file or a swagger file for each tool that requires one
 - Either a global host definition or a host for each tool that requires one
 - Either a global duration or a duration for each tool that requires one
-- Either a global output folder or a duration for each tool that requires one (? TODO)
-- Any other required runtime settings for each tool
+- Either a global output folder or a folder for each tool
+- Any other required runtime settings for each tool. Tool runtime settings are tool
+specific and defined by the tool.
 
 #### Is your web site authenticated?
 
-It very probable that the REST API or web site you want to test with RAST will
+It is very probable that the REST API or web site you want to test with RAFT will
 require some sort of authentication.  
 
-TODO: what are the authentication options?
+There are a number of authentication options available to you.
 
-        "authenticationMethod": {
-          "MSAL": "RaftServicePrincipal"
-        }
+- **MSAL** which uses the MSAL library to authenticate. This method requires a tenantId, clientId, and secret.
+- **CommandLine** This method defines a command line that executes and acquires an authorization token.
+- **TxtToken** This method accepts a key vault secret name that contains a plain text token.
+
+See the page on [authentication](schema/authentication.md) for details on how these authentication options
+are configured and how to use them.
+
 <br/>
 
 ## Step Three: Create a Job Definition File
@@ -69,7 +74,7 @@ TODO: what are the authentication options?
 Now that you've settled on the options you'll set and their respective values, it's time
 to create the job definition JSON file you'll use to submit the job and put RAFT to work.
 
-All Job Definition JSON files are required to define the `tasks` section.
+All Job Definition JSON files must define at least 1 entry in the `tasks` array.
 The `swaggerLocation`, `host`, and `duration` fields can be defined globally
 or locally, depending on whether you want these values to apply to all tasks or
 to individual tasks.
@@ -98,26 +103,28 @@ swagger location and host settings, along with two tasks:
 ```
 
 If this job definition file were submitted to RAFT, it would cause the following to
-occur:  TODO:correctness
+occur: 
 
-- A container named "MyFirstTool" would fire up, taking the `swaggerLocation` and `host`
+- A container group would be created and be named using the JOBID
+
+- A container associated with "MyFirstTool" would be created, taking the `swaggerLocation` and `host`
   parameters from the global position, and `toolName` and `outputFolder` parameters
   from the task definition.  Since there is no `duration` field, it will run until it
-  completes
+  completes. 
 
-- A container named "MySecondTool" would fire up, taking the `swaggerLocation` and `host`
+- A container named "MySecondTool" would be created, taking the `swaggerLocation` and `host`
   parameters from the global position, and `toolName`, `duration`, and `outputFolder`
   parameters from the task definition.  It will run until it completes, or until 2 hours 
-  ten mintues have passed, whichever occurs first
+  ten minutes have passed, whichever occurs first.
 
-Note that tasks are launched in parallel, and that the overall job is considered complete
-once each task completes.
+Note that containers (tasks) are launched in parallel within the container group,
+and that the overall job is considered complete once all tasks complete or fail.
 
-For more information...
+For more information on:
 
-- ... on how a job executes, please see the [How It Works](how-it-works.md) page
-- ... how to adjust how each tool runs in its container, please see the [Onboarding a Tool](how-to-onboard-a-tool.md) page
-- ... on a variety of different ways to use RAFT, please see our [Samples](samples.md) page for a variety of job definion files
+- how a job executes, please see the [How It Works](how-it-works.md) page
+- how to adjust how each tool runs in its container, please see the [Onboarding a Tool](how-to-onboard-a-tool.md) page
+- a variety of different ways to use RAFT, please see our [Samples](samples.md) page for a variety of job definion files
 
 <br/>
 
@@ -133,17 +140,11 @@ example.
 
 If you set the `isIdling` job parameter to true, then the following occurs instead:
 
-	1. container will launch
-	2. container will execute "idle" command defined in config.json for the tool 
-	3. optionally, you may execute raft update to launch tasks in that container
-	4. At some point, you must manually delete the container
-
-```json
-"idle" : {
-  "command" : "bash",
-  "arguments" : ["-c", "echo DebugMode; while true; do sleep 100000; done;"]
-}
-```
+- container will launch
+- container will execute "idle" command defined in config.json for the tool
+- optionally, you may execute `python raft.py job update --file PATH_TO_JOB_DEFINITION_FILE 
+--job-id JOBID` to launch tasks in that container
+- at some point, you must manually delete the container
 
 This bears repeating:  if `isIdling` is set to true, the container is not deleted after
 its task completes.
@@ -155,57 +156,31 @@ its task completes.
 Fire up the [RAFT CLI](cli-reference.md) and ensure it's configured to point to a valid service instance.
 
 ```python
-$ py raft.py job create --file PATH_TO_JOB_DEFINITION_FILE
+$ python raft.py job create --file PATH_TO_JOB_DEFINITION_FILE
 ```
 
 <br/>
 
-## Step Five: Monitor the Job
+## Step Five: Get the job results
 
-To test out new tools, or to troubleshoot existing tools, you may want to connect
-to the containers where the tools are running to view logs, execute commands, check
-environment variables, and so on.  To do so, you'll need to SSH to the container via
-the Azure portal.
-
-As we discussed above, it's recommended that you configure a given job in Debug mode,
-so that the container is not deleted upon tool error or completion.
-
+The job results are normally written to a file share. You can monitor the results while the tool is running
+or wait until the job has completed.
 To configure this, find the tool's `config.json` file in the `cli/raft-tools/tools`
-folder, and set the `isIdle` value to TRUE.  You also will want to set a command
-to keep the container occupied. TODO
 
-For example, the following would start /bin/sh and wait.
+To see the state of the job use the command:
 
-```json
-"idle" : {
-  "command" : "/bin/sh",
-  "arguments" : ["-c", "echo DebugMode; while true; do sleep 100000; done;"]
-}
+```python
+python raft.py job status --job-id JOBID 
 ```
 
-Using the [azure portal](https://azure.portal.com) navigate to the resource group where
-the service is deployed. Once a job is created you will be able to see the container
-instance in the resource group. The name of the resource is the same as the Job ID.
+When asking for job status, use the JOBID that was returned when you created the job. 
 
-For example:
+To get the URL to the job results file share use the command:
 
-![Container Instance In Portal](images/containerInstanceInPortal.jpg)
+```python
+python raft.py job results --job-id JOBID
+```
 
-Here the value `2cf517a1-ed50-42bf-b713-d3d98bbcc0c0` is the Job ID.
+The URL that is returned can be used in your browser to access the file share where the results have
+been written.
 
-Click on the container and select the **Containers** tab. 
-
-![Containers Tab](images/containersTab.jpg)
-
-Click on the connect tab and the shell you want to invoke on the container. In this example
-/bin/sh is selected.
-
-![Connect](images/connect.png)
-
-Once connected, use the /bin/sh commands to navigate the system:
-
-![Terminal Example](images/terminalExample.jpg)
-
-Note that once a container is launched in `isIdle` mode, the container instance
-will need to be deleted either with the CLI `delete` command, or through the portal. The
-service will not automatically recycle these containers.

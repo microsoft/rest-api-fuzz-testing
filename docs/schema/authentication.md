@@ -77,3 +77,26 @@ a header value.
                 }
             }
 ```
+
+
+
+---------------------- extra ------
+
+- **MSAL** which uses the MSAL library to authenticate. This method requires a tenantId, clientId, and secret.
+
+      "keyVaultSecrets": [ "RaftServicePrincipal" ],
+      "authenticationMethod": {
+        "MSAL": "RaftServicePrincipal"
+      }
+
+  In this example the MSAL configuration is pulled from the key vault secret named "RaftServicePrincipal".
+  All secrets should reside in the key vault.
+- **CommandLine** This method defines a command line that executes and acquires an authorization token.
+
+      "authenticationMethod": {
+        "CommandLine" : "GetMyToken.exe"
+      }
+
+  The command line 
+- **TxtToken** This method accepts a key vault secret name that contains a plain text token.
+
