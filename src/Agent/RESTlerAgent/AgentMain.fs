@@ -615,9 +615,21 @@ let main argv =
                         return Result.Error("Failed to retrieve IP from DNS")
                     else
                         return Result.Ok(dns.[0].ToString(), targetPort)
-                | _, Some endpointConfiguration ->
-                    printfn "Endpoing configuration is set, going to use it: %A" endpointConfiguration
-                    return Result.Ok(endpointConfiguration.Ip, endpointConfiguration.Port)
+                | Some host, Some endpointConfiguration ->
+                    match endpointConfiguration.Ip with
+                    | Some ip ->
+                        printfn "Endpoint configuration is set, going to use it: %A" endpointConfiguration
+                        return Result.Ok(ip, endpointConfiguration.Port)
+                    | None ->
+                        printfn "Endpoint configuration is set, going to use it: %A" endpointConfiguration
+                        return Result.Ok(host, endpointConfiguration.Port)
+                | None, Some endpointConfiguration ->
+                    match endpointConfiguration.Ip with
+                    | Some ip ->
+                        printfn "Endpoint configuration is set, going to use it: %A" endpointConfiguration
+                        return Result.Ok(ip, endpointConfiguration.Port)
+                    | None ->
+                        return Result.Error("Must set either target endpoint IP or host")
             }
 
         let test (testType: string) checkerOptions (jobConfiguration: RunConfiguration) =

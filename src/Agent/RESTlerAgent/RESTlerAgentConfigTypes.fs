@@ -71,7 +71,7 @@ type ReplayConfiguration =
 type TargetEndpointConfiguration =
     {
         /// The IP of the endpoint being fuzzed
-        Ip: string
+        Ip: string option
 
         /// The port of the endpoint being fuzzed
         Port: int
