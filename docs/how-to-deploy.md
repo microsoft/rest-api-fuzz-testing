@@ -101,6 +101,7 @@ Note that only four of these are required.
 | `useAppInsights` | No | deploy AppInsights and use it to write all service logs |
 | `registry`** | No | registry which stores service images. Default: mcr.microsoft.com |
 
+### *Telemetry
 *By default, we collect anonymous usage data from your RAFT instance, which helps
 us understand how users use RAFT and the problems they experience, which in turn
 helps us improve the quality of the offering over time.  Specifically, We do **not**
@@ -110,6 +111,22 @@ sending this data to Microsoft, simply set the `metricsOptIn` field in the `defa
 file set to false.  You may also manually opt out by clearing the value from the setting
 `RAFT_METRICS_APP_INSIGHTS_KEY` in the apiservice and the orchestrator function app.
 (Do not delete the setting; simply clear the value.)
+
+#### RESTler telemetry
+It is also easy to opt-out of sending anonymous usage telemetry metrics for RESTler. 
+Under the cli/raft-tools/tools/RESTler folder edit the **config.json** file.
+Set the RESTLER_TELEMETRY_OPTOUT environment variable to "1".
+
+	"environmentVariables" : {
+		"RESTLER_TELEMETRY_OPTOUT" : "1"	
+	}
+
+If you make these changes after the very first time you deploy, you will need to re-run the command
+
+```python
+    python raft.py service upload-tools
+```
+
 <br/>
 
 ## Step 4: Run the Deployment Script

@@ -1,12 +1,10 @@
-# RAFT Updates
+# RAFT updates and releases
 
-
-How the REST API Fuzz Testing service handles versions and releases.
 
 Two different kinds of artifacts are released when a release is made:
 
 - Container images that are available via public docker hub
-- A python CLI which can be downloaded from the project [github](https://github.com/microsoft/restapifuzztesting/releases) releases page. 
+- A python CLI which can be downloaded from the project's [github](https://github.com/microsoft/restapifuzztesting/releases) releases page. 
 
 When the service is deployed, the service components are configured to run from the public container images. You can see this configuration on the “Container settings” tab for the orchestrator and apiservice azure resources.
 
@@ -35,4 +33,11 @@ This configuration is set by default when you deploy the service with the CLI
 (mcr.microsoft.com/restapifuzztesting/apiservice:v1.latest). 
 
 If you do not want the latest bugfixes and features, you can defeat this behavior by
-pinning to a specific version - "mcr.microsft.com/restapifuzztesting:v1.0.1" for example.
+pinning to a specific version - "mcr.microsft.com/restapifuzztesting:v1.0.1" for example, or by
+turning off the "Continuous Deployment" setting on the apiservice and/or orchestrator. 
+
+Using the portal navigate to the apiservice and/or orchestrator. Select the "Container settings" tab
+and turn off continuous deployment. Be sure to save your changes. 
+</br>
+
+![](images/turning-continuous-deployment-off.jpg)
