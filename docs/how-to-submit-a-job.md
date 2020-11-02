@@ -143,10 +143,11 @@ If you set the `isIdling` job parameter to true, then the following occurs inste
 - container will launch
 - container will execute "idle" command defined in config.json for the tool
 - optionally, you may execute `python raft.py job update --file PATH_TO_JOB_DEFINITION_FILE 
---job-id JOBID` to launch tasks in that container
+--job-id JOBID` to launch tasks in that container. This will cause the "run" command in the tool definition's
+1config.json` file to execute. You can update the job as often as you want while you are debugging.
 - at some point, you must manually delete the container
 
-This bears repeating:  if `isIdling` is set to true, the container is not deleted after
+This bears repeating:  if `isIdling` is set to true, the container is not automatically deleted after
 its task completes.
 
 <br/>

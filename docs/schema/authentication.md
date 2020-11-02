@@ -1,42 +1,34 @@
 # Authentication
 
-When defining tasks, you can define the authentication needed by the task. 
+When defining tasks, you can define the authentication secrets needed for the tool to authenticate
+against your service. The secrets are described in the json and live in the key vault. 
 
-The authentication data is described in the json and lives in the key vault. 
 
-Here is an example of using MSAL for authentication.
+> [!NOTE]
+> Some secrets are be passed to the container via environment variables (MSAL and TxtToken).
+> Because environment variables cannot be named with a dash "-', 
+> you must not use a dash in your secret name.
 
-```  "tasks": [
-    {
-      "toolName" : "RESTler",
-      "isIdling" : false,
-      "keyVaultSecrets" : ["AuthSecret1", "AuthSecret2"],
-      "authTokenConfiguration": {
-        "refreshIntervalSeconds": 300,
-        "tokenRefreshCommand": {
-          "$type" : "MSALConfig",
-          "secretName" : "AuthSecret1"
-        }
-      },
-```
-
-In this example the secret "AuthSecret1" must contain the data needed for MSAL.
-
-When the container is created each secret defined in the "keyVaultSecrets" array are retrieved and added as 
-environment variables with the name "RAFT_" prepended. So for AuthSecret1 and AuthSecret2 you would find environment variables
-"RAFT_AuthSecret1" and "RAFT_AuthSecret2" defined with the contents of their secrets from the key vault. 
-
-These secret values can then be used to perform authentication as needed.
-
-Because environment variables cannot be named with a dash "-', you must not use a dash in your secret name.
-
-Some services need authentication refreshed at certain intervals. Use the **refreshIntervalSeconds** to define the
-refresh frequency. 
-
-The following authentication types are supported in the `$type` field. 
 ## MSALConfig
 
-MSAL configuration stored in the key vault should be json in this form:
+Here is an example of using [MSAL](https://docs.microsoft.com/en-us/azure/active-directory/develop/msal-overview) for authentication.
+
+``` 
+"tasks": [
+    {
+      "toolName" : "RESTler",
+      "keyVaultSecrets": [ "MyServicePrincipal" ],
+      "authenticationMethod": {
+        "MSAL": "MyServicePrincipal"
+      }
+    },
+    ...
+```
+
+In this example the secret "RaftServicePrincipal" in the key vault must contain the data needed
+for **MSAL**. 
+
+The MSAL configuration JSON blob stored in the key vault should be in this form:
 
 ```
 {
@@ -44,59 +36,73 @@ MSAL configuration stored in the key vault should be json in this form:
   "tenant": "<your tenant guid>", 
   "secret": "<your secret string>"
   "scopes": ["example/.default"]
+  "authorityUri" : "<your authority uri>"
 }
 ```
+The `client`, `tenant`, and `secret` fields are mandatory.
 
-The "scopes" value is optional. Use this if you require a specific scope for your service.
+The optional `scopes` field is an array of strings and has a default value of `["{client}/.default"]` 
+where `{client}` is the value of the client field in the structure.
+
+The optional `authorityUri` field is a string and has a default value of 
+"https://login.microsoftonline.com/{tenant}" where `{tenant}` is the tenant field in the structure. 
+
+The JSON blob is passed to the container in an environment variable. 
 
 ## TxtToken
 
-If your authentication takes a static token string use TxtToken. In this case the secret in the
-key vault should simply be the token string.
+Here is an example of using **TxtToken** for authentication.
+``` 
+"tasks": [
+    {
+      "toolName" : "myTool",
+      "keyVaultSecrets": [ "MySecretToken" ],
+      "authenticationMethod": {
+        "TxtToken": "MySecretToken"
+      }
+    },
+    ...
+```
+
+If your authentication takes a static secret use **TxtToken**, the secret in the
+key vault is expected to be a string.
+
+The string is passed to the container in an environment variable. 
 
 ## CommandLine
 
+Here is an example of using **CommandLine** for authentication.
+
+```
+"tasks": [
+    {
+      "toolName" : "myTool",
+      "authenticationMethod": {
+        "CommandLine" : "GetMyToken.py"
+      }
+    },
+    ...
+```
+
 The command line type allows you to define your own command to create authentication data.
+When you provide your own command, you must provide all dependencies needed for that command
+to be run on the container. In this example the command is a python script, it would be nessasary
+to ensure python was installed on the container for it to run successfully. 
 
-You must provide all dependencies for your command. Put dependencies on a mounted file share as needed.
+You can put dependencies on the mounted file share along with your command.
 
-## Other options
+The command line is written out in the **task-config.json** file.
+See [Referencing the task-config.json file](../how-to-onboard-a-tool.md) section for details on
+the **task-config.json** file.
 
-For tools that support other authentication methods, the tool can define what is needed in the
-taskConfiguration schema. This schema is completely tool dependent. 
+## How to use the secret in your agent
 
-For example in the RESTler configuration you might want to provide a static value in
-a header value.
+Secrets kept in the key vault. This is a secure place for you to keep secrets and manage access
+to them. 
 
-```
-"compileConfiguration": {             
-                "customDictionary": {                   
-                    "customPayloadHeader": {
-                        "<CustomAuthHeaderName>": ["<StaticAuthValue>"]
-                    }
-                }
-            }
-```
+When a container is created to run a task, an environment variable will be created for each
+secret used in the task. The name of the environment variable will be **RAFT_[key vault secret name]**.
+As noted above do not use dashes in your secret name. 
 
-
-
----------------------- extra ------
-
-- **MSAL** which uses the MSAL library to authenticate. This method requires a tenantId, clientId, and secret.
-
-      "keyVaultSecrets": [ "RaftServicePrincipal" ],
-      "authenticationMethod": {
-        "MSAL": "RaftServicePrincipal"
-      }
-
-  In this example the MSAL configuration is pulled from the key vault secret named "RaftServicePrincipal".
-  All secrets should reside in the key vault.
-- **CommandLine** This method defines a command line that executes and acquires an authorization token.
-
-      "authenticationMethod": {
-        "CommandLine" : "GetMyToken.exe"
-      }
-
-  The command line 
-- **TxtToken** This method accepts a key vault secret name that contains a plain text token.
-
+Information about the secret name and secret type are saved in the **task-config.json** file. The
+agent will need to deserialize this file to get at these details.

@@ -165,8 +165,10 @@ been populated for you by the orchestration:
 #### Referencing the task-config.json file
 
 In the mounted folder whose path is indicated in the RAFT_WORK_DIRECTORY you will find
-the **task-config.json** file that contains any data defined in the job definition
-`toolConfiguration` section of the task. The format of this data is under your control.
+the **task-config.json** file that contains the current `task` entry in the job definition
+task array.
+
+This structure also contains the `tooConfiguration` entry. The format of this data is under your control.
 For example, a RESTler job definition might contain the following `toolConfiguration` blob:
 
  ```json
@@ -184,7 +186,8 @@ For example, a RESTler job definition might contain the following `toolConfigura
 ```
  
 This data might be useful to a custom agent, for example, to execute more complex
-transforms or call custom APIs.
+transforms or call custom APIs. You can define this data by including a swagger specification
+for it in a file called **schema.json**. 
 
 <br/>
 
