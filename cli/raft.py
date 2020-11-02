@@ -345,6 +345,7 @@ create  - Create a new job
 
 update  - Update an existing job
           --file is required
+          --job-id is required
 
 delete  - Delete a job
           --job-id is required
