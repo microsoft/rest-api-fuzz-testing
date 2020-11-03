@@ -18,7 +18,8 @@ This project is designed to run on [Azure](https://azure.microsoft.com).
 To deploy the service download the CLI release and run `python raft.py service deploy`. See
 the [documentation](docs/deploying/deploying.md) for more details.
 
-Once deployed, use the samples to try out the service and fuzzers!
+Once deployed, read about [how to submit a job](docs/how-to-submit-a-job.md) and
+use the [samples](docs/samples.md) to try out the service and fuzzers!
 
 ### Documentation
 

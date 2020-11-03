@@ -66,7 +66,7 @@ Sample response:
 
 
 
-<!--Todo: process Response Object and its headers, schema, examples -->
+
 
 
 
@@ -90,7 +90,7 @@ Returns success.
 
 
 
-<!--Todo: process Response Object and its headers, schema, examples -->
+
 
 
 
@@ -127,7 +127,7 @@ If no data is found the result will be an empty array.</div>
   
 </div>
 
-<!--Todo: process Response Object and its headers, schema, examples -->
+
 
 <h3 class="field-label">Example data</h3>
 <div class="example-data-content-type">Content-Type: application/json</div>
@@ -205,7 +205,7 @@ Not Found
   
 </div>
 
-<!--Todo: process Response Object and its headers, schema, examples -->
+
 
 <h3 class="field-label">Example data</h3>
 <div class="example-data-content-type">Content-Type: application/json</div>
@@ -253,7 +253,7 @@ If the job was not found
   
 </div>
 
-<!--Todo: process Response Object and its headers, schema, examples -->
+
 
 <h3 class="field-label">Example data</h3>
 <div class="example-data-content-type">Content-Type: application/json</div>
@@ -345,7 +345,7 @@ This API call consumes the following media types via the <span class="header">Co
   
 </div>
 
-<!--Todo: process Response Object and its headers, schema, examples -->
+
 
 <h3 class="field-label">Example data</h3>
 <div class="example-data-content-type">Content-Type: application/json</div>
@@ -408,7 +408,7 @@ https://docs.microsoft.com/en-us/azure/container-instances/container-instances-r
   
 </div>
 
-<!--Todo: process Response Object and its headers, schema, examples -->
+
 
 <h3 class="field-label">Example data</h3>
 <div class="example-data-content-type">Content-Type: application/json</div>
@@ -447,7 +447,7 @@ If there was an error in the request
 
 
 
-<!--Todo: process Response Object and its headers, schema, examples -->
+
 
 
 
@@ -483,7 +483,7 @@ Success
 
 
 
-<!--Todo: process Response Object and its headers, schema, examples -->
+
 
 
 
@@ -532,7 +532,7 @@ This API call consumes the following media types via the <span class="header">Co
 
 
 
-<!--Todo: process Response Object and its headers, schema, examples -->
+
 
 
 
@@ -578,7 +578,7 @@ This API call consumes the following media types via the <span class="header">Co
 
 
 
-<!--Todo: process Response Object and its headers, schema, examples -->
+
 
 
 
@@ -612,7 +612,7 @@ Returns bad request if an exception occurs. The exception text will give the rea
 
 
 
-<!--Todo: process Response Object and its headers, schema, examples -->
+
 
 
 
@@ -643,7 +643,7 @@ Success
 
 
 
-<!--Todo: process Response Object and its headers, schema, examples -->
+
 
 
 

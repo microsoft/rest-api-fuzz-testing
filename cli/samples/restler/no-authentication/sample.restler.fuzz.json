@@ -1,7 +1,5 @@
 {
   "host": "{sample.host}",
-  "duration": "00:10:00",
-  "rootFileshare": "sample-fuzz",
   "webhook": {
     "name": "sample-fuzz",
     "metadata": {}
@@ -15,31 +13,22 @@
   "tasks": [
     {
       "toolName": "RESTler",
-      "outputFolder": "fuzz-1",
+      "outputFolder": "test-fuzz-lean",
       "toolConfiguration": {
-        "task": "Fuzz",
+        "task": "TestFuzzLean",
         "runConfiguration": {
-          "inputFolderPath": "/job-compile/compile-1"
+          "inputFolderPath": "/job-compile/compile"
         }
       }
     },
     {
       "toolName": "RESTler",
-      "outputFolder": "fuzz-2",
+      "outputFolder": "fuzz",
+      "duration": "00:10:00",
       "toolConfiguration": {
         "task": "Fuzz",
         "runConfiguration": {
-          "inputFolderPath": "/job-compile/compile-1"
-        }
-      }
-    },
-    {
-      "toolName": "RESTler",
-      "outputFolder": "fuzz-3",
-      "toolConfiguration": {
-        "task": "Fuzz",
-        "runConfiguration": {
-          "inputFolderPath": "/job-compile/compile-2"
+          "inputFolderPath": "/job-compile/compile"
         }
       }
     }
