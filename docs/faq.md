@@ -12,3 +12,7 @@ and mount these file shares to your computer for a better user experience.
 To mount the file share, use the connect button on the azure portal.
 
 ![Connect File Share Image](images/mount_file_share.jpg)
+
+**How do I turn off telemetry?**
+</br>The REST API Fuzz Testing service sends anonymous usage data for the purpose of improving the
+service. To turn this off, see "Step 3: Choose Configuration Options" in [How To Deploy](how-to-deploy.md)
