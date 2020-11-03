@@ -4,35 +4,6 @@
 namespace Raft.Job
 
 module Authentication =
-
-    // TODO: add support for "https://graph.windows.net" (right now only "https://management.core.windows.net/" is supported
-    type AzureADConfig =
-        {
-            (* Path to a file with the following format. 
-                {
-                    "applications": [
-                       {
-                            "name": "Service Principal Name",
-                            "authentication_endpoint": "https://login.microsoftonline.com/",
-                            "application_id": "1234abcd-123a-456b-789d-123abc4567de", 
-                            "application_tenant_id": "1234abcd-123a-456b-789d-123abc4567de"
-                        }
-                    ]
-                }
-            *)
-
-            SettingsFilePath: string
-
-            (*
-                Path to a file with the following format:
-                {
-                    "Service Principal Name": "Service principal secret"
-                }
-            *)
-
-            SecretsFilePath : string
-        }
-
     type TokenRefresh =
         | CommandLine of string
         | MSAL of string

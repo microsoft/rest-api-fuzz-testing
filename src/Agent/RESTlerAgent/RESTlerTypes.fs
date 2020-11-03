@@ -299,7 +299,6 @@ module Compiler =
             restler_custom_payload_uuid4_suffix : IDictionary<string, string> option
             restler_custom_payload_header :  IDictionary<string, string array> option
             shadow_values : IDictionary<string, IDictionary<string, string array>> option
-            // TODO restler_multipart_formdata :  Map<string, string list> option
         }
 
 module Logs =

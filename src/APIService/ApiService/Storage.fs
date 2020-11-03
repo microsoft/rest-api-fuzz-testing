@@ -31,28 +31,24 @@ module Storage =
                     let storageAccount = CloudStorageAccount.Parse(connectionString)
                     let tableClient = storageAccount.CreateCloudTableClient()
                     let table = tableClient.GetTableReference(tableName)
-                    let! createResult = table.CreateIfNotExistsAsync() |> Async.AwaitTask
+                    let! _ = table.CreateIfNotExistsAsync() |> Async.AwaitTask
                     return table
                 }
-                            
+
             member this.GetJobStatusEntities (query : TableQuery<JobStatusEntity>) =
                 task {
                     let me = this :> IRaftStorage
                     let! table = me.GetTable StorageEntities.JobStatusTableName
-                    //https://github.com/rspeele/TaskBuilder.fs
-                    // TODO: Remove tail recursion use of the task
-                    // See github readme
                     
-                    let rec doExecute (token: TableContinuationToken) (results: JobStatusEntity seq) =
-                        task {
-                            let! segment = table.ExecuteQuerySegmentedAsync(query, token) 
-                        
-                            if segment.ContinuationToken = null then
-                                return Seq.append results segment.Results
-                            else
-                                return! doExecute segment.ContinuationToken (Seq.append results segment.Results)
-                        }
-                    return! doExecute null []
+                    let! segment = table.ExecuteQuerySegmentedAsync(query, null)
+                    let results = ResizeArray(segment.Results)
+                    
+                    let mutable token = segment.ContinuationToken |> Option.ofObj
+                    while token.IsSome do
+                        let! segment = table.ExecuteQuerySegmentedAsync(query, token.Value)
+                        token <- segment.ContinuationToken |> Option.ofObj
+                        results.AddRange(segment.Results)
+                    return results |> Seq.cast
                 }
 
             member this.TableEntryExists tableName partitionKey rowKey =
