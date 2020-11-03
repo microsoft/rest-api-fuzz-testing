@@ -965,7 +965,7 @@ class RaftServiceCLI():
                 if pathlib.Path(file_path).suffix in dos2unix_file_types:
                     self.dos2unix(file_path)
 
-    def upload_utils(self, file_share):
+    def upload_utils(self, file_share, custom_tools = None):
         utils = os.path.join(f'{script_dir}', '..', 'raft-tools')
         self.convert_dir_dos2unix(utils)
 
@@ -990,6 +990,15 @@ class RaftServiceCLI():
                     f' --source {utils}'
                     f' --pattern "*"'
                     ' --validate-content')
+
+        if custom_tools:
+            print(f'Uploading custom tools {custom_tools}')
+            az('storage file upload-batch'
+               f' --connection-string "{connection_string}"'
+               f' --destination {file_share}'
+               f' --source {custom_tools}'
+               f' --pattern "*"'
+               ' --validate-content')
 
         print('Updating orchestrator utils file share')
         az('functionapp config appsettings set'

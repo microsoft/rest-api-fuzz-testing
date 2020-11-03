@@ -18,5 +18,5 @@ steps:
       azureSubscription: $(raft-subscription)
       scriptType: 'pscore'
       scriptLocation: 'inlineScript'
-      inlineScript: "python cli/raft.py --defaults-context-json '$(raft-defaults)' --secret $(bvt-secret) service upload-tools"
+      inlineScript: "python cli/raft.py --defaults-context-json '$(raft-defaults)' --secret $(bvt-secret) service upload-tools --custom-tools-path Scripts/CustomTools"
 

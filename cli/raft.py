@@ -110,7 +110,8 @@ def run(args):
                 args['sku'], skip_sp_deployment and skip_sp_deployment is True)
         elif service_action == 'upload-tools':
             utils_file_share = f'{uuid.uuid4()}'
-            service_cli.upload_utils(utils_file_share)
+            service_cli.upload_utils(
+                utils_file_share, args.get('custom_tools_path'))
             service_cli.restart()
         else:
             raise Exception(f'Unhandled service argument: {service_action}')
@@ -330,6 +331,9 @@ upload-tools - Uploads the tool definitions to the service
     service_parser.add_argument(
         '--sku', default='B2',
         choices=allowed_skus, required=False, help='Default value: B2')
+
+    service_parser.add_argument(
+        '--custom-tools-path', default=None, required=False)
 
     # Add the positional argument.
     job_parser = sub_parser.add_parser(
