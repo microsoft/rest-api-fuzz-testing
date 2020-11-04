@@ -10,19 +10,9 @@
   "tasks": [
     {
       "toolName": "RESTler",
-      "outputFolder": "compile-1",
+      "outputFolder": "compile",
       "toolConfiguration": {
         "task": "Compile"
-      }
-    },
-    {
-      "toolName": "RESTler",
-      "outputFolder": "compile-2",
-      "toolConfiguration": {
-        "task": "Compile",
-        "compileConfiguration": {
-          "mutationsSeed": 34534798
-        }
       }
     }
   ]

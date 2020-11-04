@@ -41,7 +41,7 @@ def run(compile, fuzz, sample_host):
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        print('Please provide host under test as an argument that will be used to\
+        print('Please provide host under test as an argument that will be used to \
 substitute {sample.host} in compile.json and fuzz.json config files')
     else:
         host = sys.argv[1]

@@ -13,7 +13,7 @@
         "outputFolder": "RESTler-replay",
         "task": "Replay",
         "runConfiguration": {
-          "inputFolderPath": "/job-run/{fuzz.jobId}/fuzz-1"
+          "inputFolderPath": "/job-run/{fuzz.jobId}/fuzz"
         }
       }
     }
