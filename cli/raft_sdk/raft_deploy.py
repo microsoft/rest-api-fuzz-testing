@@ -60,7 +60,7 @@ def azure_function_keys(
 
 
 class RaftServiceCLI():
-    def __init__(self, context, defaults_path):
+    def __init__(self, context, defaults_path, secret=None):
         self.defaults_path = defaults_path
         self.context = context
         self.definitions = RaftDefinitions(self.context)
@@ -72,6 +72,9 @@ class RaftServiceCLI():
             self.metrics_app_insights_key = ''
         self.site_hash = self.hash(
             self.definitions.subscription + self.definitions.deployment)
+
+        if not secret:
+            self.is_logged_in()
 
         az(f'account set --subscription {self.definitions.subscription}')
 
@@ -248,17 +251,17 @@ class RaftServiceCLI():
         print('Assigning Resource Group roles')
         try:
             scope = (f'/subscriptions/{self.definitions.subscription}'
-                    f'/resourceGroups/{self.definitions.resource_group}')
+                     f'/resourceGroups/{self.definitions.resource_group}')
             az('role assignment create'
-            f' --assignee {sp_app_id}'
-            ' --role contributor'
-            f' --scope "{scope}"')
+               f' --assignee {sp_app_id}'
+               ' --role contributor'
+               f' --scope "{scope}"')
         except RaftAzCliException as ex:
             not_owner = "does not have authorization to perform action"
             try_again = "does not exist in the directory"
-            if  not_owner in ex.error_message:
+            if not_owner in ex.error_message:
                 raise Exception('You must be owner of the'
-                                ' subscription in order to' 
+                                ' subscription in order to'
                                 ' deploy the service')
             if try_again in ex.error_message:
                 print('Service Principal is not in AD yet. Trying again...')
@@ -687,7 +690,8 @@ class RaftServiceCLI():
                 ' --docker-registry-server-url'
                 f' "{self.context["registry"]}"'
                 f' --docker-registry-server-user {container_registry_username}'
-                f' --docker-registry-server-password {container_registry_password}'
+                ' --docker-registry-server-password'
+                f' {container_registry_password}'
                 f' --name {self.definitions.test_infra}'
                 f' --resource-group {rg}'
                 f' --docker-custom-image-name "{container_image_name}"')
@@ -804,7 +808,7 @@ class RaftServiceCLI():
                 {
                     'name': "RAFT_RESULTS_STORAGE",
                     'slotSetting': False,
-                    #'value': self.definitions.storage_results
+                    # 'value': self.definitions.storage_results
                     'value': self.definitions.storage_account
                 },
                 {
@@ -876,7 +880,8 @@ class RaftServiceCLI():
                 ' --docker-registry-server-url'
                 f' "{self.context["registry"]}"'
                 f' --docker-registry-server-user {container_registry_username}'
-                f' --docker-registry-server-password {container_registry_password}'
+                ' --docker-registry-server-password'
+                f' {container_registry_password}'
                 f' --name {self.definitions.orchestrator}'
                 f' --resource-group {rg}'
                 f' --docker-custom-image-name "{container_image_name}"')
@@ -944,7 +949,6 @@ class RaftServiceCLI():
                 else:
                     break
 
-
     def dos2unix(self, file_path):
         print(f'Converting dos2unix {file_path}')
         dos_file_path = file_path + ".dos"
@@ -965,7 +969,7 @@ class RaftServiceCLI():
                 if pathlib.Path(file_path).suffix in dos2unix_file_types:
                     self.dos2unix(file_path)
 
-    def upload_utils(self, file_share, custom_tools = None):
+    def upload_utils(self, file_share, custom_tools=None):
         utils = os.path.join(f'{script_dir}', '..', 'raft-tools')
         self.convert_dir_dos2unix(utils)
 
@@ -1087,8 +1091,8 @@ class RaftServiceCLI():
                 container_registry_username = service_principal['appId']
                 container_registry_password = service_principal['password']
         else:
-            container_registry_username  = None
-            container_registry_password  = None
+            container_registry_username = None
+            container_registry_password = None
 
         self.init_storage_account(self.definitions.storage_account)
         sb_connection_strings = self.init_service_bus()
@@ -1098,7 +1102,7 @@ class RaftServiceCLI():
                 self.definitions.storage_account))
 
         self.init_storage_account(self.definitions.storage_utils)
-        #self.init_file_storage(self.definitions.storage_results)
+        # self.init_file_storage(self.definitions.storage_results)
 
         self.init_event_grid_domain()
 
