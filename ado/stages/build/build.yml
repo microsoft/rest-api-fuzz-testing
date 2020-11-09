@@ -5,7 +5,8 @@ stages:
         pool:
           vmImage: 'ubuntu-latest'
         steps:
-          - template: steps/cli.yml      
+          - template: steps/cli.yml     
+          - template: steps/bvt-tests.yml
           
       - job: ApiService
         pool:

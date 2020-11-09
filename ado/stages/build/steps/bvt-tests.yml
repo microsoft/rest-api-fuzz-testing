@@ -1,0 +1,10 @@
+steps: 
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.8'
+      addToPath: true
+
+  - task: PublishPipelineArtifact@1
+    inputs:
+      targetPath: Scripts
+      artifactName: Scripts
