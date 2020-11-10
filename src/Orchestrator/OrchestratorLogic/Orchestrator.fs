@@ -101,7 +101,7 @@ module ContainerInstances =
 
     type DockerConfig =
         {
-            Repository: string
+            Registry: string
             User: string
             Password: string
         }
@@ -292,7 +292,7 @@ module ContainerInstances =
                         |> Seq.tryPick( fun (k, v) ->
                             let t = sprintf"{%s}" k
                             if c.Container.Contains(t, StringComparison.OrdinalIgnoreCase) then
-                                Some (c.Container.Replace(t, v.Repository, StringComparison.OrdinalIgnoreCase))
+                                Some (c.Container.Replace(t, v.Registry, StringComparison.OrdinalIgnoreCase))
                             else
                                 None
                         )
@@ -608,15 +608,15 @@ module ContainerInstances =
                     let _1_2 =
                         let dockerConfigs =
                             dockerConfigs
-                            |> Seq.distinctBy(fun (_, dockerConfig) -> dockerConfig.Repository)
+                            |> Seq.distinctBy(fun (_, dockerConfig) -> dockerConfig.Registry)
 
                         if Seq.isEmpty dockerConfigs then
                             _1_1.WithPublicImageRegistryOnly()
                         else
                             let h = snd (Seq.head dockerConfigs)
-                            (_1_1.WithPrivateImageRegistry(h.Repository, h.User, h.Password), Seq.tail dockerConfigs)
+                            (_1_1.WithPrivateImageRegistry(h.Registry, h.User, h.Password), Seq.tail dockerConfigs)
                             ||> Seq.fold(fun a (_, v) ->
-                                a.WithPrivateImageRegistry(v.Repository, v.User, v.Password)
+                                a.WithPrivateImageRegistry(v.Registry, v.User, v.Password)
                             )
 
                     let _1 =
