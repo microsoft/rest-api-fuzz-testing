@@ -16,6 +16,43 @@ type SwaggerLocation =
     | FilePath of string
 
 
+type Resources =
+    {
+        Cores : int
+        MemoryGBs : int
+    }
+
+type Command =
+    {
+        Command : string
+        Arguments : string array option
+        TimeoutDuration : System.TimeSpan option
+    }
+
+type TestTargetDefinition =
+    //accessible within conatiner group at localhost:port
+    {
+        Container : string
+        StartDuration : System.TimeSpan
+        Port : int
+
+        IsIdling : bool option
+        Run : Command option
+        Idle : Command option
+        PostRun : Command option
+        OutputFolder : string option
+        Shell : string option
+
+        EnvironmentVariables : Map<string, string> option
+        KeyVaultSecrets : string array option
+    }
+
+type TestTarget =
+    {
+        Resources : Resources
+        Targets : TestTargetDefinition array
+    }
+
 type RaftTask =
     {
         ToolName: string
@@ -41,17 +78,10 @@ type RaftTask =
         ToolConfiguration : Newtonsoft.Json.Linq.JObject
     }
 
-
 type FileShareMount =
     {
         FileShareName : string //any fileShare name from the service storage account
         MountPath : string //example "/my-job-config"
-    }
-
-type Resources =
-    {
-        Cores : int
-        MemoryGBs : int
     }
 
 type Webhook =
@@ -75,7 +105,10 @@ type JobDefinition =
 
         Resources : Resources
 
-        // !!NOTE!!: according to Azure Container spec, we can have up to 60 elements in this array
+
+        // !!NOTE!!: according to Azure Container spec, we can have up to 60 elements
+        // of TestTargets and Tasks combined
+        TestTargets : TestTarget option
         Tasks : RaftTask array
 
         /// Duration of the job; if not set, then job runs till completion

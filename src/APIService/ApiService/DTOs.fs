@@ -135,6 +135,41 @@ module DTOs =
             MemoryGBs : int
         }
 
+    [<CLIMutable>]
+    type Command =
+        {
+            Command : string
+            Arguments : string array
+            TimeoutDuration : Nullable<TimeSpan>
+        }
+
+    [<CLIMutable>]
+    type TestTargetDefinition =
+        {
+            [<Required>]
+            Container : string
+            Port : int
+            StartDuration : TimeSpan
+
+            IsIdling : Nullable<bool>
+
+            Run : Command
+            Idle : Command
+            PostRun : Command
+            OutputFolder : string
+            Shell : string
+
+            EnvironmentVariables : IDictionary<string, string>
+            KeyVaultSecrets : string array
+        }
+
+    [<CLIMutable>]
+    type TestTarget =
+        {
+            Resources : Resources
+            Targets : TestTargetDefinition array
+        }
+
     /// <summary>
     /// Webhook definition
     /// </summary>
@@ -181,6 +216,12 @@ module DTOs =
             /// </summary>
             [<Required>]
             Tasks : RaftTask array
+
+            /// <summary>
+            /// Deploy Services under test packaged as Docker container to the same
+            /// container grop as Tasks
+            /// </summary>
+            TestTargets : TestTarget
 
             /// <summary>
             /// Duration of the job; if not set, then job runs till completion (or forever).
