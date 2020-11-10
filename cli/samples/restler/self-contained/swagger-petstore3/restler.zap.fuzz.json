@@ -1,0 +1,71 @@
+{
+  "host": "localhost",
+
+  "resources": {
+    "Cores": 4,
+    "MemoryGBs": 8
+  },
+
+  "readonlyFileShareMounts": [
+    {
+      "FileShareName": "{compile.jobId}",
+      "MountPath": "/job-compile"
+    }
+  ],
+
+ "testTargets" : { 
+    "resources" : {
+      "Cores" : 2,
+      "MemoryGBs" : 4
+    },
+    "targets" : [
+      {
+        "Container" : "swaggerapi/petstore3",
+        "Port" : 8081,
+        "ExpectedDurationUntilReady" : "00:02:00",
+        "Run" : {
+          "Command" : "/bin/sh",
+          "Arguments" : ["-c", "java -jar /swagger-petstore/jetty-runner.jar --log $RAFT_WORK_DIRECTORY/yyyy_mm_dd-requests.log --port 8081 /swagger-petstore/server.war"]
+        },
+        "Shell" : "/bin/sh",
+        "OutputFolder" : "restler_petstore3"
+      },
+      {
+        "Container" : "swaggerapi/petstore3",
+        "Port" : 8080,
+        "ExpectedDurationUntilReady" : "00:00:30",
+        "PostRun" : {
+          "Command" : "/bin/sh", 
+          "Arguments" : ["-c", "cp /var/log/*-requests.log $RAFT_WORK_DIRECTORY"],
+          "ExpectedRunDuration" : "00:00:10"
+        },
+        "Shell" : "/bin/sh",
+        "OutputFolder" : "zap_petstore3"
+      }
+    ]
+  },
+  "tasks": [
+    {
+      "toolName": "RESTler",
+      "outputFolder": "fuzz",
+      "duration": "00:30:00",
+      "toolConfiguration": {
+        "task": "Fuzz",
+        "runConfiguration": {
+          "targetEndpointConfiguration" : {
+            "Port" : 8081 
+          },
+          "useSsl" : false,
+          "inputFolderPath": "/job-compile/compile"
+        }
+      }
+    },
+    {
+      "toolName" : "ZAP",
+      "outputFolder" : "zap",
+      "swaggerLocation": {
+        "URL" : "http://localhost:8080/api/v3/openapi.json"
+      }
+    }
+  ]
+}

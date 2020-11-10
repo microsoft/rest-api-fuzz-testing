@@ -1,0 +1,52 @@
+{
+  "host": "localhost",
+  "webhook": {
+    "name": "petstore-fuzz",
+    "metadata": {
+      "app" : "petstore",
+      "swagger_version" : "v2",
+      "action" : "fuzz"	
+    }
+  },
+
+  "readonlyFileShareMounts": [
+    {
+      "FileShareName": "{compile.jobId}",
+      "MountPath": "/job-compile"
+    }
+  ],
+
+ "testTargets" : { 
+    "targets" : [
+      {
+        "Container" : "swaggerapi/petstore",
+        "Port" : 8080,
+        "ExpectedDurationUntilReady" : "00:02:00",
+        "Shell" : "/bin/sh",
+        "OutputFolder" : "petstore",
+        "PostRun" : {
+          "Command" : "/bin/sh", 
+          "Arguments" : ["-c", "cp /var/log/*-requests.log $RAFT_WORK_DIRECTORY"],
+          "ExpectedRunDuration" : "00:00:10"
+        }
+      }
+    ]
+  },
+  "tasks": [
+    {
+      "toolName": "RESTler",
+      "outputFolder": "fuzz",
+      "duration": "00:10:00",
+      "toolConfiguration": {
+        "task": "Fuzz",
+        "runConfiguration": {
+          "targetEndpointConfiguration" : {
+            "Port" : 8080 
+          },
+          "useSsl" : false,
+          "inputFolderPath": "/job-compile/compile"
+        }
+      }
+    }
+  ]
+}

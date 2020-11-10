@@ -135,6 +135,41 @@ module DTOs =
             MemoryGBs : int
         }
 
+    [<CLIMutable>]
+    type Command =
+        {
+            Command : string
+            Arguments : string array
+            ExpectedRunDuration: Nullable<TimeSpan>
+        }
+
+    [<CLIMutable>]
+    type TestTargetDefinition =
+        {
+            [<Required>]
+            Container : string
+            Port : int
+            ExpectedDurationUntilReady: TimeSpan
+
+            IsIdling : Nullable<bool>
+
+            Run : Command
+            Idle : Command
+            PostRun : Command
+            OutputFolder : string
+            Shell : string
+
+            EnvironmentVariables : IDictionary<string, string>
+            KeyVaultSecrets : string array
+        }
+
+    [<CLIMutable>]
+    type TestTarget =
+        {
+            Resources : Resources
+            Targets : TestTargetDefinition array
+        }
+
     /// <summary>
     /// Webhook definition
     /// </summary>
@@ -181,6 +216,12 @@ module DTOs =
             /// </summary>
             [<Required>]
             Tasks : RaftTask array
+
+            /// <summary>
+            /// Deploy Services under test packaged as Docker container to the same
+            /// container grop as Tasks
+            /// </summary>
+            TestTargets : TestTarget
 
             /// <summary>
             /// Duration of the job; if not set, then job runs till completion (or forever).
@@ -231,8 +272,6 @@ module DTOs =
         {
             JobId : string
         }
-        
-
 
     // We need some way of designating that these types are returned to the customer
     // public? external? ReturnedJobId? 
@@ -248,10 +287,11 @@ module DTOs =
         | Creating = 0
         | Created = 1
         | Running = 2
-        | Completed = 3
-        | ManuallyStopped = 4
-        | Error = 5
-        | TimedOut = 6
+        | Completing = 3
+        | Completed = 4
+        | ManuallyStopped = 5
+        | Error = 6
+        | TimedOut = 7
 
     [<CLIMutable>]
     type RunSummary =

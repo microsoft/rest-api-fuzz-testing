@@ -20,7 +20,7 @@ type jobsRePOSTTests() =
             let jobId = System.Guid.NewGuid().ToString()
 
             let jobStatusJson = File.ReadAllText("test-job-status.json")
-            let entity = JobStatusEntity(jobId, jobId, jobStatusJson)
+            let entity = JobStatusEntity(jobId, jobId, jobStatusJson, "Created")
             Raft.Utilities.raftStorage <- Fixtures.createFakeRaftStorage (Some entity)
             Raft.Utilities.toolsSchemas <- Map.empty.Add("RESTler", None)
 

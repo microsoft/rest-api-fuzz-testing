@@ -1,0 +1,30 @@
+{
+  "host": "localhost",
+
+  "testTargets" : {
+    "targets":
+      [
+        {
+          "Container" : "swaggerapi/petstore3",
+          "Port" : 8080,
+          "ExpectedDurationUntilReady" : "00:00:30",
+          "PostRun" : {
+            "Command" : "/bin/sh", 
+            "Arguments" : ["-c", "cp /var/log/*-requests.log $RAFT_WORK_DIRECTORY"],
+            "ExpectedRunDuration" : "00:00:10"
+          },
+          "Shell" : "/bin/sh",
+          "OutputFolder" : "zap_petstore3"
+      }
+    ]
+  },
+  "tasks": [
+    {
+      "toolName" : "ZAP",
+      "outputFolder" : "zap",
+      "swaggerLocation": {
+        "URL" : "http://localhost:8080/api/v3/openapi.json"
+      }
+    }
+  ]
+}

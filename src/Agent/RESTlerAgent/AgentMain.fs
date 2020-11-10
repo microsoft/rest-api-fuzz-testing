@@ -172,6 +172,9 @@ let createRESTlerEngineParameters
         /// File path to the custom fuzzing dictionary.
         mutationsFilePath = mutationsFilePath
 
+        /// The string to use in overriding the Host for each request
+        host = task.Host
+
         /// The IP of the endpoint being fuzzed
         targetIp = targetIp
 
@@ -211,9 +214,6 @@ let createRESTlerEngineParameters
  
         /// Specifies to use SSL when connecting to the server
         useSsl = match runConfiguration.UseSsl with None -> true | Some useSsl -> useSsl
-
-        /// The string to use in overriding the Host for each request
-        host = task.Host
 
         /// Path regex for filtering tested endpoints
         pathRegex = runConfiguration.PathRegex
@@ -599,48 +599,22 @@ let main argv =
                 | None -> Some defaultInterval
             resultAnalyzerReportInterval
 
-        let getIpAndPort (host: string option) (useSsl: bool option, targetEndpointConfiguration : TargetEndpointConfiguration option) =
-            async {
-                match host, targetEndpointConfiguration with 
-                | None, None ->
-                    return Result.Error("Host or Target Endpoint Configuration must be set")
-                | Some host, None ->
-                    let targetPort = 
-                        match useSsl with
-                        | None -> 443
-                        | Some useSsl -> if useSsl then 443 else 80
-                    let! dns = System.Net.Dns.GetHostAddressesAsync(host) |> Async.AwaitTask
-                    printfn "Following IP addresses got retrived for the host %s : %A. Going to use first one" host dns
-                    if Array.isEmpty dns then
-                        return Result.Error("Failed to retrieve IP from DNS")
-                    else
-                        return Result.Ok(dns.[0].ToString(), targetPort)
-                | Some host, Some endpointConfiguration ->
-                    match endpointConfiguration.Ip with
-                    | Some ip ->
-                        printfn "Endpoint configuration is set, going to use it: %A" endpointConfiguration
-                        return Result.Ok(ip, endpointConfiguration.Port)
-                    | None ->
-                        printfn "Endpoint configuration is set, going to use it: %A" endpointConfiguration
-                        return Result.Ok(host, endpointConfiguration.Port)
-                | None, Some endpointConfiguration ->
-                    match endpointConfiguration.Ip with
-                    | Some ip ->
-                        printfn "Endpoint configuration is set, going to use it: %A" endpointConfiguration
-                        return Result.Ok(ip, endpointConfiguration.Port)
-                    | None ->
-                        return Result.Error("Must set either target endpoint IP or host")
-            }
+        let getIpAndPort (targetEndpointConfiguration : TargetEndpointConfiguration option) =
+            match targetEndpointConfiguration with 
+            | None ->
+                None, None
+            | Some endpointConfiguration ->
+                match endpointConfiguration.Ip with
+                | Some ip ->
+                    printfn "Endpoint configuration is set, going to use it: %A" endpointConfiguration
+                    Some(ip), Some(endpointConfiguration.Port)
+                | None ->
+                    None, Some(endpointConfiguration.Port)
 
         let test (testType: string) checkerOptions (jobConfiguration: RunConfiguration) =
             async {
                 let resultAnalyzerReportInterval = getResultReportingInterval()
-                let! targetIp, targetPort =
-                    async {
-                        match! getIpAndPort task.Host (jobConfiguration.UseSsl, jobConfiguration.TargetEndpointConfiguration) with
-                        | Result.Ok(port, ip) -> return port, ip
-                        | Result.Error msg -> return failwith msg
-                    }
+                let targetIp, targetPort = getIpAndPort jobConfiguration.TargetEndpointConfiguration
                 let engineParameters = createRESTlerEngineParameters (targetIp, targetPort) grammarPy dictJson task checkerOptions jobConfiguration
                 printfn "Starting RESTler test task"
                 do! Raft.RESTlerDriver.test testType restlerPath workDirectory engineParameters onBugFound (report Raft.JobEvents.JobState.Running) (globalRunStartTime, resultAnalyzerReportInterval)
@@ -649,12 +623,7 @@ let main argv =
         let fuzz (fuzzType:string) checkerOptions (jobConfiguration: RunConfiguration) =
             async {
                 let resultAnalyzerReportInterval = getResultReportingInterval()
-                let! targetIp, targetPort =
-                    async {
-                        match! getIpAndPort task.Host (jobConfiguration.UseSsl, jobConfiguration.TargetEndpointConfiguration) with
-                        | Result.Ok(port, ip) -> return port, ip
-                        | Result.Error msg -> return failwith msg
-                    }
+                let targetIp, targetPort = getIpAndPort jobConfiguration.TargetEndpointConfiguration
                 let engineParameters = createRESTlerEngineParameters (targetIp, targetPort) grammarPy dictJson task checkerOptions jobConfiguration
                 printfn "Starting RESTler fuzz task"
                 do! Raft.RESTlerDriver.fuzz fuzzType restlerPath workDirectory engineParameters onBugFound (report Raft.JobEvents.JobState.Running) (globalRunStartTime, resultAnalyzerReportInterval)
@@ -663,25 +632,22 @@ let main argv =
         let replay replayLogFile (jobConfiguration: RunConfiguration) =
             async {
                 //same command line parameters as fuzzing, except for fuzzing parameter pass sprintf "--replay_log %s" replayLogFilePath
-                let! targetIp, targetPort =
-                    async {
-                        match task.Host, jobConfiguration.TargetEndpointConfiguration with
-                        | None, None ->
-                            let taskConfigurationPath = jobConfiguration.InputFolderPath ++ ".." ++ ".." ++ ".." ++ IO.FileInfo(taskConfigurationPath).Name
-                            let prevTask: Raft.Job.RaftTask = Json.Compact.deserializeFile taskConfigurationPath
-                            let prevPayload : RESTlerPayload = Json.Compact.deserialize (prevTask.ToolConfiguration.ToString())
-                            match prevPayload.RunConfiguration with
-                            | Some runConfiguration -> 
-                                match! getIpAndPort prevTask.Host (runConfiguration.UseSsl, runConfiguration.TargetEndpointConfiguration) with
-                                | Result.Ok(port, ip) -> return port, ip
-                                | Result.Error msg -> return failwith msg
-                            | None ->
-                                return failwithf "Host nor TargetEndpointConfiguration are not set. Also output of previous task does not have it set."
-                        | _, _ ->
-                            match! getIpAndPort task.Host (jobConfiguration.UseSsl, jobConfiguration.TargetEndpointConfiguration) with
-                            | Result.Ok(port, ip) -> return port, ip
-                            | Result.Error msg -> return failwith msg
-                    }
+                let task, targetIp, targetPort = 
+                    match task.Host, jobConfiguration.TargetEndpointConfiguration with
+                    | None, None ->
+                        let taskConfigurationPath = jobConfiguration.InputFolderPath ++ ".." ++ ".." ++ ".." ++ IO.FileInfo(taskConfigurationPath).Name
+                        let prevTask: Raft.Job.RaftTask = Json.Compact.deserializeFile taskConfigurationPath
+                        let prevPayload : RESTlerPayload = Json.Compact.deserialize (prevTask.ToolConfiguration.ToString())
+                        match prevPayload.RunConfiguration with
+                        | Some runConfiguration ->
+                            let targetIp, targetPort = getIpAndPort runConfiguration.TargetEndpointConfiguration
+                            {task with Host = prevTask.Host}, targetIp, targetPort
+                        | None ->
+                            failwithf "Host nor TargetEndpointConfiguration are not set. Also output of previous task does not have it set."
+                    | _, endPointConfig ->
+                        let targetIp, targetPort = getIpAndPort endPointConfig
+                        task, targetIp, targetPort
+
                 let engineParameters = createRESTlerEngineParameters (targetIp, targetPort) grammarPy dictJson task [] jobConfiguration
                 printfn "Starting RESTler replay task"
                 return! Raft.RESTlerDriver.replay restlerPath workDirectory replayLogFile engineParameters

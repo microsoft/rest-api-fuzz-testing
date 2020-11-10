@@ -9,6 +9,7 @@ type JobState =
     | Creating
     | Created
     | Running
+    | Completing
     | Completed
     | ManuallyStopped
     | Error
@@ -26,11 +27,19 @@ let ( ??> ) (s1: JobState) (s2: JobState) =
     | JobState.Running, (JobState.Creating | JobState.Created) -> true
     | JobState.Running, _ -> false
 
-    | JobState.ManuallyStopped, (JobState.Creating | JobState.Created | JobState.Running | JobState.Completed | JobState.Error) -> true
+    | JobState.ManuallyStopped,
+        ( JobState.Creating 
+        | JobState.Created 
+        | JobState.Running 
+        | JobState.Completing 
+        | JobState.Completed 
+        | JobState.Error) -> true
     | JobState.ManuallyStopped, _ -> false
 
+    | JobState.Completing, (JobState.Error | JobState.Completed) -> false
+
     | JobState.Completed , (JobState.Error | JobState.Completed) -> false
-    | (JobState.Completed | JobState.TimedOut | JobState.Error), _ -> true
+    | (JobState.Completing | JobState.Completed | JobState.TimedOut | JobState.Error), _ -> true
 
 type RunSummary =
     {

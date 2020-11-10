@@ -23,13 +23,19 @@ module ContainerInstances =
     module Tags =
         let [<Literal>] Duration = "duration"
         let [<Literal>] StartTimeUtc = "startTimeUTC"
-        //user can change this tag to True if they want to prevent
-        //garbage collection from deleting the container group
-        let [<Literal>] GCReady = "gcReady"
 
         // if set to true, then this container group is used for re-running
         // multiple runs of commands
         let [<Literal>] IsIdling = "isIdling"
+
+        //wait for some extra timeout to allow container perform
+        //cleanup actions (such as copying logs to common share, closing connections, etc)
+        let [<Literal>] PostRunExpectedRunDuration = "postRunExpectedRunDuration"
+
+        //This is set when the post run command is started. Calculation for this: nowUTC + PostRunExpectedRunDuration
+        //If this value is set, then garbage collection will use that for figuring out when to delete the job
+        let [<Literal>] PostRunTimeoutUtc = "postRunTimeoutUTC"
+
 
         let getFromTags (tryParse: string -> bool * 'a) (tags: IReadOnlyDictionary<string, string>) (tag: string) =
             match tags.TryGetValue tag with
@@ -43,11 +49,6 @@ module ContainerInstances =
         let inline getDateTimeFromTags tags tag = getFromTags DateTime.TryParse tags tag
         let inline getTimeSpanFromTags tags tag = getFromTags TimeSpan.TryParse tags tag
 
-        let isGcReady (tags: Collections.Generic.IReadOnlyDictionary<string, string>) =
-            match getBoolFromTags tags GCReady with
-            | Some true | None -> true
-            | Some false -> false
-
         let isIdling (tags: Collections.Generic.IReadOnlyDictionary<string, string>) =
             match getBoolFromTags tags IsIdling with
             | Some true -> true
@@ -58,6 +59,14 @@ module ContainerInstances =
 
         let getDuration (tags: Collections.Generic.IReadOnlyDictionary<string, string>) =
             getTimeSpanFromTags tags Duration
+
+        let getPostRunExpectedRunDuration tags = 
+            getTimeSpanFromTags tags PostRunExpectedRunDuration
+        
+        let getPostRunTimeoutUTC tags =
+            getDateTimeFromTags tags PostRunTimeoutUtc
+
+    let [<Literal>] TestTarget = "test-target"
 
     type System.Threading.Tasks.Task with
         member x.ToAsync = Async.AwaitTask(x)
@@ -151,15 +160,14 @@ module ContainerInstances =
         {
             Tool: string
             Container: string
+            Port : int option
             
-            RunDirectory : string
             IsIdling : bool
 
-            Command : string
-            CommandArguments: string array
-            
-            IdleCommand : string
-            IdleCommandArguments: string array
+            Run : Command option
+            Idle : Command option
+            PostRun : Command option
+            Shell : string option
             
             Secrets : string array option
             UserDefinedEnvironmentVariables : Map<string, string> option
@@ -168,16 +176,9 @@ module ContainerInstances =
     type ContainerToolRun =
         {
             ContainerName : string
-            RunDirectory : string
-            WorkDirectory : string
+            RunDirectory : string option
+            WorkDirectory : string option
             ToolConfiguration: ToolConfiguration
-        }
-
-
-    type ToolCommand = 
-        {
-            Command : string
-            Arguments: string array
         }
 
     type GpuConfig =
@@ -196,8 +197,10 @@ module ContainerInstances =
         {
             Container : string
 
-            Run : ToolCommand
-            Idle : ToolCommand
+            Run : Command
+            Idle : Command
+
+            Shell : string option
 
             EnvironmentVariables : Map<string, string> option
         }
@@ -298,19 +301,29 @@ module ContainerInstances =
                         )
                         |> Option.defaultValue c.Container
 
-                    return
+                    return runDirectory,
                         {
                             Tool = task.ToolName
-                            RunDirectory = runDirectory
+                            Port = None
                             Container = container
 
                             Secrets = task.KeyVaultSecrets
                             IsIdling = task.IsIdling
-                            IdleCommand = c.Idle.Command
-                            IdleCommandArguments = c.Idle.Arguments
 
-                            Command = c.Run.Command
-                            CommandArguments = c.Run.Arguments
+                            Run = Some {
+                                ExpectedRunDuration = None
+                                Command = c.Run.Command
+                                Arguments = c.Run.Arguments
+                            }
+
+                            Idle = Some {
+                                ExpectedRunDuration = None
+                                Command = c.Idle.Command
+                                Arguments = c.Idle.Arguments
+                            }
+                            Shell = Some(match c.Shell with Some sh -> sh | None -> c.Idle.Command)
+                            PostRun = None
+
                             UserDefinedEnvironmentVariables = c.EnvironmentVariables
                         }
                 | true, Result.Error(err) ->
@@ -360,23 +373,27 @@ module ContainerInstances =
 
             let! subDirectory = createSubDirectory(shareClient)
 
-            
             do! saveString (sprintf "%sjob-config.json" subDirectory) (Microsoft.FSharpLu.Json.Compact.Strict.serialize jobCreateRequest)
 
-            let! tasksConfigurations =
-                    jobCreateRequest.JobDefinition.Tasks
-                    |> Array.mapi(fun index task ->
-                        async {
-                            let taskDirectory = sprintf "%s%s" subDirectory task.OutputFolder
+            for task in jobCreateRequest.JobDefinition.Tasks do
+                let taskDirectory = sprintf "%s%s" subDirectory task.OutputFolder
+                let directoryClient = shareClient.GetDirectoryClient(taskDirectory)
+                let! _  = directoryClient.CreateIfNotExistsAsync().ToAsync
+                do! saveString (sprintf "%s/%s" taskDirectory "task-config.json") (Microsoft.FSharpLu.Json.Compact.Strict.serialize task)
 
-                            let directoryClient = shareClient.GetDirectoryClient(taskDirectory)
-                            let! _  = directoryClient.CreateIfNotExistsAsync().ToAsync
-                            do! saveString (sprintf "%s/%s" taskDirectory "task-config.json") (Microsoft.FSharpLu.Json.Compact.Strict.serialize task)
-                            return index, taskDirectory, task
-                        }
-                    )
-                    |> Async.Sequential
-            return shareName, tasksConfigurations
+            match jobCreateRequest.JobDefinition.TestTargets with
+            | Some tt ->
+                for target in tt.Targets do
+                    match target.OutputFolder with
+                    | Some outputFolder ->
+                        let taskDirectory = sprintf "%s%s" subDirectory outputFolder
+                        let directoryClient = shareClient.GetDirectoryClient(taskDirectory)
+                        let! _  = directoryClient.CreateIfNotExistsAsync().ToAsync
+                        ()
+                    | None -> ()
+            | None -> ()
+
+            return shareName
         }
 
     module RaftContainerGroup =
@@ -399,9 +416,9 @@ module ContainerInstances =
                 )
             | None -> cg
 
-
-        let configureContainerInstances
-                (cg: ContainerGroup.Definition.IWithVolume) (resources: Resources)
+        
+        let configureTasksContainerInstances
+                (cg: Choice<ContainerGroup.Definition.IWithVolume, ContainerGroup.Definition.IWithNextContainerInstance>) (resources: Resources)
                 (toolContainerRunsWithSecrets: (ContainerToolRun * IDictionary<string, string> * IDictionary<string, string>) array)
                 (workDirectory, workVolume) (readOnlyShares, readWriteShares) =
 
@@ -413,7 +430,7 @@ module ContainerInstances =
             let ram = System.Math.Round(mem / float numberOfTasks, 1, MidpointRounding.ToZero)
 
             let r, isIdling, _ =
-                ((Choice1Of2(cg), false, (cores, mem)), toolContainerRunsWithSecrets)
+                ((cg, false, (cores, mem)), toolContainerRunsWithSecrets)
                 ||> Array.fold (fun (a, isIdling, (remainingCpu, remainingRam)) (toolContainerRun, secrets, environmentVariables) ->
                     let cpu =
                         if remainingCpu >= 0.01 && remainingCpu < cpu then
@@ -435,10 +452,16 @@ module ContainerInstances =
                             | Choice2Of2 (b: ContainerGroup.Definition.IWithNextContainerInstance) ->
                                 b.DefineContainerInstance toolContainerRun.ContainerName
 
-                        b
-                            .WithImage(toolContainerRun.ToolConfiguration.Container)
-                            .WithoutPorts()
-                            .WithCpuCoreCount(cpu)
+                        let b1 = 
+                            b.WithImage(toolContainerRun.ToolConfiguration.Container)
+
+                        let b2 =
+                            match toolContainerRun.ToolConfiguration.Port with
+                            | None ->
+                                b1.WithoutPorts().WithCpuCoreCount(cpu)
+                            | Some p ->
+                                (b1.WithInternalTcpPort p).WithCpuCoreCount(cpu)
+                        b2
                             .WithMemorySizeInGB(ram)
                             .WithVolumeMountSetting(workVolume, workDirectory)
 
@@ -463,15 +486,22 @@ module ContainerInstances =
                     let f = e.WithEnvironmentVariablesWithSecuredValue secrets
                     let g = f.WithEnvironmentVariables environmentVariables
 
-                    let cmd, args =
+                    let command =
                         if toolContainerRun.ToolConfiguration.IsIdling then
-                            toolContainerRun.ToolConfiguration.IdleCommand, toolContainerRun.ToolConfiguration.IdleCommandArguments
+                            match toolContainerRun.ToolConfiguration.Idle with
+                            | Some c -> Some(c.Command, match c.Arguments with Some args -> args | None -> Array.empty)
+                            | None -> failwith "No idle command is set"
                         else
-                            toolContainerRun.ToolConfiguration.Command, toolContainerRun.ToolConfiguration.CommandArguments
-
-                    Choice2Of2(g.WithStartingCommandLine(cmd, args).Attach()),
-                                    (isIdling || toolContainerRun.ToolConfiguration.IsIdling),
-                                    (remainingCpu - cpu, remainingRam - ram)
+                            match toolContainerRun.ToolConfiguration.Run with
+                            | Some r -> Some(r.Command, match r.Arguments with Some args -> args | None -> Array.empty)
+                            | None -> None
+                    let cg =
+                        match command with
+                        | Some(cmd, args) ->
+                            Choice2Of2(g.WithStartingCommandLine(cmd, args).Attach())
+                        | None ->
+                            Choice2Of2(g.Attach())
+                    cg,(isIdling || toolContainerRun.ToolConfiguration.IsIdling), (remainingCpu - cpu, remainingRam - ram)
                 )
             r, isIdling
 
@@ -493,23 +523,23 @@ module ContainerInstances =
             let makeToolConfig payload =
                 getToolConfiguration dockerConfigs toolsConfigs payload
 
-            let! shareName, tasksConfigurations = createJobShareAndFolders logger containerGroupName sasUrl jobCreateRequest
+            let! shareName = createJobShareAndFolders logger containerGroupName sasUrl jobCreateRequest
 
-            tasksConfigurations
-            |> Array.countBy(fun (_, _, task) -> task.ToolName)
+            jobCreateRequest.JobDefinition.Tasks
+            |> Array.countBy(fun task -> task.ToolName)
             |> (fun tasks ->
-                Central.Telemetry.TrackMetric(TelemetryValues.Tasks(tasks, tasksConfigurations.Length), "N")
+                Central.Telemetry.TrackMetric(TelemetryValues.Tasks(tasks, jobCreateRequest.JobDefinition.Tasks.Length), "N")
             )
 
             let! containerToolRuns = 
-                tasksConfigurations 
-                |> Array.map (fun (i, taskDirectory, task) ->
+                jobCreateRequest.JobDefinition.Tasks 
+                |> Array.mapi (fun i task ->
                                 async {
-                                    let! toolConfig = makeToolConfig task
+                                    let! (runDirectory, toolConfig) = makeToolConfig task
                                     return
                                         {
-                                            RunDirectory = toolConfig.RunDirectory
-                                            WorkDirectory = sprintf "%s/%s" workDirectory taskDirectory
+                                            RunDirectory = Some runDirectory
+                                            WorkDirectory = Some(sprintf "%s/%s" workDirectory task.OutputFolder)
                                             ContainerName = (sprintf "%d-%s" i task.OutputFolder).ToLowerInvariant()
                                             ToolConfiguration = toolConfig
                                         }
@@ -519,13 +549,67 @@ module ContainerInstances =
             return containerToolRuns, shareName, workVolume, workDirectory
         }
 
-    let getContainerRunCommandString command (commandArguments: string array) =
+    let getContainerRunCommandString command (commandArguments: string array option) =
         let commandArgumentsString =
-            commandArguments
-            |> Array.map(fun s -> sprintf "\"%s\"" (s.Replace("\"", "\\\"")))
-            |> (fun args -> String.Join(" ", args))
+            match commandArguments with
+            | None -> ""
+            | Some args ->
+                args
+                |> Array.map(fun s -> sprintf "\"%s\"" (s.Replace("\"", "\\\"")))
+                |> (fun args -> String.Join(" ", args))
 
         sprintf "%s %s" command commandArgumentsString
+
+    let runWebsocketCmd (logger:ILogger) (existingContainerGroup : IContainerGroup, containerName : string) (shell: string, cmd : string) =
+        async {
+            let logInfo format = Printf.kprintf logger.LogInformation format
+            let! runCmd = existingContainerGroup.ExecuteCommandAsync(containerName, shell, 80, 40).ToAsync
+
+            use websocketsClient = new System.Net.WebSockets.ClientWebSocket()
+            do! websocketsClient.ConnectAsync(System.Uri(runCmd.WebSocketUri), Async.DefaultCancellationToken).ToAsync
+            
+            let send (s: string) =
+                websocketsClient.SendAsync( ArraySegment(System.Text.Encoding.UTF8.GetBytes(s)),
+                                            System.Net.WebSockets.WebSocketMessageType.Text,
+                                            true, 
+                                            Async.DefaultCancellationToken).ToAsync
+
+            let sendCommand (s: string) = send (s + "\r\n")
+
+            let ar = Array.zeroCreate 1024
+            let seg = ArraySegment<byte>(ar)
+
+            let rec receive () = async {
+                let! resp = websocketsClient.ReceiveAsync(seg, Async.DefaultCancellationToken).ToAsync
+                if resp.EndOfMessage || resp.Count = Array.length ar then
+                    let ch = System.Text.Encoding.UTF8.GetChars(ar, 0, resp.Count)
+                    let str = String(ch)
+                    printfn "%s" str
+                    return str
+                else
+                    return! receive ()
+            }
+            do! send runCmd.Password
+            let! _ = receive()
+            do! sendCommand cmd
+
+            try
+                let! _ = receive()
+                let! rsp = receive()
+                try
+                    do! sendCommand "exit"
+                    do! websocketsClient.CloseAsync(Net.WebSockets.WebSocketCloseStatus.NormalClosure, "Session completed", Async.DefaultCancellationToken).ToAsync
+                with
+                | ex ->
+                    logInfo "Ignoring websocket exception, since execution is complete %A" ex
+
+                return rsp
+            with
+            | ex -> 
+                logInfo "Failed to get response from web-socket due to: %A" ex
+                return ""
+        }
+
 
     let runDebugContainers
         (existingContainerGroup : IContainerGroup)
@@ -534,41 +618,28 @@ module ContainerInstances =
         (dockerConfigs: (string * DockerConfig) seq)
         (toolsConfigs : IDictionary<string, Result<string * ToolConfig, string>>)
         (jobCreateRequest: Raft.Job.CreateJobRequest) =
-                async {
-                    let logInfo format = Printf.kprintf logger.LogInformation format
-                    let! containerToolRunsConfigurations, _, _, _ = getContainerGroupInstanceConfiguration existingContainerGroup.Name logger agentConfig dockerConfigs toolsConfigs jobCreateRequest
-                    let! _ =
-                        containerToolRunsConfigurations
-                        |> Array.filter (fun toolRunConfig -> toolRunConfig.ToolConfiguration.IsIdling)
-                        |> Array.map (fun toolRunConfig ->
-                            async {
-                                let cmd = getContainerRunCommandString toolRunConfig.ToolConfiguration.Command toolRunConfig.ToolConfiguration.CommandArguments
+            async {
+                let logInfo format = Printf.kprintf logger.LogInformation format
+                let! containerToolRunsConfigurations, _, _, _ = getContainerGroupInstanceConfiguration existingContainerGroup.Name logger agentConfig dockerConfigs toolsConfigs jobCreateRequest
+                let! _ =
+                    containerToolRunsConfigurations
+                    |> Array.filter (fun toolRunConfig -> toolRunConfig.ToolConfiguration.IsIdling)
+                    |> Array.map (fun toolRunConfig ->
+                        async {
+                            match toolRunConfig.ToolConfiguration.Run with
+                            | Some r ->
+                                let cmd = getContainerRunCommandString r.Command r.Arguments
                                 logInfo "Since isIdling is set: on %s in %s running %s" toolRunConfig.ContainerName existingContainerGroup.Name cmd
-            
-                                let! runCmd =
-                                    existingContainerGroup.ExecuteCommandAsync(toolRunConfig.ContainerName, toolRunConfig.ToolConfiguration.IdleCommand, 80, 40).ToAsync
-
-                                use websocketsClient = new System.Net.WebSockets.ClientWebSocket()
-                                do! websocketsClient.ConnectAsync(System.Uri(runCmd.WebSocketUri), Async.DefaultCancellationToken).ToAsync
-            
-                                let send (s: string) =
-                                    websocketsClient.SendAsync( ArraySegment(System.Text.Encoding.UTF8.GetBytes(s)),
-                                            System.Net.WebSockets.WebSocketMessageType.Text,
-                                            true, 
-                                            Async.DefaultCancellationToken).ToAsync
-
-                                let sendCommand (s: string) = send (s + "\r\n")
-
-                                do! send runCmd.Password
-                                do! sendCommand cmd
-                                do! sendCommand "exit"
-
-                                do! websocketsClient.CloseAsync(Net.WebSockets.WebSocketCloseStatus.NormalClosure, "Debug session completed", Async.DefaultCancellationToken).ToAsync
-                                return ()
-                        }
-                        ) |> Async.Sequential
-                    ()
-                }
+                                match toolRunConfig.ToolConfiguration.Shell with
+                                | Some sh ->
+                                    let! _ = runWebsocketCmd logger (existingContainerGroup, toolRunConfig.ContainerName) (sh, cmd)
+                                    return ()
+                                | None -> return failwithf "Cannot execute websocket command, since shell is not set."
+                            | None -> return failwithf "Cannot execute websocket command, since run command is not set"
+                    }
+                    ) |> Async.Sequential
+                ()
+            }
 
 
     let createContainerGroupInstance
@@ -647,44 +718,51 @@ module ContainerInstances =
                         | false, _ -> 
                             failwithf "Secret with name %s does not exist" name
                     
-                    let! containerToolRunsConfigurationsWithSecrets =
-                        containerToolRunsConfigurations
-                        |> Array.mapi(fun i config ->
-                            async {
-                                let! secrets =
-                                    match config.ToolConfiguration.Secrets with
-                                    | Some toolSecrets ->
-                                        toolSecrets
-                                        |> Array.map(fun secretName ->
-                                            async {
-                                                let secret = getSecret secretName
-                                                //add prefix in order to avoid overriding existing
-                                                //environment variables on the image
-                                                return sprintf "RAFT_%s" secretName, secret
-                                            }
-                                        )
-                                        |> Async.Sequential
-                                    | None -> async.Return [||]
+                    let startupDelay = 
+                        match jobCreateRequest.JobDefinition.TestTargets with
+                        | None -> TimeSpan.Zero
+                        | Some ts ->
+                            if Array.isEmpty ts.Targets then
+                                TimeSpan.Zero
+                            else
+                                (ts.Targets |> Array.maxBy (fun t -> t.ExpectedDurationUntilReady)).ExpectedDurationUntilReady
+
+                    let setupContainerEnvironment (i : int) (config: ContainerToolRun) =
+                        let secrets =
+                            match config.ToolConfiguration.Secrets with
+                            | Some toolSecrets ->
+                                toolSecrets
+                                |> Array.map(fun secretName ->
+                                    let secret = getSecret secretName
+                                    //add prefix in order to avoid overriding existing
+                                    //environment variables on the image
+                                    sprintf "RAFT_%s" secretName, secret
+                                )
+                            | None -> [||]
     
-                                let predefinedEnvironmentVariablesDict =
-                                    dict ([
-                                        "RAFT_JOB_ID", jobCreateRequest.JobId
-                                        "RAFT_TASK_INDEX", sprintf "%d" i
-                                        "RAFT_CONTAINER_GROUP_NAME", containerGroupName
-                                        "RAFT_CONTAINER_NAME", config.ContainerName
-                                        "RAFT_APP_INSIGHTS_KEY", agentConfig.AppInsightsKey
-                                        "RAFT_WORK_DIRECTORY", config.WorkDirectory
-                                        "RAFT_TOOL_RUN_DIRECTORY", config.RunDirectory
-                                        "RAFT_RUN_CMD", getContainerRunCommandString config.ToolConfiguration.Command config.ToolConfiguration.CommandArguments
-                                        "RAFT_SITE_HASH", agentConfig.SiteHash
-                                    ]@ (Map.toList (Option.defaultValue Map.empty config.ToolConfiguration.UserDefinedEnvironmentVariables)))
+                        let predefinedEnvironmentVariablesDict =
+                            dict ([
+                                "RAFT_STARTUP_DELAY", sprintf "%d" (int startupDelay.TotalSeconds)
+                                "RAFT_JOB_ID", jobCreateRequest.JobId
+                                "RAFT_TASK_INDEX", sprintf "%d" i
+                                "RAFT_CONTAINER_GROUP_NAME", containerGroupName
+                                "RAFT_CONTAINER_NAME", config.ContainerName
+                                "RAFT_APP_INSIGHTS_KEY", agentConfig.AppInsightsKey
+                                "RAFT_SITE_HASH", agentConfig.SiteHash
+                            ]
+                            @ (match config.ToolConfiguration.Run with Some r -> ["RAFT_RUN_CMD", getContainerRunCommandString r.Command r.Arguments ] | None -> [])
+                            @ (match config.WorkDirectory with Some wd -> ["RAFT_WORK_DIRECTORY", wd] | None -> [])
+                            @ (match config.RunDirectory with Some rd -> ["RAFT_TOOL_RUN_DIRECTORY", rd] | None -> [])
+                            @ (match config.ToolConfiguration.PostRun with Some pr -> ["RAFT_POST_RUN_COMMAND", getContainerRunCommandString pr.Command pr.Arguments] | None -> [])
+                            @ (match config.ToolConfiguration.Shell with Some pr -> ["RAFT_CONTAINER_SHELL", pr] | None -> [])
+                            @ (Map.toList (Option.defaultValue Map.empty config.ToolConfiguration.UserDefinedEnvironmentVariables)))
 
-                                let secretsDict = dict (Array.append secrets [|"RAFT_SB_OUT_SAS", agentConfig.OutputSas|])
-                                return config, secretsDict, predefinedEnvironmentVariablesDict
-                            }
-                        )
-                        |> Async.Sequential
+                        let secretsDict = dict (Array.append secrets [|"RAFT_SB_OUT_SAS", agentConfig.OutputSas|])
+                        config, secretsDict, predefinedEnvironmentVariablesDict
 
+                    let containerToolRunsConfigurationsWithSecrets =
+                        containerToolRunsConfigurations
+                        |> Array.mapi setupContainerEnvironment
 
                     let readOnlyFileShares =
                         Some(
@@ -693,8 +771,18 @@ module ContainerInstances =
                                 utilsFileShares
                         )
 
-                    let _4 = RaftContainerGroup.configureContainerInstances
-                                _3 jobCreateRequest.JobDefinition.Resources
+                    let taskResources =
+                        match jobCreateRequest.JobDefinition.TestTargets with
+                        | None -> jobCreateRequest.JobDefinition.Resources
+                        | Some t ->
+                            {
+                                jobCreateRequest.JobDefinition.Resources with
+                                    Cores = jobCreateRequest.JobDefinition.Resources.Cores - t.Resources.Cores
+                                    MemoryGBs = jobCreateRequest.JobDefinition.Resources.MemoryGBs - t.Resources.MemoryGBs
+                            }
+
+                    let _4 = RaftContainerGroup.configureTasksContainerInstances
+                                (Choice1Of2 _3) taskResources
                                 containerToolRunsConfigurationsWithSecrets
                                 (workDirectory, workVolume)
                                 (readOnlyFileShares, jobCreateRequest.JobDefinition.ReadWriteFileShareMounts)
@@ -703,24 +791,84 @@ module ContainerInstances =
                     | Choice1Of2 (_), _ ->
                         return failwithf "No container instances configured for container group: %s" containerGroupName
                     
-                    | Choice2Of2(w), isIdling ->
+                    | Choice2Of2(cg), isIdling ->
+                        let w, isIdling =
+                            match jobCreateRequest.JobDefinition.TestTargets with
+                            | Some t ->
+                                let targetRuns =
+                                    t.Targets
+                                    |> Array.mapi (fun i target ->
+                                        {
+                                            ContainerName = sprintf "%s-%d" TestTarget target.Port
+                                            RunDirectory = None
+                                            WorkDirectory =
+                                                match target.OutputFolder with
+                                                | Some x -> Some(sprintf "%s/%s" workDirectory x)
+                                                | None -> None
+
+                                            ToolConfiguration = {
+                                                Tool = target.Container
+                                                Container = target.Container
+                                                Port = Some target.Port
+
+                                                IsIdling = match target.IsIdling with None -> false | Some v -> v
+
+                                                Run = target.Run
+                                                Idle = target.Idle
+                                                PostRun = target.PostRun
+                                                Shell = target.Shell
+
+                                                Secrets = target.KeyVaultSecrets
+                                                UserDefinedEnvironmentVariables = target.EnvironmentVariables
+                                            }
+                                        } |> setupContainerEnvironment i
+                                    )
+
+                                match RaftContainerGroup.configureTasksContainerInstances
+                                        (Choice2Of2 cg)
+                                        t.Resources targetRuns
+                                        (workDirectory, workVolume)
+                                        (readOnlyFileShares, jobCreateRequest.JobDefinition.ReadWriteFileShareMounts) with
+                                | Choice1Of2 _, _ -> failwith "Not possible"
+                                | Choice2Of2 cg, idling -> cg, (isIdling || idling)
+                            | None -> cg, isIdling
+
+                        let postRunExpectedRunSeconds =
+                            match jobCreateRequest.JobDefinition.TestTargets with
+                            | None -> None
+                            | Some tt ->
+                                let timeOut =
+                                    tt.Targets
+                                    |> Array.map (fun t ->
+                                        match t.PostRun with
+                                        | None -> None
+                                        | Some pr -> pr.ExpectedRunDuration
+                                    )
+                                    |> Array.max
+                                timeOut
+
                         logInfo "Finishing deployment %s: (isIdling: %A)" containerGroupName isIdling
                         let newTags =
                             let tags =
-                                // if job is created for debugging, then it has no duration and does not expire
-                                match jobCreateRequest.JobDefinition.Duration, isIdling with
-                                | Some d, false -> Map.empty.Add(Tags.Duration, sprintf "%A" d)
-                                | None, (true | false) | Some _, true -> Map.empty
+                                let t1 =
+                                    // if job is created for debugging, then it has no duration and does not expire
+                                    match jobCreateRequest.JobDefinition.Duration, isIdling with
+                                    | Some d, false -> Map.empty.Add(Tags.Duration, sprintf "%A" d)
+                                    | None, (true | false) | Some _, true -> Map.empty
+                                let t2 =
+                                    match postRunExpectedRunSeconds with
+                                    | None -> t1
+                                    | Some pt -> t1.Add(Tags.PostRunExpectedRunDuration, sprintf "%A" pt)
+                                t2
 
                             tags
                                 .Add(Tags.StartTimeUtc, sprintf "%A" System.DateTime.UtcNow)
-                                .Add(Tags.GCReady, sprintf "%A" false)
                                 .Add(Tags.IsIdling, sprintf "%A" isIdling)
 
                         async {
                             logInfo "Starting background creation of :%s with tags: %A" containerGroupName newTags
                             try
-                                let! _ = 
+                                let! _ =
                                     w
                                         .WithTags(newTags)
                                         .WithRestartPolicy(Models.ContainerGroupRestartPolicy.Never)
@@ -876,7 +1024,6 @@ module ContainerInstances =
                         if decodedMessage.Message.IsIdlingRun then
                             do! runDebugContainers existingContainerGroup logger agentConfig dockerConfigs toolsConfigs decodedMessage.Message
                         else
-                            let! _ = existingContainerGroup.Update().WithTag(Tags.GCReady, sprintf "%A" true).ApplyAsync().ToAsync
                             ()
 
                     | ContainerGroupStates.Pending | ContainerGroupStates.Repairing | null ->
@@ -891,17 +1038,20 @@ module ContainerInstances =
             return ()
         } |> Async.StartAsTask
 
+    /// Job is manually stopped if Container Group is Stopped explicitly (from portal, or by calling delete)
+    let isJobManuallyStopped (g: IContainerGroup) =
+        g.State = ContainerGroupStates.Stopped
 
-    let stopJob (containerGroupOpt: IContainerGroup option) =
+    let isJobProvisioningFailed (g:IContainerGroup) =
+        g.State = ContainerGroupStates.Failed || g.ProvisioningState = ContainerGroupStates.Failed
+
+    let stopJob (containerGroup : IContainerGroup) =
         async {
-            match containerGroupOpt with
-            | None ->
-                return ()
-            | Some containerGroup ->
-                let! _ = containerGroup.Update().WithTag(Tags.GCReady, sprintf "%A" true).ApplyAsync().ToAsync
+            if not (isJobManuallyStopped containerGroup || isJobProvisioningFailed containerGroup) then
                 do! containerGroup.StopAsync().ToAsync
         }
 
+    //TODO: need to add one more form of deletion where we execute PostRun command on the test target containers
     let delete (logger:ILogger) (azure: IAzure, agentConfig: AgentConfig, communicationClients: CommunicationClients) (message: string) =
         async {
             let logInfo format = Printf.kprintf logger.LogInformation format
@@ -918,12 +1068,13 @@ module ContainerInstances =
                     failwithf "Failed to deserialize deletion message due to %s" err
             logInfo "Got delete queue message: %A" decodedMessage
 
-            let postStatus = postStatus communicationClients.JobEventsSender decodedMessage.Message.JobId
-
             let containerGroupName = containerGroupName decodedMessage.Message.JobId
             let! containerGroup = azure.ContainerGroups.GetByResourceGroupAsync(agentConfig.ResourceGroup, containerGroupName).ToAsync
-            do! stopJob (containerGroup |> Option.ofObj)
-            do! postStatus JobState.Completed None
+            match (containerGroup |> Option.ofObj) with
+            | Some cg ->
+                do! stopJob cg
+            | None -> ()
+
             stopWatch.Stop()
             logInfo "Time took to stop job: %s total seconds %f" containerGroupName stopWatch.Elapsed.TotalSeconds
 
@@ -931,11 +1082,54 @@ module ContainerInstances =
         } |> Async.StartAsTask
 
 
+    module JobStatus =
+        let getRow (agentConfig: AgentConfig) (jobId: string, agentName: string) =
+            async {
+                let! table = getJobStatusTable agentConfig.StorageTableConnectionString
+                let retrieve = TableOperation.Retrieve<JobStatusEntity>(jobId, agentName)
+                let! retrieveResult = table.ExecuteAsync(retrieve).ToAsync
+
+                if retrieveResult.HttpStatusCode = int HttpStatusCode.OK then
+                    let r = retrieveResult.Result :?> JobStatusEntity
+                    return Result.Ok(Some r)
+                else if retrieveResult.HttpStatusCode = int HttpStatusCode.NotFound then
+                    return Result.Ok(None)
+                else
+                    return Result.Error()
+        
+            }
+
+        let setRow (agentConfig : AgentConfig) (jobId: string, agentName : string) (message: string, state: Raft.JobEvents.JobState) (etag: string) =
+            async {
+                let! table = getJobStatusTable agentConfig.StorageTableConnectionString
+                let entity = JobStatusEntity(
+                                jobId,
+                                agentName,
+                                message,
+                                state |> Microsoft.FSharpLu.Json.Compact.serialize,
+                                ETag = etag)
+
+                let insertOp = TableOperation.InsertOrReplace(entity)
+                let! insertResult = table.ExecuteAsync(insertOp).ToAsync
+                if insertResult.HttpStatusCode <> int HttpStatusCode.NoContent then
+                    return false
+                else
+                    return true
+            }
+
+        let getEvent (r: JobStatusEntity) : RaftEvent.RaftJobEvent<JobStatus> =
+            RaftEvent.deserializeEvent r.JobStatus
+
+        let getState (r: JobStatusEntity) : Raft.JobEvents.JobState =
+            match Option.ofObj r.JobState with
+            | None ->
+                (getEvent r).Message.State
+            | Some s ->
+                Microsoft.FSharpLu.Json.Compact.deserialize s
+
     let status (logger:ILogger) (_, agentConfig: AgentConfig, communicationClients: CommunicationClients) (message: string) =
         async {
             let logInfo format = Printf.kprintf logger.LogInformation format
-            let logError format = Printf.kprintf logger.LogError format
-
             logInfo "[STATUS] Got status message: %s" message
 
             let eventType = RaftEvent.getEventType message
@@ -943,93 +1137,92 @@ module ContainerInstances =
                 ()
             else if eventType = JobStatus.EventType then
                 let decodedMessage: RaftEvent.RaftJobEvent<JobStatus> = RaftEvent.deserializeEvent message
-                
-                let! table = getJobStatusTable agentConfig.StorageTableConnectionString
-                let retrieve = TableOperation.Retrieve<JobStatusEntity>(decodedMessage.Message.JobId.ToString(), decodedMessage.Message.AgentName)
-                let! retrieveResult = table.ExecuteAsync(retrieve).ToAsync
+                let jobId, agentName = decodedMessage.Message.JobId, decodedMessage.Message.AgentName
 
-                let currentStatusWithHigherPrecedence =
-                    if retrieveResult.HttpStatusCode = int HttpStatusCode.OK then
-                        let r = retrieveResult.Result :?> JobStatusEntity
-                        let currentRow: RaftEvent.RaftJobEvent<JobStatus> = RaftEvent.deserializeEvent r.JobStatus
-                        // if current row job state is one of the next states down the line, then ignore current message altogether.
-                        // Since current message is "late"
-                        if currentRow.Message.State ??> decodedMessage.Message.State then
-                            Some currentRow.Message
-                        else
-                            None
-                    else
-                        None
-
-                match currentStatusWithHigherPrecedence with
-                | Some currentRowMessage ->
-                    logInfo "Dropping new status message since current status has higher precedence : %A and new message state is : %A [current status: %A new message status: %s ]" 
-                                currentRowMessage.State decodedMessage.Message.State currentRowMessage message
-                | None ->
-                    let entity = JobStatusEntity(decodedMessage.Message.JobId.ToString(), decodedMessage.Message.AgentName, message, ETag = retrieveResult.Etag)
-                    let insertOp = TableOperation.InsertOrReplace(entity)
-                    let! insertResult = table.ExecuteAsync(insertOp).ToAsync
-                    if insertResult.HttpStatusCode <> int HttpStatusCode.NoContent then
-                        //Table record got updated by someone else, figure out what to do next.
-                        match decodedMessage.Message.State with
-                        | JobState.Running ->
-                            logInfo "Current message state is Running. The table-record was already updated. Dropping Current message: %s" message
-                            // if we are updating running progress -> and record got updated by someone else. 
-                            // Then just discard current update.
-                            ()
-                        | _ ->
-                            // Any other 
-                            // Try to send message again.
-                            logInfo "Current message failed to update the table record. Going to try again: %s" message
-                            let message = ServiceBus.Message(RaftEvent.serializeToBytes decodedMessage)
-                            do! communicationClients.JobEventsSender.SendAsync(message).ToAsync
-                    else
-                        let name, units =
-                            if decodedMessage.Message.AgentName = decodedMessage.Message.JobId then
-                                "Job", "job"
+                match! JobStatus.getRow agentConfig (jobId, agentName) with
+                | Result.Error() -> logInfo "[STATUS] Failed to retrieve job status table row for %s:%s" jobId agentName
+                | Result.Ok(r) ->
+                    let currentStatusWithHigherPrecedence, etag =
+                        match r with
+                        | Some row ->
+                            let state = JobStatus.getState row
+                            // if current row job state is one of the next states down the line, then ignore current message altogether.
+                            // Since current message is "late"
+                            if state ??> decodedMessage.Message.State then
+                                Some (JobStatus.getEvent row), row.ETag
                             else
-                                (sprintf "Task: %s" (if String.IsNullOrWhiteSpace decodedMessage.Message.Tool then "NotSet" else decodedMessage.Message.Tool)), "task"
+                                None, row.ETag
+                        | None ->
+                            None, null
 
-                        let collectToolMetrics() =
-                            match decodedMessage.Message.Metrics with
-                            | None -> ()
-                            | Some m ->
-                                Central.Telemetry.TrackMetric(
-                                    TelemetryValues.BugsFound(
-                                        m.TotalBugBucketsCount,
-                                        name,
-                                        decodedMessage.Message.UtcEventTime), "Bugs")
+                    match currentStatusWithHigherPrecedence with
+                    | Some currentRowMessage ->
+                        logInfo "Dropping new status message since current status has higher precedence : %A and new message state is : %A [current status: %A new message status: %s ]" 
+                                    currentRowMessage.Message.State decodedMessage.Message.State currentRowMessage message
+                    | None ->
+                        let! updated = JobStatus.setRow agentConfig (jobId, agentName) (message, decodedMessage.Message.State) etag
+                        if not updated then
+                            //Table record got updated by someone else, figure out what to do next.
+                            match decodedMessage.Message.State with
+                            | JobState.Running ->
+                                logInfo "Current message state is Running. The table-record was already updated. Dropping Current message: %s" message
+                                // if we are updating running progress -> and record got updated by someone else. 
+                                // Then just discard current update.
+                                ()
+                            | _ ->
+                                // Any other 
+                                // Try to send message again.
+                                logInfo "Current message failed to update the table record. Going to try again: %s" message
+                                let message = ServiceBus.Message(RaftEvent.serializeToBytes decodedMessage)
+                                do! communicationClients.JobEventsSender.SendAsync(message).ToAsync
+                        else
+                            let name, units =
+                                if decodedMessage.Message.AgentName = decodedMessage.Message.JobId then
+                                    "Job", "job"
+                                else
+                                    (sprintf "Task: %s" (if String.IsNullOrWhiteSpace decodedMessage.Message.Tool then "NotSet" else decodedMessage.Message.Tool)), "task"
 
-                                for (KeyValue(statusCode, count)) in m.ResponseCodeCounts do
+                            let collectToolMetrics() =
+                                match decodedMessage.Message.Metrics with
+                                | None -> ()
+                                | Some m ->
                                     Central.Telemetry.TrackMetric(
-                                        TelemetryValues.StatusCount(
-                                            statusCode, 
-                                            count, 
-                                            name, 
-                                            decodedMessage.Message.UtcEventTime), "HttpRequests"
-                                    )
+                                        TelemetryValues.BugsFound(
+                                            m.TotalBugBucketsCount,
+                                            name,
+                                            decodedMessage.Message.UtcEventTime), "Bugs")
 
-                        match decodedMessage.Message.State with
-                        | JobState.Created ->
-                            Central.Telemetry.TrackMetric(TelemetryValues.Created(name, decodedMessage.Message.UtcEventTime), units)
-                        | JobState.Completed ->
-                            Central.Telemetry.TrackMetric(TelemetryValues.Completed(name, decodedMessage.Message.UtcEventTime), units)
-                            collectToolMetrics()
-                        | JobState.Error ->
-                            Central.Telemetry.TrackMetric(TelemetryValues.Error(name, decodedMessage.Message.UtcEventTime), units)
-                            collectToolMetrics()
-                        | JobState.TimedOut ->
-                            Central.Telemetry.TrackMetric(TelemetryValues.TimedOut(name, decodedMessage.Message.UtcEventTime), units)
-                            collectToolMetrics()
-                        | JobState.ManuallyStopped ->
-                            Central.Telemetry.TrackMetric(TelemetryValues.Deleted(name, decodedMessage.Message.UtcEventTime), units)
-                            collectToolMetrics()
-                        | JobState.Creating | JobState.Running -> ()
+                                    for (KeyValue(statusCode, count)) in m.ResponseCodeCounts do
+                                        Central.Telemetry.TrackMetric(
+                                            TelemetryValues.StatusCount(
+                                                statusCode, 
+                                                count, 
+                                                name, 
+                                                decodedMessage.Message.UtcEventTime), "HttpRequests"
+                                        )
+
+                            match decodedMessage.Message.State with
+                            | JobState.Created ->
+                                Central.Telemetry.TrackMetric(TelemetryValues.Created(name, decodedMessage.Message.UtcEventTime), units)
+                            | JobState.Completed ->
+                                Central.Telemetry.TrackMetric(TelemetryValues.Completed(name, decodedMessage.Message.UtcEventTime), units)
+                                collectToolMetrics()
+                            | JobState.Error ->
+                                Central.Telemetry.TrackMetric(TelemetryValues.Error(name, decodedMessage.Message.UtcEventTime), units)
+                                collectToolMetrics()
+                            | JobState.TimedOut ->
+                                Central.Telemetry.TrackMetric(TelemetryValues.TimedOut(name, decodedMessage.Message.UtcEventTime), units)
+                                collectToolMetrics()
+                            | JobState.ManuallyStopped ->
+                                Central.Telemetry.TrackMetric(TelemetryValues.Deleted(name, decodedMessage.Message.UtcEventTime), units)
+                                collectToolMetrics()
+                            | JobState.Creating | JobState.Running | JobState.Completing -> ()
 
                 else
-                    logError "Unhandled message type %s in message %s" eventType message
+                    logInfo "Unhandled message type %s in message %s" eventType message
             return ()
         } |> Async.StartAsTask
+
 
     let doDelete (azure: IAzure) (agentConfig: AgentConfig, _) (containerGroupName: string)=
         async {
@@ -1080,7 +1273,7 @@ module ContainerInstances =
                             c
 
                         let! response = communicationClients.WebhookSender.PostAsync(agentConfig.EventGridEndpoint, content) |> Async.AwaitTask
-                                
+
                         if int response.StatusCode < 200 || int response.StatusCode > 299 then
                             logError "[WEBHOOK] Send failure: %O" response
                         else
@@ -1217,78 +1410,65 @@ module ContainerInstances =
             return metrics
         }
 
-    let [<Literal>] Terminated = "Terminated"
-    let [<Literal>] Error = "Error"
-    let [<Literal>] Succeeded = "Succeeded"
-
-    /// Job is manually stopped if Container Group is Stopped explicitly (from portal, or by calling delete)
-    let isJobManuallyStopped (g: IContainerGroup) =
-        g.State = ContainerGroupStates.Stopped
-    
-    let isJobProvisioningFailed (g:IContainerGroup) =
-        g.State = ContainerGroupStates.Failed || g.ProvisioningState = ContainerGroupStates.Failed
+    module ContainerInstancesStates =
+        let [<Literal>] Terminated = "Terminated"
+        let [<Literal>] Error = "Error"
+        let [<Literal>] Succeeded = "Succeeded"
+        let [<Literal>] Running = "Running"
 
     /// Job is finished if every container is terminated
     let isJobRunFinished (g: IContainerGroup) =
-        if Tags.isGcReady g.Tags then
+        if Tags.isIdling g.Tags then
+            false
+        else
             isJobProvisioningFailed g
             ||
-            (
-                (g.State = ContainerGroupStates.Succeeded || g.State = ContainerGroupStates.Stopped)
-                &&
-                (g.Containers.Count = 0 ||
-                    (g.Containers.Count > 0 &&
-                        g.Containers
-                        |> Seq.forall (fun (KeyValue(_, v)) ->
-                            not <| isNull v.InstanceView &&
-                                v.InstanceView.CurrentState.State = Terminated
-                            )
+            (g.Containers.Count = 0 ||
+                (g.Containers.Count > 0 &&
+                    g.Containers
+                    |> Seq.forall (fun (KeyValue(_, v)) ->
+                        not <| isNull v.InstanceView &&
+                            v.InstanceView.CurrentState.State = ContainerInstancesStates.Terminated ||
+                            v.Name.StartsWith(TestTarget, StringComparison.InvariantCultureIgnoreCase)
                     )
                 )
             )
-        else
-            false
 
     // We want to allow all internal processes to complete before we 
     // force kill a container. 
-    let durationSlack = TimeSpan.FromMinutes 60.0
+    let durationSlack = TimeSpan.FromMinutes 10.0
     let isJobExpired (logger: ILogger) (g: IContainerGroup) =
         let logInfo format = Printf.kprintf logger.LogInformation format
-        match Tags.getBoolFromTags g.Tags Tags.GCReady with
-        | Some true | None ->
-            if not <| g.Tags.ContainsKey Tags.Duration then
-                //if duration tag is not set, then let job run until it terminates
-                false
-            else
-                match Tags.getStartTime g.Tags, Tags.getDuration g.Tags with
-                | Some startTime, Some duration ->
-                    let now = DateTime.UtcNow
-                    let expirationTime = startTime + duration + durationSlack
-                    if now > expirationTime then
-                        logInfo "Running job expired: %s . %s: %A, %s: %A. UtcNow: %A, ExpirationTimeUtc: %A" g.Name Tags.StartTimeUtc startTime Tags.Duration duration now expirationTime
-                        true
-                    else
-                        false
-                // If tags do not have correct values, then assume job expired
-                | None, None -> 
-                    logInfo "Running job assumed to be expired, since tags tracking start time and duration are not set: %s" g.Name
-                    true
-                | Some _, None ->
-                    logInfo "Running job assumed to be expired since %s tag is not set: %s" Tags.Duration g.Name
-                    true
-                | None, Some _ ->
-                    logInfo "Running job assumed to be expired since %s tag is not set: %s" Tags.StartTimeUtc g.Name
-                    true
-        | Some false ->
-            logInfo "[GC] GC ready tag is set to false. Therefore job is not expired: %s" g.Name
+        if not <| g.Tags.ContainsKey Tags.Duration then
+            //if duration tag is not set, then let job run until it terminates
             false
+        else
+            match Tags.getStartTime g.Tags, Tags.getDuration g.Tags with
+            | Some startTime, Some duration ->
+                let now = DateTime.UtcNow
+                let expirationTime = startTime + duration + durationSlack
+                if now > expirationTime then
+                    logInfo "Running job expired: %s. %s: %A, %s: %A. UtcNow: %A, ExpirationTimeUtc: %A" g.Name Tags.StartTimeUtc startTime Tags.Duration duration now expirationTime
+                    true
+                else
+                    false
+            // If tags do not have correct values, then assume job expired
+            | None, None -> 
+                logInfo "Running job assumed to be expired, since tags tracking start time and duration are not set: %s" g.Name
+                true
+            | Some _, None ->
+                logInfo "Running job assumed to be expired since %s tag is not set: %s" Tags.Duration g.Name
+                true
+            | None, Some _ ->
+                logInfo "Running job assumed to be expired since %s tag is not set: %s" Tags.StartTimeUtc g.Name
+                true
 
     /// Get a sequence of containers that terminated due to error
     let getContainersExitedWithError (g: IContainerGroup) =
         g.Containers |> Seq.filter(fun (KeyValue(_, v)) ->
             if not <| isNull v.InstanceView then
                 let currentState = v.InstanceView.CurrentState
-                currentState.DetailStatus = Error
+                currentState.DetailStatus = ContainerInstancesStates.Error
             else false)
         |> Seq.map (fun (KeyValue(_, v)) -> v)
 
@@ -1316,13 +1496,58 @@ module ContainerInstances =
                     Some(startTime, endTime)
             )
 
+    let executePostRun (agentConfig: AgentConfig, communicationClients: CommunicationClients) (logger: ILogger) (cg: IContainerGroup) =
+        async {
+            match! JobStatus.getRow (agentConfig) (cg.Name, cg.Name) with
+            | Result.Ok(Some r) ->
+                let logInfo format = Printf.kprintf logger.LogInformation format
+                let logError format = Printf.kprintf logger.LogError format
+
+                match Tags.getPostRunExpectedRunDuration cg.Tags with
+                | None ->
+                    return true
+                | Some d ->
+                    match JobStatus.getState r with
+                    | JobState.Completing when r.Timestamp + d < System.DateTimeOffset.UtcNow ->
+                        return true
+                    | JobState.Completing ->
+                        return false
+                    | s when JobState.Completing ??> s ->
+                        do! postStatus communicationClients.JobEventsSender cg.Name JobState.Completing None
+                        let testTargets =
+                            cg.Containers
+                            |> Seq.map(fun (KeyValue(_, c)) -> c)
+                            |> Seq.filter(fun c -> c.Name.StartsWith(TestTarget, StringComparison.InvariantCultureIgnoreCase) )
+                    
+                        for tt in testTargets do
+                            if tt.InstanceView.CurrentState.State = ContainerInstancesStates.Running then
+                                let shell = tt.EnvironmentVariables |> Seq.tryFind(fun ev -> ev.Name = "RAFT_CONTAINER_SHELL")
+                                let command = tt.EnvironmentVariables |> Seq.tryFind (fun ev -> ev.Name = "RAFT_POST_RUN_COMMAND")
+
+                                match shell, command with
+                                | Some sh, Some c ->
+                                    let! postRunOut = runWebsocketCmd logger (cg, tt.Name) (sh.Value, c.Value)
+                                    logInfo "PostRunOut: %s" postRunOut
+                                | None, _ -> logError "Shell must be set in order to execute post-run command for %s" tt.Name
+                                | Some _, None -> logInfo "PostRun command is not set. Skipping for %s" tt.Name
+                            else
+                                logInfo "Cannot execute post run command since container instance %s terminated" tt.Name
+
+                        return false
+                    | _ ->
+                        return true
+            | Result.Error() ->
+                return false
+            | Result.Ok(None) ->
+                return true
+        }
+
     /// Garbage collect all finished jobs.
     /// Job is finished if all containers are stopped or job is running longer than it's set duration.
     /// - Collect and log container group metrics
     ///
     let gc (logger: ILogger) (azure: IAzure, agentConfig: AgentConfig, communicationClients: CommunicationClients) =
         async {
-
             let logInfo format = Printf.kprintf logger.LogInformation format
             let logError format = Printf.kprintf logger.LogError format
 
@@ -1348,8 +1573,19 @@ module ContainerInstances =
                                         else if isJobExpired logger g then
                                             //since job is expired, need to stop it and garbage collect it
                                             logInfo "[GC] Stopping running job since it expired: %s" g.Name
-                                            do! stopJob (g |> Option.ofObj)
+                                            do! stopJob g
                                             return true
+                                        else
+                                            return false
+                                    }
+
+                                let! postRunFinished =
+                                    async {
+                                        if jobRunFinished || isExpired then
+                                            let! pr = executePostRun (agentConfig, communicationClients) logger g
+                                            if pr then
+                                                do! stopJob g
+                                            return pr
                                         else
                                             return false
                                     }
@@ -1357,7 +1593,7 @@ module ContainerInstances =
                                 if jobRunFinished && not isExpired then
                                     logInfo "[GC] All containers [Count: %d] terminated for container group: %s" g.Containers.Count g.Name
 
-                                if jobRunFinished || jobManuallyStopped || isExpired then
+                                if ((jobRunFinished || isExpired ) && postRunFinished) || jobManuallyStopped then
                                     let containerGroupFailedToProvision = isJobProvisioningFailed g
                                     let instancesExitedWithError = getContainersExitedWithError g
 
