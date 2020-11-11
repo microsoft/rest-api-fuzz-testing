@@ -1,7 +1,4 @@
 {
-  "swaggerLocation" : {
-    "FilePath" : ""
-  },
   "readOnlyFileShareMounts": [
     {
       "FileShareName": "{jobId}",

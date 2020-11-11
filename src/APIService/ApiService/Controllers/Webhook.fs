@@ -399,7 +399,14 @@ type webhooksController(configuration : IConfiguration, telemetryClient : Teleme
                             JobId = jobId
                             AgentName = "1"
                             Metadata = None
-                            BugDetails = Some(Map.empty.Add("Experiment", "experiment23").Add("BugBucket", "main_driver_500_1.txt"))
+                            BugDetails =
+                                Some(
+                                    Map.empty
+                                        .Add("Experiment", "experiment23")
+                                        .Add("BugBucket", "main_driver_500_1.txt")
+                                        .Add("jobId", jobId)
+                                        .Add("outputFolder", "my_results")
+                                )
                         }
                     log.Info "Setting JobStatus webhook in webhooks table" ["name", webhookName; "event", eventName; "jobId", sprintf "%A" jobId]
                     let entity = Raft.StorageEntities.JobWebhookEntity(jobId, webhookName) :> TableEntity
