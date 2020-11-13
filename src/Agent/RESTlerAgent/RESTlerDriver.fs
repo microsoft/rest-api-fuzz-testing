@@ -7,7 +7,7 @@ open System
 open Microsoft.FSharpLu
 
 module RESTler =
-    let version = "6.1.0"
+    let version = "7.0.0"
 
 module private RESTlerInternal =
     let inline (++) (path1: string) (path2 : string) = IO.Path.Join(path1, path2)
@@ -297,7 +297,7 @@ module private RESTlerInternal =
                 |> List.map (fun (x, y) -> sprintf "%s %s" x y)
                 |> String.concat " "
             else "")
-            sprintf "--set_version 'restler/%s'" RESTler.version
+            sprintf "--set_version '%s'" RESTler.version
         ]
 
     let validateAuthentication workingDirectory (tokenOptions : RESTlerTypes.Engine.RefreshableTokenOptions) =
