@@ -17,7 +17,7 @@
       {
         "Container" : "swaggerapi/petstore3",
         "Port" : 8082,
-        "StartDuration" : "00:00:30",
+        "ExpectedDurationUntilReady" : "00:00:30",
         "Run" : {
           "Command" : "java",
           "Arguments" : ["-jar", "/swagger-petstore/jetty-runner.jar", "--log", "/var/log/yyyy_mm_dd-requests.log", "--port", "8082", "/swagger-petstore/server.war"]
@@ -25,7 +25,7 @@
         "PostRun" : {
           "Command" : "/bin/sh", 
           "Arguments" : ["-c", "cp /var/log/*-requests.log $RAFT_WORK_DIRECTORY"],
-          "TimeoutDuration" : "00:00:10"
+          "ExpectedRunDuration" : "00:00:10"
         },
         "Shell" : "/bin/sh",
         "OutputFolder" : "petstore3"

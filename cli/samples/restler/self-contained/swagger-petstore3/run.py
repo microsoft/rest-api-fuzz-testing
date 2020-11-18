@@ -6,7 +6,7 @@ import sys
 import os
 
 cur_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.join(cur_dir, '..', '..', '..'))
+sys.path.append(os.path.join(cur_dir, '..', '..', '..', '..'))
 from raft_sdk.raft_service import RaftCLI, RaftJobConfig, RaftJobError
 
 def run(compile, test, fuzz):
@@ -45,6 +45,6 @@ if __name__ == "__main__":
     try:
         run(os.path.join(cur_dir, "restler.compile.json"),
             os.path.join(cur_dir, "restler.test.json"), 
-            os.path.join(cur_dir, "restler.fuzz.json"))
+            os.path.join(cur_dir, "restler.zap.fuzz.json"))
     except RaftJobError as ex:
         print(f'ERROR: {ex.message}')

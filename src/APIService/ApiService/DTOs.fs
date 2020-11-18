@@ -140,7 +140,7 @@ module DTOs =
         {
             Command : string
             Arguments : string array
-            TimeoutDuration : Nullable<TimeSpan>
+            ExpectedRunDuration: Nullable<TimeSpan>
         }
 
     [<CLIMutable>]
@@ -149,7 +149,7 @@ module DTOs =
             [<Required>]
             Container : string
             Port : int
-            StartDuration : TimeSpan
+            ExpectedDurationUntilReady: TimeSpan
 
             IsIdling : Nullable<bool>
 

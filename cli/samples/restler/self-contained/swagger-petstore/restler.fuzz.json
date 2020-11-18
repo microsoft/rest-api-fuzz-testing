@@ -1,17 +1,12 @@
 {
   "host": "localhost",
   "webhook": {
-    "name": "petstore",
+    "name": "petstore-fuzz",
     "metadata": {
       "app" : "petstore",
       "swagger_version" : "v2",
       "action" : "fuzz"	
     }
-  },
-
-  "resources": {
-    "Cores": 4,
-    "MemoryGBs": 8
   },
 
   "readonlyFileShareMounts": [
@@ -22,21 +17,17 @@
   ],
 
  "testTargets" : { 
-    "resources" : {
-      "Cores" : 2,
-      "MemoryGBs" : 4
-    },
     "targets" : [
       {
         "Container" : "swaggerapi/petstore",
         "Port" : 8080,
-        "StartDuration" : "00:00:30",
+        "ExpectedDurationUntilReady" : "00:02:00",
         "Shell" : "/bin/sh",
         "OutputFolder" : "petstore",
         "PostRun" : {
           "Command" : "/bin/sh", 
           "Arguments" : ["-c", "cp /var/log/*-requests.log $RAFT_WORK_DIRECTORY"],
-          "TimeoutDuration" : "00:00:10"
+          "ExpectedRunDuration" : "00:00:10"
         }
       }
     ]
@@ -56,13 +47,6 @@
           "inputFolderPath": "/job-compile/compile"
         }
       }
-    },
-    {
-      "swaggerLocation": {
-        "URL" : "http://localhost:8080/api/swagger.json"
-      },
-      "toolName": "ZAP",
-      "outputFolder": "zap"
     }
   ]
 }

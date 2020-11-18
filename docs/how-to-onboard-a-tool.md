@@ -159,6 +159,7 @@ been populated for you by the orchestration:
 | RAFT_RUN_CMD | The command text provided in the `command` parameter |
 | RAFT_TASK_INDEX | Array index of the task defined in job definition JSON blob
 | RAFT_SITE_HASH | RAFT deployment hash
+| RAFT_STARTUP_DELAY | How many seconds the tool should wait before starting
 
 *When the tool is uploaded to the file share via the cli command `python raft.py service upload-tools` a unique file share is created and mounted to the container as read-only. The path to the tool folder running the task within the file share is set in **RAFT_TOOL_RUN_DIRECTORY** environment variable.
 

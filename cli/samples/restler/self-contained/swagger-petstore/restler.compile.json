@@ -3,7 +3,7 @@
     "URL" : "http://localhost:8080/api/swagger.json"
   },
   "webhook": {
-    "name": "petstore",
+    "name": "petstore-compile",
     "metadata": {
 	    "action" : "compile"
     }
@@ -13,13 +13,13 @@
       {
         "Container" : "swaggerapi/petstore",
         "Port" : 8080,
-        "StartDuration" : "00:00:30",
+        "ExpectedDurationUntilReady" : "00:02:00",
         "Shell" : "/bin/sh",
         "OutputFolder" : "petstore",
         "PostRun" : {
           "Command" : "/bin/sh", 
           "Arguments" : ["-c", "cp /var/log/*-requests.log $RAFT_WORK_DIRECTORY"],
-          "TimeoutDuration" : "00:00:10"
+          "ExpectedRunDuration" : "00:00:10"
         }
       }
     ]

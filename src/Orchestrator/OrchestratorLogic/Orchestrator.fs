@@ -33,9 +33,9 @@ module ContainerInstances =
 
         //wait for some extra timeout to allow container perform
         //cleanup actions (such as copying logs to common share, closing connections, etc)
-        let [<Literal>] PostRunTimeoutDuration = "postRunTimeoutDuration"
+        let [<Literal>] PostRunExpectedRunDuration = "postRunExpectedRunDuration"
 
-        //This is set when the post run command is started. Calculation for this: nowUTC + postRunTimeoutSeconds
+        //This is set when the post run command is started. Calculation for this: nowUTC + PostRunExpectedRunDuration
         //If this value is set, then garbage collection will use that for figuring out when to delete the job
         let [<Literal>] PostRunTimeoutUtc = "postRunTimeoutUTC"
 
@@ -68,8 +68,8 @@ module ContainerInstances =
         let getDuration (tags: Collections.Generic.IReadOnlyDictionary<string, string>) =
             getTimeSpanFromTags tags Duration
 
-        let getPostRunTimeoutDuration tags = 
-            getTimeSpanFromTags tags PostRunTimeoutDuration
+        let getPostRunExpectedRunDuration tags = 
+            getTimeSpanFromTags tags PostRunExpectedRunDuration
         
         let getPostRunTimeoutUTC tags =
             getDateTimeFromTags tags PostRunTimeoutUtc
@@ -321,13 +321,13 @@ module ContainerInstances =
                             IsIdling = task.IsIdling
 
                             Run = Some {
-                                TimeoutDuration = None
+                                ExpectedRunDuration = None
                                 Command = c.Run.Command
                                 Arguments = c.Run.Arguments
                             }
 
                             Idle = Some {
-                                TimeoutDuration = None
+                                ExpectedRunDuration = None
                                 Command = c.Idle.Command
                                 Arguments = c.Idle.Arguments
                             }
@@ -727,7 +727,7 @@ module ContainerInstances =
                             if Array.isEmpty ts.Targets then
                                 TimeSpan.Zero
                             else
-                                (ts.Targets |> Array.maxBy (fun t -> t.StartDuration)).StartDuration
+                                (ts.Targets |> Array.maxBy (fun t -> t.ExpectedDurationUntilReady)).ExpectedDurationUntilReady
 
                     let setupContainerEnvironment (i : int) (config: ContainerToolRun) =
                         let secrets =
@@ -835,7 +835,7 @@ module ContainerInstances =
                                 | Choice2Of2 cg, idling -> cg, (isIdling || idling)
                             | None -> cg, isIdling
 
-                        let postRunTimeoutSeconds =
+                        let postRunExpectedRunSeconds =
                             match jobCreateRequest.JobDefinition.TestTargets with
                             | None -> None
                             | Some tt ->
@@ -844,7 +844,7 @@ module ContainerInstances =
                                     |> Array.map (fun t ->
                                         match t.PostRun with
                                         | None -> None
-                                        | Some pr -> pr.TimeoutDuration
+                                        | Some pr -> pr.ExpectedRunDuration
                                     )
                                     |> Array.max
                                 timeOut
@@ -858,9 +858,9 @@ module ContainerInstances =
                                     | Some d, false -> Map.empty.Add(Tags.Duration, sprintf "%A" d)
                                     | None, (true | false) | Some _, true -> Map.empty
                                 let t2 =
-                                    match postRunTimeoutSeconds with
+                                    match postRunExpectedRunSeconds with
                                     | None -> t1
-                                    | Some pt -> t1.Add(Tags.PostRunTimeoutDuration, sprintf "%A" pt)
+                                    | Some pt -> t1.Add(Tags.PostRunExpectedRunDuration, sprintf "%A" pt)
                                 t2
 
                             tags
@@ -1479,7 +1479,7 @@ module ContainerInstances =
                 //let it run
                 return false
             | None ->
-                match Tags.getPostRunTimeoutDuration cg.Tags with
+                match Tags.getPostRunExpectedRunDuration cg.Tags with
                 | None ->
                     return true
                 | Some d ->

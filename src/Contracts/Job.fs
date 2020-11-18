@@ -26,14 +26,14 @@ type Command =
     {
         Command : string
         Arguments : string array option
-        TimeoutDuration : System.TimeSpan option
+        ExpectedRunDuration: System.TimeSpan option
     }
 
 type TestTargetDefinition =
     //accessible within conatiner group at localhost:port
     {
         Container : string
-        StartDuration : System.TimeSpan
+        ExpectedDurationUntilReady: System.TimeSpan
         Port : int
 
         IsIdling : bool option
