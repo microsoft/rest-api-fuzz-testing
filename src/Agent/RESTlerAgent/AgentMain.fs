@@ -547,10 +547,17 @@ let main argv =
                 do! Raft.RESTlerDriver.compile restlerPath workDirectory compilerConfig
             }
 
-        let report state (summary: Raft.JobEvents.RunSummary option) =
+        let report state (experiment : string option, summary:Raft.JobEvents.RunSummary option) =
             async {
                 printfn "Reporting summary [%A]: %A" state summary
                 let! bugsList = Raft.RESTlerDriver.getListOfBugs workDirectory globalRunStartTime
+                let bugsListLen = match bugsList with None -> 0 | Some xs -> Seq.length xs
+
+                let details =
+                    match experiment with
+                    | Some e -> Map.empty.Add("Experiment", e)
+                    | None -> Map.empty
+
                 do! jobEventSender.SendRaftJobEvent jobId
                                                 ({
                                                     AgentName = agentName
@@ -561,7 +568,7 @@ let main argv =
 
                                                     Metrics = summary
                                                     UtcEventTime = System.DateTime.UtcNow
-                                                    Details = Some <| Map.empty.Add("numberOfBugsFound", sprintf "%d" (Seq.length bugsList))
+                                                    Details = Some( details.Add("numberOfBugsFound", sprintf "%d" bugsListLen))
                                                 } : Raft.JobEvents.JobStatus)
             }
 
@@ -617,7 +624,13 @@ let main argv =
                 let targetIp, targetPort = getIpAndPort jobConfiguration.TargetEndpointConfiguration
                 let engineParameters = createRESTlerEngineParameters (targetIp, targetPort) grammarPy dictJson task checkerOptions jobConfiguration
                 printfn "Starting RESTler test task"
-                do! Raft.RESTlerDriver.test testType restlerPath workDirectory engineParameters onBugFound (report Raft.JobEvents.JobState.Running) (globalRunStartTime, resultAnalyzerReportInterval)
+
+                let ignoreBugHashes =
+                    match jobConfiguration.IgnoreBugHashes with
+                    | None -> Set.empty
+                    | Some hs -> Set.ofArray hs
+
+                do! Raft.RESTlerDriver.test testType restlerPath workDirectory engineParameters ignoreBugHashes onBugFound (report Raft.JobEvents.JobState.Running) (globalRunStartTime, resultAnalyzerReportInterval)
             }
 
         let fuzz (fuzzType:string) checkerOptions (jobConfiguration: RunConfiguration) =
@@ -626,7 +639,13 @@ let main argv =
                 let targetIp, targetPort = getIpAndPort jobConfiguration.TargetEndpointConfiguration
                 let engineParameters = createRESTlerEngineParameters (targetIp, targetPort) grammarPy dictJson task checkerOptions jobConfiguration
                 printfn "Starting RESTler fuzz task"
-                do! Raft.RESTlerDriver.fuzz fuzzType restlerPath workDirectory engineParameters onBugFound (report Raft.JobEvents.JobState.Running) (globalRunStartTime, resultAnalyzerReportInterval)
+
+                let ignoreBugHashes =
+                    match jobConfiguration.IgnoreBugHashes with
+                    | None -> Set.empty
+                    | Some hs -> Set.ofArray hs
+
+                do! Raft.RESTlerDriver.fuzz fuzzType restlerPath workDirectory engineParameters ignoreBugHashes onBugFound (report Raft.JobEvents.JobState.Running) (globalRunStartTime, resultAnalyzerReportInterval)
             }
             
         let replay replayLogFile (jobConfiguration: RunConfiguration) =
@@ -658,7 +677,7 @@ let main argv =
         // Start RESTler process with following flags
         // compile, test, fuzz 
         // --telemetryRootDirPath
-        let! state, details, exitCode, summary =
+        let! state, details, exitCode, (experiment, summary) =
             async {
                 try
                     match restlerPayload.Task with
@@ -697,7 +716,7 @@ let main argv =
                         | None -> return failwithf "Job-run configuration is not set for Test task for job payload: %A" restlerPayload
                         | Some jobConfiguration ->
                             copyDir jobConfiguration.InputFolderPath workDirectory (set [taskConfigurationPath])
-                            do! report Raft.JobEvents.Running None
+                            do! report Raft.JobEvents.Running (None, None)
                             do! test "directed-smoke-test" [] jobConfiguration
                             let! summary = Raft.RESTlerDriver.processRunSummary workDirectory globalRunStartTime
                             return Raft.JobEvents.Completed, None, 0, summary
@@ -708,7 +727,7 @@ let main argv =
                         | None -> return failwithf "Job-run configuration is not set for Test task for job payload: %A" restlerPayload
                         | Some jobConfiguration ->
                             copyDir jobConfiguration.InputFolderPath workDirectory (set [taskConfigurationPath])
-                            do! report Raft.JobEvents.Running None
+                            do! report Raft.JobEvents.Running (None, None)
                             let fuzzLeanCheckers = 
                                 [
                                     ("--enable_checkers", "*")
@@ -724,7 +743,7 @@ let main argv =
                         | None -> return failwithf "Job-run configuration is not set for Compile task for job payload: %A" restlerPayload
                         | Some jobConfiguration ->
                             copyDir jobConfiguration.InputFolderPath workDirectory (set [taskConfigurationPath])
-                            do! report Raft.JobEvents.Running None
+                            do! report Raft.JobEvents.Running (None, None)
                             let allCheckers = ["--enable_checkers", "*"]
                             do! fuzz "bfs" allCheckers jobConfiguration
                             let! summary = Raft.RESTlerDriver.processRunSummary workDirectory globalRunStartTime
@@ -736,7 +755,7 @@ let main argv =
                         | None -> return failwithf "Job-run configuration is not set for Test task for job payload: %A" restlerPayload
                         | Some jobConfiguration ->
                             copyDir jobConfiguration.InputFolderPath workDirectory (set [taskConfigurationPath])
-                            do! report Raft.JobEvents.Running None
+                            do! report Raft.JobEvents.Running (None, None)
                             let allCheckers = ["--enable_checkers", "*"]
                             do! fuzz "bfs-cheap" allCheckers jobConfiguration
                             let! summary = Raft.RESTlerDriver.processRunSummary workDirectory globalRunStartTime
@@ -748,7 +767,7 @@ let main argv =
                         | None -> return failwithf "Job-run configuration is not set for Fuzz task for job payload: %A" restlerPayload
                         | Some jobConfiguration ->
                             copyDir jobConfiguration.InputFolderPath workDirectory (set [taskConfigurationPath])
-                            do! report Raft.JobEvents.Running None
+                            do! report Raft.JobEvents.Running (None, None)
                             let allCheckers = ["--enable_checkers", "*"]
                             do! fuzz "random-walk" allCheckers jobConfiguration
                             let! summary = Raft.RESTlerDriver.processRunSummary workDirectory globalRunStartTime
@@ -759,23 +778,59 @@ let main argv =
                         | None -> return failwithf "Job-run configuration is not set Replay task for job payload: %A" restlerPayload
                         | Some replayRunConfiguration ->
                             let replaySourcePath = replayRunConfiguration.InputFolderPath
-                            do! report Raft.JobEvents.Running None
+                            do! report Raft.JobEvents.Running (None, None)
 
                             let replayAndReport (bugs: IO.FileInfo seq) =
                                 async {
+                                    let! existingBugBuckets = Raft.RESTlerDriver.getListOfBugsFromBugBuckets replayRunConfiguration.InputFolderPath
+
+                                    let remapBugHashes (bugHashes : Raft.RESTlerTypes.Logs.BugHashes) =
+                                        bugHashes
+                                        |> Seq.map(fun (KeyValue(k, v)) -> v.file_path, k)
+                                        |> Map.ofSeq
+
+                                    let bugs, fileNameToBugHashMap =
+                                        match replayRunConfiguration.IgnoreBugHashes, existingBugBuckets with
+                                        | None, None | Some _, None -> bugs, Map.empty
+                                         | None, Some existingBugs ->
+                                            bugs, (remapBugHashes existingBugs)
+
+                                        | Some ignoreHashes, Some existingBugs ->
+                                            let filesToIgnore = 
+                                                ignoreHashes 
+                                                |> Array.map(fun h ->
+                                                    match Map.tryFind h existingBugs with
+                                                    | None -> None
+                                                    | Some b -> Some b.file_path
+                                                )
+                                                |> Array.filter Option.isSome
+                                                |> Array.map Option.get
+                                                |> Set.ofArray
+
+                                            let filteredBugs =
+                                                bugs
+                                                |> Seq.filter (fun b ->
+                                                    not (filesToIgnore.Contains b.Name)
+                                                )
+                                            filteredBugs, (remapBugHashes existingBugs)
+
                                     let replaySummaryDetails = ResizeArray<string * string>()
 
                                     for bug in bugs do
                                         printfn "Running replay on %s" bug.FullName
-                                        let! replaySummary = replay bug.FullName replayRunConfiguration
+                                        let! (experiment, replaySummary) = replay bug.FullName replayRunConfiguration
                                         let summary =
                                             match replaySummary with
                                             | None ->
                                                 sprintf "%s : No results" bug.Name
                                             | Some s ->
-                                                sprintf "%s: %A" bug.Name (s.ResponseCodeCounts |> Map.toList)
+                                                sprintf "%s/%s: %A" (Option.defaultValue "ExperimentNotSet" experiment) bug.Name (s.ResponseCodeCounts |> Map.toList)
 
-                                        replaySummaryDetails.Add(bug.Name, summary)
+                                        let bugKey =
+                                            match Map.tryFind bug.Name fileNameToBugHashMap with
+                                            | None -> bug.Name
+                                            | Some h -> h
+                                        replaySummaryDetails.Add(bugKey, summary)
                                         do! jobEventSender.SendRaftJobEvent jobId
                                                     ({
                                                         AgentName = agentName
@@ -823,7 +878,7 @@ let main argv =
                                             return Some details
                                         | None -> return! replayAll()
                                     }
-                            return Raft.JobEvents.Completed, (details |> Option.map Map.ofSeq), 0, None
+                            return Raft.JobEvents.Completed, (details |> Option.map Map.ofSeq), 0, (None, None)
                 with
                 | ex ->
                     printfn "%A" ex
@@ -832,8 +887,15 @@ let main argv =
             }
 
         let! bugsList = Raft.RESTlerDriver.getListOfBugs workDirectory globalRunStartTime
+        let bugsListLen = match bugsList with None -> 0 | Some xs -> Seq.length xs
 
         let testingSummary = Raft.RESTlerDriver.loadTestRunSummary workDirectory globalRunStartTime
+
+        let details =
+            let d = Option.defaultValue Map.empty details
+            match experiment with
+            | Some e -> Some (d.Add("Experiment", e))
+            | None -> Some d
 
         let details =
             match testingSummary with
@@ -842,7 +904,7 @@ let main argv =
                 let d = Option.defaultValue Map.empty details
                 Some( d
                         .Add("finalSpecCoverage", status.final_spec_coverage)
-                        .Add("numberOfBugsFound", sprintf "%d" (Seq.length bugsList))
+                        .Add("numberOfBugsFound", sprintf "%d" bugsListLen)
                         //.Add("renderedRequests", status.rendered_requests)
                         //.Add("renderedRequestsValidStatus", status.rendered_requests_valid_status)
                         //.Add("numFullyValid", sprintf "%d" status.num_fully_valid)

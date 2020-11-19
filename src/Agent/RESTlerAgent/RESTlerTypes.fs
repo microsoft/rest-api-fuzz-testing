@@ -317,3 +317,10 @@ module Logs =
             total_requests_sent : IDictionary<string, int>
             bug_buckets : IDictionary<string, int>
         }
+
+    type BugPath =
+        {
+            file_path : string
+        }
+    type BugHashes = Map<string, BugPath>
+

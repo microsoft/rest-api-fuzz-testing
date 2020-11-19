@@ -34,7 +34,7 @@ type TelemetryClient(machineId: string, instrumentationKey: string) =
                               bugBucketCounts) =
         client.TrackEvent("restler finished",
             dict ([
-                "machineId", sprintf "%A" machineId
+                "machineId", sprintf "%s" machineId
                 "version", version
                 "task", task
                 "executionId", sprintf "%A" executionId
@@ -44,7 +44,7 @@ type TelemetryClient(machineId: string, instrumentationKey: string) =
     member __.ResultsAnalyzerFinished(version, task, executionId, status) =
         client.TrackEvent("results analyzer finished",
             dict ([
-                "machineId", sprintf "%A" machineId
+                "machineId", sprintf "%s" machineId
                 "version", version
                 "task", task
                 "executionId", sprintf "%A" executionId

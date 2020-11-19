@@ -200,16 +200,15 @@ module private RESTlerInternal =
                                 printfn "Result Analyzer did not produce exit code"
 
                             let summaryPath = restlerExperimentLogs ++ "raft-analyzer-summary.json"
-
                             if IO.File.Exists summaryPath then
-                                return Some summaryPath
+                                return Some (experimentFolder.Name, summaryPath)
                             else
                                 eprintfn "RESTLER Summary file was not found: %s" summaryPath
                                 return None
                         else
                             return None
                     }
-                return Some summaryPath
+                return summaryPath
             | None -> 
                 return None
         }
@@ -372,27 +371,23 @@ let compile restlerRootDirectory workingDirectory config =
     RESTlerInternal.compile restlerRootDirectory workingDirectory config
 
 
-type ReportRunSummary = Raft.JobEvents.RunSummary option -> Async<unit>
+type ReportRunSummary = (string option) * (Raft.JobEvents.RunSummary option) -> Async<unit>
 let inline (++) (path1: string) (path2 : string) = IO.Path.Join(path1, path2)
 
 let processRunSummary workingDirectory runStartTime =
     async {
         match! RESTlerInternal.runResultsAnalyzer workingDirectory runStartTime with
         | None ->
-            return None
-        | Some runSummaryPath ->
+            return None, None
+        | Some (experiment, runSummaryPath) ->
             let summary =
-                match runSummaryPath with
-                | None ->
+                match Json.Compact.tryDeserializeFile runSummaryPath with
+                | Choice1Of2 (runSummary: Raft.JobEvents.RunSummary) -> 
+                    runSummary
+                | Choice2Of2 err -> 
+                    eprintfn "Failed to process run summary: %s" err
                     Raft.JobEvents.RunSummary.Empty
-                | Some path ->
-                    match Json.Compact.tryDeserializeFile path with
-                    | Choice1Of2 (runSummary: Raft.JobEvents.RunSummary) -> 
-                        runSummary
-                    | Choice2Of2 err -> 
-                        eprintfn "Failed to process run summary: %s" err
-                        Raft.JobEvents.RunSummary.Empty
-            return Some summary
+            return Some experiment, Some summary
     }
 
 let resultAnalyzer workingDirectory (token: Threading.CancellationToken) (report: ReportRunSummary) (runStartTime: DateTime, reportInterval: TimeSpan option) =
@@ -418,7 +413,7 @@ let resultAnalyzer workingDirectory (token: Threading.CancellationToken) (report
     analyze()
 
 let isBugFile (file: IO.FileInfo) =
-    file.Name <> "bug_buckets.txt"
+    file.Name <> "bug_buckets.txt" && file.Name <> "bug_buckets.json"
 
 let loadTestRunSummary workingDirectory runStartTime =
     match RESTlerInternal.getRunExperimentFolder workingDirectory runStartTime with
@@ -432,27 +427,32 @@ let loadTestRunSummary workingDirectory runStartTime =
     | None -> None
 
 
+let getListOfBugsFromBugBuckets bugBuckets =
+    async {
+        if IO.Directory.Exists bugBuckets then
+            let path = bugBuckets ++ "bug_buckets.json"
+            if IO.File.Exists path then
+                let bugHashes: RESTlerTypes.Logs.BugHashes = Json.Compact.Strict.deserializeFile path
+                return Some bugHashes
+            else
+                return Some Map.empty
+        else
+            return None
+    }
 
 let getListOfBugs workingDirectory (runStartTime: DateTime) =
     async {
         match RESTlerInternal.getRunExperimentFolder workingDirectory runStartTime with
-        | None -> return Seq.empty
-
+        | None ->
+            return None
         | Some experiment ->
-            let bugBuckets = IO.DirectoryInfo(experiment.FullName ++ "bug_buckets")
-            if bugBuckets.Exists then
-                let bugFiles = 
-                    bugBuckets.EnumerateFiles("*.txt") 
-                    |> Seq.filter isBugFile
-                    |> Seq.map (fun f -> f.Name)
-                return bugFiles
-            else
-                return Seq.empty
+            return! getListOfBugsFromBugBuckets (experiment.FullName ++ "bug_buckets")
     }
+
 
 let bugFoundPollInterval = TimeSpan.FromSeconds (10.0)
 type OnBugFound = Map<string, string> -> Async<unit>
-let pollForBugFound workingDirectory (token: Threading.CancellationToken) (runStartTime: DateTime) (onBugFound : OnBugFound) =
+let pollForBugFound workingDirectory (token: Threading.CancellationToken) (runStartTime: DateTime) (ignoreBugHashes: string Set) (onBugFound : OnBugFound) =
     let rec poll() =
         async {
             if token.IsCancellationRequested then
@@ -467,29 +467,29 @@ let pollForBugFound workingDirectory (token: Threading.CancellationToken) (runSt
                     let restlerExperimentLogs = experiment.FullName ++ "logs"
 
                     if IO.Directory.Exists restlerExperimentLogs then
-                        let bugsFoundPosted = restlerExperimentLogs ++ "raft-bugsfound.posted.txt"
-                        let! postedBugs =
-                            async {
-                                if IO.File.Exists bugsFoundPosted then
-                                    let! bugsPosted = IO.File.ReadAllLinesAsync(bugsFoundPosted) |> Async.AwaitTask
-                                    return Set.ofArray bugsPosted
-                                else 
-                                    return Set.empty
-                            }
-
-                        let! bugFiles = getListOfBugs workingDirectory runStartTime
-                        let! _ =
-                            bugFiles
-                            |> Seq.map (fun bugFile ->
+                        match! getListOfBugs workingDirectory runStartTime with
+                        | None -> ()
+                        | Some bugFiles ->
+                            let bugsFoundPosted = restlerExperimentLogs ++ "raft-bugsfound.posted.txt"
+                            let! postedBugs =
                                 async {
-                                    if not <| postedBugs.Contains bugFile then
-                                        printfn "Posting bug found %s" bugFile
-                                        do! onBugFound (Map.empty.Add("Experiment", experiment.Name).Add("BugBucket", bugFile))
-                                    return ()
+                                    if IO.File.Exists bugsFoundPosted then
+                                        let! bugsPosted = IO.File.ReadAllLinesAsync(bugsFoundPosted) |> Async.AwaitTask
+                                        return Set.ofArray bugsPosted
+                                    else 
+                                        return ignoreBugHashes
                                 }
-                            ) |> Async.Sequential
-
-                        do! IO.File.WriteAllLinesAsync(bugsFoundPosted, bugFiles) |> Async.AwaitTask
+                            let! updatedBugsPosted =
+                                bugFiles
+                                |> Seq.map (fun (KeyValue(bugHash, bugFile)) ->
+                                    async {
+                                        if not <| postedBugs.Contains bugHash then
+                                            printfn "Posting bug found %s with hash %s" bugFile.file_path bugHash
+                                            do! onBugFound (Map.empty.Add("Experiment", experiment.Name).Add("BugBucket", bugFile.file_path).Add("BugHash", bugHash))
+                                        return bugHash
+                                    }
+                                ) |> Async.Sequential
+                            do! IO.File.WriteAllLinesAsync(bugsFoundPosted, updatedBugsPosted) |> Async.AwaitTask
 
                     return! poll()
             }
@@ -506,6 +506,7 @@ let replay restlerRootDirectory workingDirectory replayLogFile (parameters: Raft
 let test (testType: string)
             restlerRootDirectory workingDirectory
             (parameters: Raft.RESTlerTypes.Engine.EngineParameters)
+            (ignoreBugHashes: string Set)
             (onBugFound: OnBugFound)
             (report: ReportRunSummary)(runStartTime: DateTime, reportInterval: TimeSpan option) =
     async {
@@ -515,11 +516,8 @@ let test (testType: string)
                     do! RESTlerInternal.test testType restlerRootDirectory workingDirectory parameters
                     token.Cancel()
                 }
-
                 resultAnalyzer workingDirectory token.Token report (runStartTime, reportInterval)
-
-                pollForBugFound workingDirectory token.Token runStartTime onBugFound
-
+                pollForBugFound workingDirectory token.Token runStartTime ignoreBugHashes onBugFound
             ]
         return ()
     }
@@ -528,6 +526,7 @@ let fuzz (fuzzType: string)
             restlerRootDirectory
             workingDirectory
             (parameters: Raft.RESTlerTypes.Engine.EngineParameters)
+            (ignoreBugHashes: string Set)
             (onBugFound : OnBugFound)
             (report: ReportRunSummary)
             (runStartTime: DateTime, reportInterval: TimeSpan option) =
@@ -538,10 +537,8 @@ let fuzz (fuzzType: string)
                     do! RESTlerInternal.fuzz fuzzType restlerRootDirectory workingDirectory parameters
                     token.Cancel()
                 }
-
                 resultAnalyzer workingDirectory token.Token report (runStartTime, reportInterval)
-
-                pollForBugFound workingDirectory token.Token runStartTime onBugFound
+                pollForBugFound workingDirectory token.Token runStartTime ignoreBugHashes onBugFound
             ]
         return ()
     }
