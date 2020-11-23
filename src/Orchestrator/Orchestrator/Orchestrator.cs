@@ -23,7 +23,7 @@ namespace OrchestratorFunc
         {
             return Environment.GetEnvironmentVariable(envVariableName, EnvironmentVariableTarget.Process);
         }
-        
+        private static IAzure azure;
         private static OrchestratorLogic.ContainerInstances.AgentConfig agentConfig;
         private static OrchestratorLogic.ContainerInstances.CommunicationClients communicationClients;
         private static IDictionary<string, Microsoft.FSharp.Core.FSharpResult<Tuple<string, OrchestratorLogic.ContainerInstances.ToolConfig>, string>> toolConfigs;
@@ -32,17 +32,37 @@ namespace OrchestratorFunc
         private static IDictionary<string, string> secrets;
 
         private static IAzure Authenticate() {
-            var credentials =
-                new Microsoft.Azure.Management.ResourceManager.Fluent.Authentication.AzureCredentialsFactory()
-                    .FromServicePrincipal(
-                        GetSetting("RAFT_SERVICE_PRINCIPAL_CLIENT_ID"),
-                        GetSetting("RAFT_SERVICE_PRINCIPAL_CLIENT_SECRET"),
-                        GetSetting("RAFT_SERVICE_PRINCIPAL_TENANT_ID"), AzureEnvironment.AzureGlobalCloud);
+            int maxAttempts = 10;
+            IAzure azure = null;
 
-            var azure = Microsoft.Azure.Management.Fluent.Azure
-                            .Configure()
-                            .Authenticate(credentials)
-                            .WithSubscription(GetSetting("RAFT_SERVICE_PRINCIPAL_SUBSCRIPTION_ID"));
+            for (int i = 0; i < maxAttempts; i++)
+            {
+                try
+                {
+                    var credentials =
+                        new Microsoft.Azure.Management.ResourceManager.Fluent.Authentication.AzureCredentialsFactory()
+                            .FromServicePrincipal(
+                                GetSetting("RAFT_SERVICE_PRINCIPAL_CLIENT_ID"),
+                                GetSetting("RAFT_SERVICE_PRINCIPAL_CLIENT_SECRET"),
+                                GetSetting("RAFT_SERVICE_PRINCIPAL_TENANT_ID"), AzureEnvironment.AzureGlobalCloud);
+
+                    azure = Microsoft.Azure.Management.Fluent.Azure
+                                    .Configure()
+                                    .Authenticate(credentials)
+                                    .WithSubscription(GetSetting("RAFT_SERVICE_PRINCIPAL_SUBSCRIPTION_ID"));
+                }
+                catch (Exception)
+                {
+                    if (i == maxAttempts - 1)
+                    {
+                        throw;
+                    }
+                    else {
+                        System.Console.Out.WriteLine("Got exception when authenticating, trying again...");
+                        System.Threading.Thread.Sleep(3000);
+                    }
+                }
+            }
             return azure;
         }
 
@@ -62,12 +82,12 @@ namespace OrchestratorFunc
             result = await table.CreateIfNotExistsAsync();
         }
 
-        private static IAzure azure = Authenticate();
-
         static Orchestrator()
         {
             try
             {
+                azure = Authenticate();
+
                 var resourceGroup = GetSetting("RAFT_CONTAINER_RUN_RESOURCE_GROUP");
                 var storageAccount = GetSetting("RAFT_ORCHESTRATOR_STORAGE");
                 var storageAccountKey = OrchestratorLogic.ContainerInstances.getStorageKeyTask(azure, resourceGroup, storageAccount);

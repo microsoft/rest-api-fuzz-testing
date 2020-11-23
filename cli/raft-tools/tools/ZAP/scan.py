@@ -134,7 +134,7 @@ def run_zap(token):
     shutil.copy('/zap/zap.out', '/zap/wrk/zap.out')
 
     utils.report_status_completed()
-    if r < 2:
+    if r <= 2:
         return 0
     else:
         return r

@@ -28,10 +28,10 @@ module Engine =
             mutationsFilePath : string
 
             /// The IP of the endpoint being fuzzed
-            targetIp : string
+            targetIp : string option
 
             /// The port of the endpoint being fuzzed
-            targetPort : int
+            targetPort : int option
 
             /// The maximum fuzzing time in hours
             maxDurationHours : float option
@@ -125,9 +125,9 @@ module Engine =
             //override host defined in swagger for every request
             host: string option
 
-            target_ip: string
+            target_ip: string option
 
-            target_port : int
+            target_port : int option
 
             //in hours
             time_budget : float option
@@ -188,9 +188,9 @@ module Engine =
 
                 host = None
 
-                target_ip = ""
+                target_ip = None
 
-                target_port = 443
+                target_port = None
 
                 //in hours
                 time_budget = None

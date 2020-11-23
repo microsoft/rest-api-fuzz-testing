@@ -88,38 +88,69 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
         validateSwaggerLocation requestPayload.SwaggerLocation
 
         let requestPayload =
-            {requestPayload with
-                Tasks =
-                    requestPayload.Tasks
-                    |> Array.map (fun t ->
-                        if isNull (box t.SwaggerLocation) then
-                            { t with SwaggerLocation = requestPayload.SwaggerLocation }
-                        else 
-                            t
-                    )
-                    |> Array.map(fun t ->
-                        if String.IsNullOrWhiteSpace t.Host then
-                            { t with Host = requestPayload.Host }
-                        else
-                            t
-                    )
-                    |> Array.map(fun t ->
-                        if not t.Duration.HasValue then
-                            { t with Duration = requestPayload.Duration }
-                        else
-                            t
-                    )
+            match isNull (box requestPayload.Resources), isNull(box requestPayload.TestTargets) with
+            | true, true ->
+                {
+                    requestPayload with
+                        Resources = { Cores = 1; MemoryGBs = 1 }}
 
-                Resources =
-                    if isNull (box requestPayload.Resources) then
-                        {
-                            Cores = 1
-                            MemoryGBs = 1
+            | false, true-> requestPayload
+            | true, false ->
+                if isNull (box requestPayload.TestTargets.Resources) then
+                    {
+                        requestPayload with
+                            Resources = {Cores = 2; MemoryGBs = 2}
+                            TestTargets = 
+                                {
+                                    requestPayload.TestTargets with
+                                        Resources = {Cores = 1; MemoryGBs = 1}
+                                }
+                    }
+                else
+                    raiseApiError({
+                        Error = {
+                            Code = ApiErrorCode.ParseError
+                            Message = "Please set global job resources (since test target resources are set)"
+                            Target = "validateAndPatchPayload"
+                            Details = Array.empty
+                            InnerError = {Message = ""}
                         }
-                    else
-                        requestPayload.Resources
-            }
-        
+                    })
+            | false, false ->
+                if isNull (box requestPayload.TestTargets.Resources) then
+                    raiseApiError({
+                        Error = {
+                            Code = ApiErrorCode.ParseError
+                            Message = "Please set test target job resources (since global resources are set)"
+                            Target = "validateAndPatchPayload"
+                            Details = Array.empty
+                            InnerError = {Message = ""}
+                        }
+                    })
+                else
+                    if requestPayload.Resources.Cores <= requestPayload.TestTargets.Resources.Cores then
+                        raiseApiError({
+                            Error = {
+                                Code = ApiErrorCode.ParseError
+                                Message = "Number of globally allocated cores has to be greater than test targets cores"
+                                Target = "validateAndPatchPayload"
+                                Details = Array.empty
+                                InnerError = {Message = ""}
+                            }
+                        })
+                    if requestPayload.Resources.MemoryGBs <= requestPayload.TestTargets.Resources.MemoryGBs then
+                        raiseApiError({
+                            Error = {
+                                Code = ApiErrorCode.ParseError
+                                Message = "Globally allocated memory has to be greater than test targets allocated memory"
+                                Target = "validateAndPatchPayload"
+                                Details = Array.empty
+                                InnerError = {Message = ""}
+                            }
+                        })
+
+                    requestPayload
+
         if requestPayload.Resources.Cores < 1 then
             raiseApiError({
                 Error = {
@@ -142,6 +173,29 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                 }
             })
 
+        let requestPayload =
+            {requestPayload with
+                Tasks =
+                    requestPayload.Tasks
+                    |> Array.map (fun t ->
+                        if isNull (box t.SwaggerLocation) then
+                            { t with SwaggerLocation = requestPayload.SwaggerLocation }
+                        else 
+                            t
+                    )
+                    |> Array.map(fun t ->
+                        if String.IsNullOrWhiteSpace t.Host then
+                            { t with Host = requestPayload.Host }
+                        else
+                            t
+                    )
+                    |> Array.map(fun t ->
+                        if not t.Duration.HasValue then
+                            { t with Duration = requestPayload.Duration }
+                        else
+                            t
+                    )
+            }
 
         let taskAuthentication =
             requestPayload.Tasks
