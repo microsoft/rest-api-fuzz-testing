@@ -102,8 +102,11 @@ type RunConfiguration =
 
         /// Path regex for filtering tested endpoints
         PathRegex : string option
-    }
 
+        // In context of Replay - do not replay bugs specified in the list
+        // In context of Test or Fuzz - do not post onBugFound events if they are in the list
+        IgnoreBugHashes : string array option
+    }
 
 
 type AgentConfiguration =

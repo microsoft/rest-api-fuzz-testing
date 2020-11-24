@@ -1,21 +1,10 @@
 {
-  "host": "localhost",
-  "webhook": {
-    "name": "petstore-fuzz",
-    "metadata": {
-      "app" : "petstore",
-      "swagger_version" : "v2",
-      "action" : "fuzz"	
-    }
-  },
-
-  "readonlyFileShareMounts": [
+  "readOnlyFileShareMounts": [
     {
-      "FileShareName": "{compile.jobId}",
-      "MountPath": "/job-compile"
+      "FileShareName": "{jobId}",
+      "MountPath": "/job-run"
     }
   ],
-
  "testTargets" : { 
     "targets" : [
       {
@@ -35,19 +24,18 @@
   "tasks": [
     {
       "toolName": "RESTler",
-      "outputFolder": "{outputFolder}",
-      "duration": "00:10:00",
+      "outputFolder": "RESTler-replay-{experiment}-all-bug-buckets",
       "toolConfiguration": {
-        "task": "Fuzz",
+        "task": "Replay",
         "runConfiguration": {
           "targetEndpointConfiguration" : {
             "Port" : 8080 
           },
           "useSsl" : false,
-          "inputFolderPath": "/job-compile/compile",
-          "IgnoreBugHashes" : [
-            "PayloadBodyChecker_500_3d6e2d1e897967f3bc14cd8f08252a98b25c4d48",
-            "PayloadBodyChecker_500_6a4f4fb484d57121a271a4c65948ba8149e92dee"
+          "inputFolderPath": "/job-run/{outputFolder}/RestlerResults/{experiment}/bug_buckets",
+          "ignoreBugHashes" : [
+            "PayloadBodyChecker_500_acb1c0dcc79e949c24bec51f0ea3f841c61c38a3",
+            "PayloadBodyChecker_500_b8ebb5eaf46cdad18ac1d8e9ed67e2cdc729db3d"
           ]
         }
       }
