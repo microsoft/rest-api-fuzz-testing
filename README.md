@@ -16,7 +16,7 @@ These can be configured and used in the system via configuration files and requi
 This project is designed to run on [Azure](https://azure.microsoft.com). 
 
 To deploy the service download the CLI release and run `python raft.py service deploy`. See
-the [documentation](docs/deploying/deploying.md) for more details.
+the [documentation](docs/how-to-deploy.md) for more details.
 
 Once deployed, read about [how to submit a job](docs/how-to-submit-a-job.md) and
 use the [samples](docs/samples.md) to try out the service and fuzzers!
@@ -24,7 +24,7 @@ use the [samples](docs/samples.md) to try out the service and fuzzers!
 ### Documentation
 
 * [Table of Contents](docs/index.md)
-* [Overview](docs/how-it-works/overview.md)
+* [Overview](docs/how-it-works)
 * [FAQ](docs/faq.md)
 
 ### Swagger Documentation
