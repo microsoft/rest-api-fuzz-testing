@@ -220,13 +220,13 @@ let createRESTlerEngineParameters
     }
 
 type GrammarType =
-    | Swagger of string
+    | Swagger of string list
     | Json of string
 
 
 let createRESTlerCompilerConfiguration (workDirectory: string) (grammar: GrammarType) (customDictionary: string) (compileConfig: CompileConfiguration ) : Raft.RESTlerTypes.Compiler.Config =
     {
-        swaggerSpecFilePath = match grammar with Swagger path -> Some [path] | Json _ -> None
+        swaggerSpecFilePath = match grammar with Swagger paths -> Some paths | Json _ -> None
     
         // If specified, use this as the input and generate the python grammar.
         // This is path to JSON grammar. And we might need to accept as the step to FUZZ task (but do not need it for COMPILE task)
@@ -516,24 +516,35 @@ let main argv =
 
         let compileSwaggerGrammar(compilerConfiguration) =
             async {
-                let! swagger =
-                    async {
-                        match task.SwaggerLocation with
-                        | Some (Raft.Job.SwaggerLocation.URL url) ->
-                            let! swagger = downloadFile workDirectory "swagger.json" url
-                            printfn "Downloaded swagger spec to :%s" swagger
-                            return swagger
-                        | Some(Raft.Job.FilePath path) -> 
-                            return path
-                        | None -> return failwith "Cannot perform compilation step, since Swagger Grammar location is not set"
-                    }
+                match task.SwaggerLocations with
+                | None -> return failwith "Cannot perform compilation step, since Swagger Grammar location is not set"
+                | Some swaggerLocations ->
+                    let! swagger =
+                        swaggerLocations
+                        |> Array.map (fun swaggerLocation ->
+                            async {
+                                let! swagger =
+                                    async {
+                                        match swaggerLocation with
+                                        | Raft.Job.SwaggerLocation.URL url ->
+                                            let! swagger = downloadFile workDirectory "swagger.json" url
+                                            printfn "Downloaded swagger spec to :%s" swagger
+                                            return swagger
+                                        | Raft.Job.FilePath path -> 
+                                            return path
+                                    }
 
-                match validateJsonFile swagger with
-                | Result.Ok () -> ()
-                | Result.Error (err) -> failwithf "File %s is not a valid JSON file due to %s" swagger err
+                                match validateJsonFile swagger with
+                                | Result.Ok () -> ()
+                                | Result.Error (err) -> failwithf "File %s is not a valid JSON file due to %s" swagger err
 
-                let compilerConfig = createRESTlerCompilerConfiguration workDirectory (Swagger swagger) customDictionaryPath compilerConfiguration
-                do! Raft.RESTlerDriver.compile restlerPath workDirectory compilerConfig
+                                return swagger
+                            }
+                        )
+                        |> Async.Sequential
+
+                    let compilerConfig = createRESTlerCompilerConfiguration workDirectory (Swagger (swagger |> Array.toList)) customDictionaryPath compilerConfiguration
+                    do! Raft.RESTlerDriver.compile restlerPath workDirectory compilerConfig
             }
 
         let compileJsonGrammar (jsonGrammarPath: string) (compilerConfiguration) =

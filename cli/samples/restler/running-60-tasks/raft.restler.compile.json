@@ -1,7 +1,7 @@
 {
-  "swaggerLocation": {
+  "swaggerLocations": [{
     "URL": "https://{host}/swagger/v1/swagger.json"
-  },
+  }],
   "resources": {
     "Cores": 2,
     "MemoryGBs": 3
@@ -19,7 +19,7 @@
           "customDictionary": {
             "customPayload": {
               "duration": [ "00:10:00" ],
-              "swaggerLocation": [ "{\"URL\": \"https://some.service.azurewebsites.net/swagger.json\"}" ],
+              "swaggerLocations": [ "[{\"URL\": \"https://some.service.azurewebsites.net/swagger.json\"}]" ],
               "authenticationMethod": [ "{\"CommandLine\": \"abc\" }" ],
               "targetUrl": [ "{replace-with-valid-webhook-URL}" ],
               "event": [ "JobStatus" ],

@@ -1,5 +1,5 @@
-swaggerLocation:
-  URL: "https://{defaults.deploymentName}-raft-apiservice.azurewebsites.net/swagger/v1/swagger.json"
+swaggerLocations:
+- URL: "https://{defaults.deploymentName}-raft-apiservice.azurewebsites.net/swagger/v1/swagger.json"
 
 tasks:
 - toolName: "RESTler"
@@ -11,8 +11,8 @@ tasks:
 
 - toolName: "RESTler"
   outputFolder: "sample-compile"
-  swaggerLocation:
-    URL: "https://{sample.host}/swagger/v1/swagger.json"
+  swaggerLocations:
+  - URL: "https://{sample.host}/swagger/v1/swagger.json"
   toolConfiguration:
     task : Compile
     compileConfiguration:
