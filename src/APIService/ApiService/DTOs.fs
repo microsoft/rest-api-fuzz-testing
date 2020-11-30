@@ -148,7 +148,7 @@ module DTOs =
         {
             [<Required>]
             Container : string
-            Port : int
+            Ports : int array
             ExpectedDurationUntilReady: TimeSpan
 
             IsIdling : Nullable<bool>

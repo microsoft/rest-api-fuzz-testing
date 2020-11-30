@@ -16,10 +16,19 @@ type SwaggerLocation =
     | FilePath of string
 
 
+type GpuConfig =
+    {
+        Sku : string //available SKUs v100, k80, P100
+        Cores : int
+    }
+
+
 type Resources =
     {
         Cores : int
         MemoryGBs : int
+
+        GPU : GpuConfig option
     }
 
 type Command =
@@ -34,7 +43,7 @@ type TestTargetDefinition =
     {
         Container : string
         ExpectedDurationUntilReady: System.TimeSpan
-        Port : int
+        Ports : int array option
 
         IsIdling : bool option
         Run : Command option

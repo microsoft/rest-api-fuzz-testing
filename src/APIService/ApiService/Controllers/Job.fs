@@ -214,7 +214,6 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                     }
                 })
 
-
         taskAuthentication
         |> Array.iter(fun auth ->
             let enabled = 
