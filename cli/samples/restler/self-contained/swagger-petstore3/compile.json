@@ -9,7 +9,7 @@
     "targets" : [
       {
         "Container" : "swaggerapi/petstore3",
-        "Port" : 8082,
+        "Ports" : [8082],
         "ExpectedDurationUntilReady" : "00:00:30",
         "Run" : {
           "Command" : "java",

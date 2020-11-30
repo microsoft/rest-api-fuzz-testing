@@ -161,7 +161,7 @@ module ContainerInstances =
         {
             Tool: string
             Container: string
-            Port : int option
+            Ports : int array option
             
             IsIdling : bool
 
@@ -180,18 +180,6 @@ module ContainerInstances =
             RunDirectory : string option
             WorkDirectory : string option
             ToolConfiguration: ToolConfiguration
-        }
-
-    type GpuConfig =
-        {
-            Sku : string //available SKUs v100, k80, P100
-            Cores : int
-        }
-    type ContainerConfig =
-        {
-            CPUs : int option
-            MemorySizeInGB : float option
-            GPUs : GpuConfig option
         }
 
     type ToolConfig =
@@ -305,7 +293,7 @@ module ContainerInstances =
                     return runDirectory,
                         {
                             Tool = task.ToolName
-                            Port = None
+                            Ports = None
                             Container = container
 
                             Secrets = task.KeyVaultSecrets
@@ -466,11 +454,11 @@ module ContainerInstances =
                             b.WithImage(toolContainerRun.ToolConfiguration.Container)
 
                         let b2 =
-                            match toolContainerRun.ToolConfiguration.Port with
+                            match toolContainerRun.ToolConfiguration.Ports with
                             | None ->
                                 b1.WithoutPorts().WithCpuCoreCount(cpu)
                             | Some p ->
-                                (b1.WithInternalTcpPort p).WithCpuCoreCount(cpu)
+                                (b1.WithInternalTcpPorts p).WithCpuCoreCount(cpu)
                         b2
                             .WithMemorySizeInGB(ram)
                             .WithVolumeMountSetting(workVolume, workDirectory)
@@ -814,7 +802,7 @@ module ContainerInstances =
                                     t.Targets
                                     |> Array.mapi (fun i target ->
                                         {
-                                            ContainerName = sprintf "%s-%d" TestTarget target.Port
+                                            ContainerName = sprintf "%s-%d" TestTarget i
                                             RunDirectory = None
                                             WorkDirectory =
                                                 match target.OutputFolder with
@@ -824,7 +812,7 @@ module ContainerInstances =
                                             ToolConfiguration = {
                                                 Tool = target.Container
                                                 Container = target.Container
-                                                Port = Some target.Port
+                                                Ports = target.Ports
 
                                                 IsIdling = match target.IsIdling with None -> false | Some v -> v
 

@@ -30,7 +30,7 @@
     "targets" : [
       {
         "Container" : "swaggerapi/petstore3",
-        "Port" : 8081,
+        "Ports" : [8081],
         "ExpectedDurationUntilReady" : "00:02:00",
         "Run" : {
           "Command" : "/bin/sh",
@@ -39,7 +39,7 @@
       },
       {
         "Container" : "swaggerapi/petstore3",
-        "Port" : 8082,
+        "Ports" : [8082],
         "ExpectedDurationUntilReady" : "00:02:00",
         "Run" : {
           "Command" : "/bin/sh",
