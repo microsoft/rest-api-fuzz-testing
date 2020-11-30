@@ -910,10 +910,7 @@ let main argv =
                         //.Add("numFullyValid", sprintf "%d" status.num_fully_valid)
                         //.Add("numSequenceFailures", sprintf "%d" status.num_sequence_failures)
                         //.Add("numInvalidByFailedResourceCreations", sprintf "%d" status.num_invalid_by_failed_resource_creations)
-                        //.Add("throughput", sprintf "%f" status.throughput)
                         //.Add("totalObjectCreations", sprintf "%d" status.total_object_creations)
-                        //.Add("totalUniqueTestCases", sprintf "%f" status.total_unique_test_cases)
-                        //.Add("totalSequences", sprintf "%d" status.total_sequences)
                 )
 
         printfn "Sending final event: %A with summary: %A and details %A" state summary details
