@@ -10,6 +10,7 @@
 		"command" : "/bin/sh",
 		"arguments" : ["-c", "echo DebugMode; while true; do sleep 100000; done;"]
 	},
+	"shell" : "/bin/sh",
 	"environmentVariables" : {
 		"RESTLER_TELEMETRY_OPTOUT" : "0"	
 	}
