@@ -3,6 +3,8 @@ variables:
     value: 1
   - name: version.minor
     value: 1
+  - name: version.revision
+    value: 0
   - name: imageTag
     value: 'v1.1.0'
   - name: imageTagLatest
