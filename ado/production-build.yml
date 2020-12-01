@@ -5,10 +5,11 @@ trigger:
       - 'main'
 
 variables:
-  versionNumber: 1.0.0
-  imageTag: 'v1.0.0'
-  imageTagWithBuildDate: $(imageTag)-$(Build.BuildNumber)
-  imageTagLatest: 'v1.latest'
+  - template: 'variables/version-variables.yml'
+  - name: versionNumber
+    value: $(version.major).$(version.minor).$(version.revision)
+  - name: imageTagWithBuildDate
+    value: $(imageTag)-$(Build.BuildNumber)
 
 stages:
   - template: stages/build/build.yml
