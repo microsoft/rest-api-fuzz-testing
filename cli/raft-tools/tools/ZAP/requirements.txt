@@ -1,2 +1,2 @@
 applicationinsights~=0.11.9
-azure-servicebus~=0.50.3
+azure-servicebus~=7.0.0

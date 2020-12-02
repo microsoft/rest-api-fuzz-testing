@@ -681,7 +681,7 @@ If the event name is not a supported value.
 <li><a href="#Resources"><code>Resources</code></a></li>
 <li><a href="#RunConfiguration"><code>RunConfiguration</code></a></li>
 <li><a href="#RunSummary"><code>RunSummary</code></a></li>
-<li><a href="#SwaggerLocation"><code>SwaggerLocation</code></a></li>
+<li><a href="#SwaggerLocations"><code>SwaggerLocations</code></a></li>
 <li><a href="#TargetEndpointConfiguration"><code>TargetEndpointConfiguration</code></a></li>
 <li><a href="#WebHook"><code>WebHook</code></a></li>
 <li><a href="#Webhook"><code>Webhook</code></a></li>
@@ -801,7 +801,7 @@ and multiple errors need to be returned.</div>
 <h3><a name="JobDefinition"><code>JobDefinition</code></a> <a class="up" href="#__Models">Up</a></h3>
 <div class='model-description'>RAFT job run definition</div>
 <div class="field-items">
-  <div class="param">swaggerLocation (optional)</div><div class="param-desc"><span class="param-type"><a href="#SwaggerLocation">SwaggerLocation</a></span>  </div>
+  <div class="param">swaggerLocations (optional)</div><div class="param-desc"><span class="param-type"><a href="#SwaggerLocations">SwaggerLocations</a></span>  </div>
 <div class="param">namePrefix (optional)</div><div class="param-desc"><span class="param-type"><a href="#string">String</a></span> String used as a prefix added to service generated job ID.
 Prefix can contain only lowercase letters, numbers, and hyphens, and must begin with a letter or a number.
 Prefix cannot contain two consecutive hyphens.
@@ -856,7 +856,7 @@ For RESTler jobs - time limit is only useful for Fuzz task format: date-span</di
   <div class="param">toolName </div><div class="param-desc"><span class="param-type"><a href="#string">String</a></span> Tool defined by folder name located in cli/raft-tools/tools/{ToolName} </div>
 <div class="param">outputFolder </div><div class="param-desc"><span class="param-type"><a href="#string">String</a></span> Output folder name to store agent generated output
 Must not contain: /*?:|&amp;lt;&amp;gt;" </div>
-<div class="param">swaggerLocation (optional)</div><div class="param-desc"><span class="param-type"><a href="#SwaggerLocation">SwaggerLocation</a></span>  </div>
+<div class="param">swaggerLocations (optional)</div><div class="param-desc"><span class="param-type"><a href="#SwaggerLocations">SwaggerLocations</a></span>  </div>
 <div class="param">host (optional)</div><div class="param-desc"><span class="param-type"><a href="#string">String</a></span> Override the Host for each request. </div>
 <div class="param">isIdling (optional)</div><div class="param-desc"><span class="param-type"><a href="#boolean">Boolean</a></span> If true - do not run the task. Idle container to allow user to connect to it. </div>
 <div class="param">duration (optional)</div><div class="param-desc"><span class="param-type"><a href="#string">String</a></span> Duration of the task; if not set, then job level duration is used.
@@ -918,7 +918,7 @@ For Replay task: path to RESTler Fuzz or Test run that contains bug buckets to r
 </div>  <!-- field-items -->
   </div>
   <div class="model">
-<h3><a name="SwaggerLocation"><code>SwaggerLocation</code></a> <a class="up" href="#__Models">Up</a></h3>
+<h3><a name="SwaggerLocations"><code>SwaggerLocations</code></a> <a class="up" href="#__Models">Up</a></h3>
 
 <div class="field-items">
   <div class="param">url (optional)</div><div class="param-desc"><span class="param-type"><a href="#string">String</a></span>  </div>
