@@ -433,7 +433,10 @@ let getListOfBugsFromBugBuckets bugBuckets =
             let path = bugBuckets ++ "bug_buckets.json"
             if IO.File.Exists path then
                 let bugHashes: RESTlerTypes.Logs.BugHashes = Json.Compact.Strict.deserializeFile path
-                return Some bugHashes
+                if isNull (box bugHashes) then
+                    return None
+                else
+                    return Some bugHashes
             else
                 return Some Map.empty
         else
@@ -467,32 +470,28 @@ let pollForBugFound workingDirectory (token: Threading.CancellationToken) (runSt
                     let restlerExperimentLogs = experiment.FullName ++ "logs"
 
                     if IO.Directory.Exists restlerExperimentLogs then
-                        try
-                            match! getListOfBugs workingDirectory runStartTime with
-                            | None -> ()
-                            | Some bugFiles ->
-                                let bugsFoundPosted = restlerExperimentLogs ++ "raft-bugsfound.posted.txt"
-                                let! postedBugs =
+                        match! getListOfBugs workingDirectory runStartTime with
+                        | None -> ()
+                        | Some bugFiles ->
+                            let bugsFoundPosted = restlerExperimentLogs ++ "raft-bugsfound.posted.txt"
+                            let! postedBugs =
+                                async {
+                                    if IO.File.Exists bugsFoundPosted then
+                                        let! bugsPosted = IO.File.ReadAllLinesAsync(bugsFoundPosted) |> Async.AwaitTask
+                                        return Set.ofArray bugsPosted
+                                    else
+                                        return ignoreBugHashes
+                                }
+                            let! updatedBugsPosted =
+                                bugFiles
+                                |> Seq.map (fun (KeyValue(bugHash, bugFile)) ->
                                     async {
-                                        if IO.File.Exists bugsFoundPosted then
-                                            let! bugsPosted = IO.File.ReadAllLinesAsync(bugsFoundPosted) |> Async.AwaitTask
-                                            return Set.ofArray bugsPosted
-                                        else 
-                                            return ignoreBugHashes
+                                        if not <| postedBugs.Contains bugHash then
+                                            do! onBugFound (Map.empty.Add("Experiment", experiment.Name).Add("BugBucket", bugFile.file_path).Add("BugHash", bugHash))
+                                        return bugHash
                                     }
-                                let! updatedBugsPosted =
-                                    bugFiles
-                                    |> Seq.map (fun (KeyValue(bugHash, bugFile)) ->
-                                        async {
-                                            if not <| postedBugs.Contains bugHash then
-                                                printfn "Posting bug found %s with hash %s" bugFile.file_path bugHash
-                                                do! onBugFound (Map.empty.Add("Experiment", experiment.Name).Add("BugBucket", bugFile.file_path).Add("BugHash", bugHash))
-                                            return bugHash
-                                        }
-                                    ) |> Async.Sequential
-                                do! IO.File.WriteAllLinesAsync(bugsFoundPosted, updatedBugsPosted) |> Async.AwaitTask
-                        with
-                        | :? System.ArgumentNullException as ex -> printfn "Got excpetion while polling for bug found: %A" ex
+                                ) |> Async.Sequential
+                            do! IO.File.WriteAllLinesAsync(bugsFoundPosted, updatedBugsPosted) |> Async.AwaitTask
                     return! poll()
             }
     poll()
