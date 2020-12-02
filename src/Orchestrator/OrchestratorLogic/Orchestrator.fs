@@ -505,6 +505,11 @@ module ContainerInstances =
                 )
             r, isIdling
 
+    let getTaskWorkDirectoryPath (containerGroupName : string) (rootFileShare: string option) (workDirectory : string) (taskOutputFolder : string) =
+        match rootFileShare with
+        | None -> sprintf "%s/%s" workDirectory taskOutputFolder
+        | Some _ -> sprintf "%s/%s/%s" workDirectory containerGroupName taskOutputFolder
+
     let getContainerGroupInstanceConfiguration
             (containerGroupName: string)
             (logger:ILogger)
@@ -539,7 +544,7 @@ module ContainerInstances =
                                     return
                                         {
                                             RunDirectory = Some runDirectory
-                                            WorkDirectory = Some(sprintf "%s/%s" workDirectory task.OutputFolder)
+                                            WorkDirectory = Some(getTaskWorkDirectoryPath containerGroupName jobCreateRequest.JobDefinition.RootFileShare workDirectory task.OutputFolder)
                                             ContainerName = (sprintf "%d-%s" i task.OutputFolder).ToLowerInvariant()
                                             ToolConfiguration = toolConfig
                                         }
@@ -803,7 +808,7 @@ module ContainerInstances =
                                             RunDirectory = None
                                             WorkDirectory =
                                                 match target.OutputFolder with
-                                                | Some x -> Some(sprintf "%s/%s" workDirectory x)
+                                                | Some x -> Some(getTaskWorkDirectoryPath containerGroupName jobCreateRequest.JobDefinition.RootFileShare workDirectory x)
                                                 | None -> None
 
                                             ToolConfiguration = {
