@@ -4,9 +4,9 @@ variables:
   - name: version.minor
     value: 1
   - name: version.revision
-    value: 0
+    value: 1
   - name: imageTag
-    value: 'v1.1.0'
+    value: 'v1.1.1'
   - name: imageTagLatest
     value: 'v1.latest'
   - name: devRevision
