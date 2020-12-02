@@ -1,7 +1,7 @@
 {
-  "swaggerLocation": {
+  "swaggerLocations": [{
     "URL": "https://{defaults.deploymentName}-raft-apiservice.azurewebsites.net/swagger/v1/swagger.json"
-  },
+  }],
   "host": "{defaults.deploymentName}-raft-apiservice.azurewebsites.net",
   "tasks": [
     {

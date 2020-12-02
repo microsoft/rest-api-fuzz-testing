@@ -6,9 +6,10 @@ import time
 import io
 import logging
 from logging import StreamHandler
+import importlib
 
 from applicationinsights import TelemetryClient
-from azure.servicebus import TopicClient, Message
+from azure.servicebus import ServiceBusClient, ServiceBusMessage
 from contextlib import redirect_stdout
 
 class RaftUtils():
@@ -18,8 +19,10 @@ class RaftUtils():
             self.config = json.load(task_config)
 
         connection_str = os.environ['RAFT_SB_OUT_SAS']
-        self.topic_client = TopicClient.from_connection_string(connection_str)
 
+        self.sb_client = ServiceBusClient.from_connection_string(connection_str)
+        self.topic_client = self.sb_client.get_topic_sender(self.sb_client._entity_name)
+        
         self.telemetry_client = TelemetryClient(instrumentation_key=os.environ['RAFT_APP_INSIGHTS_KEY'])
 
         self.job_id = os.environ['RAFT_JOB_ID']
@@ -43,8 +46,8 @@ class RaftUtils():
                 'state' : state
             }
         }
-        msg = Message(str.encode(json.dumps(m)))
-        self.topic_client.send(msg)
+        msg = ServiceBusMessage(str.encode(json.dumps(m)))
+        self.topic_client.send_messages([msg])
 
     def report_status_created(self, details=None):
         self.report_status('Created', details)
@@ -67,24 +70,16 @@ class RaftUtils():
     def flush(self):
         self.telemetry_client.flush()
 
-    def get_swagger_target(self):
-        swagger = self.config.get("swaggerLocation")
-        if swagger and swagger.get("url"):
-            return swagger["url"]
-        elif swagger.get("filePath"):
-            return swagger["filePath"]
-
-
 zap_dir = '/zap'
 sys.path.append(zap_dir)
-zap = __import__("zap-api-scan")
 
 utils = RaftUtils()
 
 class StatusReporter(StreamHandler):
-    def __init__(self):
+    def __init__(self, details):
         StreamHandler.__init__(self)
         self.last_txt = None
+        self.details = details
 
     def emit(self, record):
         txt = self.format(record)
@@ -93,10 +88,12 @@ class StatusReporter(StreamHandler):
             progress='Active Scan progress %:'
             i = txt.find(progress)
             if i != -1:
-                utils.report_status_running({"Scan progress" : txt[i :]})
+                self.details["Scan progress"] = txt[i :]
+                utils.report_status_running(self.details)
 
-def run_zap(token):
-    target = utils.get_swagger_target()
+zap = __import__("zap-api-scan")
+
+def run_zap(target_index, targets_total, target, token):
     if token:
         utils.log_trace('Authentication token is set')
         auth = ('-config replacer.full_list(0).description=auth1'
@@ -120,29 +117,33 @@ def run_zap(token):
 
     try:
         utils.log_trace("Starting ZAP")
-        utils.report_status_running()
-
-        status_reporter = StatusReporter()
+        details = {"targetIndex": target_index, "numberOfTargets" : targets_total, "target": target}
+        utils.report_status_running(details)
+        status_reporter = StatusReporter(details)
         logger = logging.getLogger()
         logger.addHandler(status_reporter)
-        zap.main(['-t', target, '-f', 'openapi', '-J', 'report.json', '-r', 'report.html', '-w', 'report.md', '-x', 'report.xml', '-d'] + zap_auth_config)
+        zap.main(['-t', target, '-f', 'openapi', '-J', f'{target_index}-report.json', '-r', f'{target_index}-report.html', '-w', f'{target_index}-report.md', '-x', f'{target_index}-report.xml', '-d'] + zap_auth_config)
+        details["Scan progress"] = "Active scan progress %: 100"
+        utils.report_status_running(details)
 
     except SystemExit as e:
         r = e.code
 
     utils.log_trace(f"ZAP exited with exit code: {r}")
-    shutil.copy('/zap/zap.out', '/zap/wrk/zap.out')
+    shutil.copy('/zap/zap.out', f'/zap/wrk/{target_index}-zap.out')
 
-    utils.report_status_completed()
     if r <= 2:
-        return 0
-    else:
-        return r
+        r = 0
+        
+    if target_index + 1 == targets_total:
+        utils.report_status_completed()
+    utils.sb_client.close()
+    return r
 
-def run(token):
+def run(target_index, targets_total, target, token):
     try:
         utils.report_status_created()
-        return run_zap(token)
+        return run_zap(target_index, targets_total, target, token)
     except Exception as ex:
         utils.log_exception()
         utils.report_status_error({"Error" : f"{ex}"})
@@ -152,8 +153,12 @@ def run(token):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) == 2:
-        run(sys.argv[1])
+    target_index = int(sys.argv[1])
+    targets_total = int(sys.argv[2])
+    target = sys.argv[3]
+
+    if len(sys.argv) == 5:
+        run(target_index, targets_total, target, sys.argv[4])
     else:
-        run(None)
+        run(target_index, targets_total, target, None)
 

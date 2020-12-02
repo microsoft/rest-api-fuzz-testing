@@ -36,9 +36,19 @@
           "Command" : "/bin/sh",
           "Arguments" : ["-c", "java -jar /swagger-petstore/jetty-runner.jar --log $RAFT_WORK_DIRECTORY/yyyy_mm_dd-requests.log --port 8081 /swagger-petstore/server.war"]
         }
+        },
+        "Shell" : "/bin/sh",
+        "OutputFolder" : "restler_petstore3"
       },
       {
         "Container" : "swaggerapi/petstore3",
+        "PostRun" : {
+          "Command" : "/bin/sh", 
+          "Arguments" : ["-c", "cp /var/log/*-requests.log $RAFT_WORK_DIRECTORY"],
+          "ExpectedRunDuration" : "00:00:10"
+        },
+        "Shell" : "/bin/sh",
+        "OutputFolder" : "zap_petstore3"
         "Ports" : [8082],
         "ExpectedDurationUntilReady" : "00:02:00",
         "Run" : {
@@ -67,9 +77,9 @@
     {
       "toolName": "ZAP",
       "outputFolder": "zap",
-      "swaggerLocation": {
+      "swaggerLocations": [{
         "URL" : "http://localhost:8082/api/v3/openapi.json"
-      }
+      }]
     }
   ]
 }

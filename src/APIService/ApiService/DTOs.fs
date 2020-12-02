@@ -60,9 +60,9 @@ module DTOs =
             OutputFolder : string
 
             /// <summary>
-            /// Override swagger specification location
+            /// Override swagger specification locations
             /// </summary>
-            SwaggerLocation : SwaggerLocation
+            SwaggerLocations : SwaggerLocation array
 
             /// <summary>
             /// Override the Host for each request.
@@ -194,9 +194,9 @@ module DTOs =
     type JobDefinition =
         {
             /// <summary>
-            /// Swagger specification location for the job run
+            /// Swagger specifications location for the job run
             /// </summary>
-            SwaggerLocation : SwaggerLocation
+            SwaggerLocations : SwaggerLocation array
 
             /// <summary> 
             /// String used as a prefix added to service generated job ID.

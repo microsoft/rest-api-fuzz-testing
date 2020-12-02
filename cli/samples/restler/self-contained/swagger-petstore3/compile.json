@@ -3,9 +3,13 @@
   "namePrefix" : "petstore3-compile-",
   "swaggerLocation": {
     "URL" : "http://localhost:8082/api/v3/openapi.json"
-  },
+  }],
 
   "testTargets" : {
+    "resources" : {
+      "Cores" : 2,
+      "MemoryGBs" : 4
+    },
     "targets" : [
       {
         "Container" : "swaggerapi/petstore3",
