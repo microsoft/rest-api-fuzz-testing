@@ -1,7 +1,7 @@
 {
-  "swaggerLocation": {
+  "swaggerLocations": [{
     "URL": "https://{sample.host}/swagger/v1/swagger.json"
-  },
+  }],
   "namePrefix": "sample-compile-",
   "webhook": {
     "name": "sample-compile",

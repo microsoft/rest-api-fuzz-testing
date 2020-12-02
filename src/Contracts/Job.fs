@@ -71,7 +71,7 @@ type RaftTask =
         OutputFolder : string
 
         /// overwrite where to get swagger definition from
-        SwaggerLocation : SwaggerLocation option
+        SwaggerLocations : (SwaggerLocation array) option
 
         /// The string to use in overriding the Host for each request
         Host : string option
@@ -103,7 +103,7 @@ type Webhook =
 type JobDefinition =
     {
         /// where to get swagger definition from
-        SwaggerLocation : SwaggerLocation option
+        SwaggerLocations : (SwaggerLocation array) option
 
         /// prefix for jobId
         NamePrefix : string option
