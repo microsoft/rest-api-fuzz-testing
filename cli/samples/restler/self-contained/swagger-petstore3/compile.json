@@ -5,6 +5,10 @@
     "URL" : "http://localhost:8082/api/v3/openapi.json"
   }],
 
+  "resources": {
+    "Cores": 4,
+    "MemoryGBs": 8
+
   "testTargets" : {
     "resources" : {
       "Cores" : 2,
