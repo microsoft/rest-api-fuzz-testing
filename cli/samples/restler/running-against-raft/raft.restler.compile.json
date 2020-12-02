@@ -1,7 +1,7 @@
 {
-  "swaggerLocation": {
+  "swaggerLocations": [{
     "URL": "https://{defaults.deploymentName}-raft-apiservice.azurewebsites.net/swagger/v1/swagger.json"
-  },
+  }],
   "tasks": [
     {
       "toolName": "RESTler",
@@ -17,7 +17,7 @@
               "memoryGBs" : ["1"],
               "toolName" : ["ZAP"],
               "duration": [ "00:10:00" ],
-              "swaggerLocation": [ "{\"URL\": \"https://some.service.azurewebsites.net/swagger.json\"}", "{\"FilePath\": \"/swagger-folder/swagger.json\"}" ],
+              "swaggerLocations": [ "[{\"URL\": \"https://some.service.azurewebsites.net/swagger.json\"}", "{\"FilePath\": \"/swagger-folder/swagger.json\"}]" ],
               "authenticationMethod": [ "{\"CommandLine\": \"abc\" }" ],
               "targetUrl": [ "{replace-with-valid-webhook-URL}" ],
               "event": [ "JobStatus" ],

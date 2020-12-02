@@ -32,9 +32,9 @@
       "toolName": "ZAP",
       "keyVaultSecrets": [ "RaftServicePrincipal" ],
       "outputFolder": "{defaults.deploymentName}-ZAP-out",
-      "swaggerLocation": {
+      "swaggerLocations": [{
         "URL": "https://{defaults.deploymentName}-raft-apiservice.azurewebsites.net/swagger/v1/swagger.json"
-      },
+      }],
 
       "authenticationMethod": {
         "MSAL": "RaftServicePrincipal"
@@ -43,9 +43,9 @@
     {
       "host": "{sample.host}",
       "toolName": "ZAP",
-      "swaggerLocation": {
+      "swaggerLocations": [{
         "URL": "https://{sample.host}/swagger/v1/swagger.json"
-      },
+      }],
       "outputFolder": "sample-zap-out"
     },
     {

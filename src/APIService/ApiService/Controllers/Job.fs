@@ -58,7 +58,7 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
 
         let outputFolders = requestPayload.Tasks |> Array.map (fun t -> t.OutputFolder) |> Array.sort
 
-        let validateSwaggerLocation (swaggerLocation:DTOs.SwaggerLocation) =
+        let validateSwaggerLocations (swaggerLocation:DTOs.SwaggerLocation) =
             // Validate the swagger URL.
             if not <| isNull (box swaggerLocation) then
                 if not <| String.IsNullOrWhiteSpace(swaggerLocation.URL) then
@@ -85,7 +85,8 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                             }
                         })
 
-        validateSwaggerLocation requestPayload.SwaggerLocation
+        if not <| isNull (box requestPayload.SwaggerLocations) then
+            requestPayload.SwaggerLocations |> Array.iter validateSwaggerLocations 
 
         let requestPayload =
             match isNull (box requestPayload.Resources), isNull(box requestPayload.TestTargets) with
@@ -178,8 +179,8 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                 Tasks =
                     requestPayload.Tasks
                     |> Array.map (fun t ->
-                        if isNull (box t.SwaggerLocation) then
-                            { t with SwaggerLocation = requestPayload.SwaggerLocation }
+                        if isNull (box t.SwaggerLocations) then
+                            { t with SwaggerLocations = requestPayload.SwaggerLocations }
                         else 
                             t
                     )
@@ -280,8 +281,8 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                     }
                 })
 
-            if not <| isNull(box t.SwaggerLocation) then
-                validateSwaggerLocation t.SwaggerLocation
+            if not <| isNull(box t.SwaggerLocations) then
+                t.SwaggerLocations |> Array.iter validateSwaggerLocations 
         )
 
         if not <| isNull requestPayload.ReadOnlyFileShareMounts then
