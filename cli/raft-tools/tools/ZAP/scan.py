@@ -8,7 +8,7 @@ import logging
 from logging import StreamHandler
 
 from applicationinsights import TelemetryClient
-from azure.servicebus import TopicClient, Message
+from azure.servicebus import ServiceBusClient, ServiceBusMessage
 from contextlib import redirect_stdout
 
 class RaftUtils():
@@ -18,7 +18,7 @@ class RaftUtils():
             self.config = json.load(task_config)
 
         connection_str = os.environ['RAFT_SB_OUT_SAS']
-        self.topic_client = TopicClient.from_connection_string(connection_str)
+        self.topic_client = ServiceBusClient.from_connection_string(connection_str)
 
         self.telemetry_client = TelemetryClient(instrumentation_key=os.environ['RAFT_APP_INSIGHTS_KEY'])
 
@@ -43,7 +43,7 @@ class RaftUtils():
                 'state' : state
             }
         }
-        msg = Message(str.encode(json.dumps(m)))
+        msg = ServiceBusMessage(str.encode(json.dumps(m)))
         self.topic_client.send(msg)
 
     def report_status_created(self, details=None):
