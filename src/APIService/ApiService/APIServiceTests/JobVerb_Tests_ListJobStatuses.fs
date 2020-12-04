@@ -30,7 +30,7 @@ type ListJobStatusesTests() =
     member this.``LIST /jobs/restler succeeds`` () =
         async {
             let jobStatusJson = File.ReadAllText("test-job-status.json")
-            let entity = JobStatusEntity(Guid.Parse("29211868-8178-4e81-9b8d-d52025b4c2d4").ToString(), "testAgent", jobStatusJson, "Created")
+            let entity = JobStatusEntity(Guid.Parse("29211868-8178-4e81-9b8d-d52025b4c2d4").ToString(), "testAgent", jobStatusJson, "Created", System.DateTime.UtcNow, "http://some-url")
             Raft.Utilities.raftStorage <- Fixtures.createFakeRaftStorage (Some entity)
 
             let jobController = jobsController(Fixtures.createFakeTelemetryClient, Fixtures.createFakeLogger<jobsController>)

@@ -506,6 +506,7 @@ let main argv =
                     Metrics = None
                     UtcEventTime = System.DateTime.UtcNow
                     Details = None
+                    ResultsUrl = None
                 }: Raft.JobEvents.JobStatus)
 
         printfn "Got job configuration message: %A" restlerPayload
@@ -569,6 +570,7 @@ let main argv =
                                                     Metrics = summary
                                                     UtcEventTime = System.DateTime.UtcNow
                                                     Details = Some( details.Add("numberOfBugsFound", sprintf "%d" bugsListLen))
+                                                    ResultsUrl = None
                                                 } : Raft.JobEvents.JobStatus)
             }
 
@@ -841,6 +843,7 @@ let main argv =
                                                         Metrics = None
                                                         UtcEventTime = System.DateTime.UtcNow
                                                         Details = Some (Map.ofSeq replaySummaryDetails)
+                                                        ResultsUrl = None
                                                     } : Raft.JobEvents.JobStatus)
 
                                     return replaySummaryDetails
@@ -924,6 +927,7 @@ let main argv =
                         Metrics = summary
                         UtcEventTime = System.DateTime.UtcNow
                         Details = details
+                        ResultsUrl = None
                     } : Raft.JobEvents.JobStatus)
 
         let restlerTelemetry = Restler.Telemetry.getDataFromTestingSummary testingSummary
@@ -958,6 +962,7 @@ let main argv =
                                     Metrics = None
                                     UtcEventTime = System.DateTime.UtcNow
                                     Details = Some (Map.empty.Add("Error", ex.Message))
+                                    ResultsUrl = None
                                 } : Raft.JobEvents.JobStatus)
 
                         do! System.Console.Error.FlushAsync().ToAsync

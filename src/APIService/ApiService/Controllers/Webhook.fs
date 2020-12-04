@@ -368,7 +368,8 @@ type webhooksController(configuration : IConfiguration, telemetryClient : Teleme
                                     Metrics = None
                                     UtcEventTime = DateTime.UtcNow
                                     Details = Some (Map.empty.Add("Method", method))
-                                    Metadata = None
+                                    Metadata = Some (Map.empty.Add("BuildId", "123456"))
+                                    ResultsUrl = Some(sprintf "http://results.file.share/%s" jobId)
                                     }
                     log.Info "Setting JobStatus webhook in webhooks table" ["name", webhookName; "event", eventName; "jobId", sprintf "%A" jobId]
                     let entity = Raft.StorageEntities.JobWebhookEntity(jobId, webhookName) :> TableEntity

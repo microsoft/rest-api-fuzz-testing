@@ -355,6 +355,17 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
             | Some r -> return Some (r, results)
         }
 
+    let convertToJobStatus(overallJobStatus: JobStatusEntity) (results: JobStatusEntity seq) =
+        results
+        |> Seq.map (fun jobStatusEntity -> (Raft.Message.RaftEvent.deserializeEvent jobStatusEntity.JobStatus): Message.RaftEvent.RaftJobEvent<DTOs.JobStatus>)
+        |> Seq.map (fun jobStatus -> 
+            if jobStatus.Message.AgentName = jobStatus.Message.JobId then
+                { jobStatus.Message with ResultsUrl = overallJobStatus.ResultsUrl }
+            else
+                jobStatus.Message
+        )
+
+
     [<HttpPost>]
     /// <summary>
     /// Submit a job definition.
@@ -596,12 +607,8 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                                                          Details = [||]
                                                          InnerError = {Message = ""}
                                                 }} Microsoft.AspNetCore.Http.StatusCodes.Status404NotFound
-            | Some (_, results) ->
-                let decodedMessages = 
-                    results
-                    |> Seq.map (fun jobStatusEntity -> (Raft.Message.RaftEvent.deserializeEvent jobStatusEntity.JobStatus): Message.RaftEvent.RaftJobEvent<DTOs.JobStatus>)
-                    |> Seq.map (fun jobStatus -> jobStatus.Message)
-
+            | Some (r, results) ->
+                let decodedMessages = convertToJobStatus r results
                 stopWatch.Stop()
                 Central.Telemetry.TrackMetric (TelemetryValues.ApiRequest(method, float stopWatch.ElapsedMilliseconds), "milliseconds", this :> ControllerBase)
                 return JsonResult(decodedMessages)
@@ -641,7 +648,6 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                             Constants.Timestamp, QueryComparisons.GreaterThanOrEqual,
                             DateTimeOffset.Now.Subtract(defaultTimeSpan)))
 
-                                
             let! result = Utilities.raftStorage.GetJobStatusEntities query
 
             let statuses : DTOs.JobStatus seq = result
