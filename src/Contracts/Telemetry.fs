@@ -64,7 +64,7 @@ module Central =
 
     type TelemetryImpl(telemetryConfig: (TelemetryClient * string) option) =
         let convertTagsToProperties tags = tags |> dict
-        let version = Assembly.GetEntryAssembly().GetName().Version
+        let version = Assembly.GetCallingAssembly().GetName().Version
 
         member _.TelemetryConfig = telemetryConfig
 
