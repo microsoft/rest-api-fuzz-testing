@@ -13,7 +13,9 @@ As a platform, RAFT is designed to host any API fuzzers that are packaged into a
 These can be configured and used in the system via configuration files and require no code changes to integrate.
 
 ### Getting Started
-This project is designed to run on [Azure](https://azure.microsoft.com). 
+This project is designed to run on [Azure](https://azure.microsoft.com). See https://azure.com/free to create a free
+subscription and receive $200 in credits. You can run this service (and much more!)
+free for 30 days!
 
 To deploy the service download the CLI release and run `python raft.py service deploy`. See
 the [documentation](docs/how-to-deploy.md) for more details.
