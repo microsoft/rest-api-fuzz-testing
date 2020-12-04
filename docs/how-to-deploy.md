@@ -2,32 +2,54 @@
 
 The following guide should get you up and running with an instance of RAFT.
 
+There are two main ways you can approach setting up RAFT.
+- Download all requirements to your workstation and then use the RAFT CLI in a command window.
+- Use the Azure Portal Cloud Shell. This requires no changes to your workstation.
+
 <br/>
 
-### The first option is to setup all the dependencies on your workstation and use the RAFT CLI from there. The second option is to use the Azure Portal Shell. When using the portal's shell, you will only need to upload the CLI package as all required dependencies are already installed.
-
-## Step 1: Enable the RAFT Command Line Interface (CLI)
+## Step 1: Install the RAFT Command Line Interface
 
 Let's start out by getting the RAFT command line interface (CLI from now on)
 up and running.   It functions just the same on Windows and Linux clients.
 
-These two steps are required if you've decided to run the CLI from your workstation:
-- First, you'll need to [install Python](https://www.python.org/downloads/) if
-you don't have it installed already; RAFT requires at least **version 3.6**.
+### If you are using your workstation
 
-- Next, you'll need to [install the Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli)
+- [Install Python](https://www.python.org/downloads/) if
+you don't have it installed already; RAFT requires at least **version 3.6**.
+- [Install the Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli)
 if you haven't already; RAFT requires at least **version 2.12**.
 
-If you've decided to use the Azure Portal Shell, keep in mind that the path to Python is `/opt/az/bin/python3`
+### If you are using the Cloud Shell
 
-- Now download the RAFT CLI, either just the binaries or the source tree if you intend to build them from source:
+If you are going to use the Cloud Shell it is assumed that you have already acquired an Azure subscription
+from https://azure.com/free or you have an existing subscription.
 
-    - Get the RAFT CLI from [releases](https://github.com/microsoft/rest-api-fuzz-testing/releases)
-    - Clone the repo at https://github.com/microsoft/raft
+Access the [Cloud Shell](https://docs.microsoft.com/en-us/azure/cloud-shell/overview) from your 
+browser by clicking on the Cloud Shell icon.</br>
+![](images/cloud-shell-icon.jpg)
 
-- At this point, you're able to run a the one-time prep script using Python's
-[pip package installer](https://pypi.org/project/pip/) as follows from the root
-of the RAFT CLI folder:
+Or access it directly from your browser at https://shell.azure.com.
+When using the shell for the first time it will create a storage account. This is normal and is needed to 
+persist data from one session to another.
+
+In the cloud shell the path to Python version 3.6 `/opt/az/bin/python3`
+
+### Common install instructions
+
+You will need the RAFT CLI files. You can do this in a number of ways:
+- Download the RAFT CLI from a specific release</br>
+  For example:</br>
+    `wget https://github.com/microsoft/rest-api-fuzz-testing/releases/download/v1.2/cli.zip`
+  </br>
+  Then run unzip `unzip cli.zip`
+- Clone the repo
+- Copy the sources
+
+
+Once you have the python CLI files, you will need to install a few dependencies using Python's
+[pip package installer](https://pypi.org/project/pip/) from the root
+of the RAFT CLI folder.
 
 ```javascript
 $ pip install -r .\requirements.txt
@@ -43,7 +65,7 @@ C:\Users\[user]\AppData\Local\Programs\Python\Python39\Scripts> pip.exe install 
 
 <br/>
 
-- At this point, the RAFT CLI should be functional:
+The RAFT CLI is now functional.
 
 ```javascript
 D:\REPO\raft\cli>py raft.py --help
@@ -68,18 +90,18 @@ optional arguments:
 
 ## Step 2: Azure Subscription Prep
 
-First, you will need an Azure subscription to host the RAFT service.  If you
+You will need an Azure subscription to host the RAFT service.  If you
 don't already have access to an Azure subscription, please follow
 [these instructions](https://docs.microsoft.com/en-us/dynamics-nav/how-to--sign-up-for-a-microsoft-azure-subscription)
-to sign up for one.
+to sign up for one, or sign up for a free subscription at https://azure.com/free.
 
-Second, you must be an [owner](https://docs.microsoft.com/en-us/azure/role-based-access-control/built-in-roles)
-on the target subscription to deploy RAFT, though once it's deployed you only need
+You must be an [owner](https://docs.microsoft.com/en-us/azure/role-based-access-control/built-in-roles)
+on the subscription to deploy RAFT, though once it's deployed you only need
 [contributor](https://docs.microsoft.com/en-us/azure/role-based-access-control/built-in-roles) rights to use it.
 
-Last, RAFT uses [container instances](https://azure.microsoft.com/en-us/services/container-instances/)
-to host running jobs; by default, Azure subscriptions are limited to 100.  If your
-target subscription is already using container instances, or you anticipate running
+RAFT uses [container instances](https://azure.microsoft.com/en-us/services/container-instances/)
+to host running jobs; by default, Azure subscriptions are limited to 100 container instances.  If your
+subscription is already using container instances, or you anticipate running
 more than 100 simultaneous jobs, you should reach out to Azure support and request
 they increase your [quota](https://docs.microsoft.com/en-us/azure/azure-resource-manager/management/azure-subscription-service-limits)
 of this object type.
@@ -96,14 +118,15 @@ Note that only four of these are required.
 | `subscription` | Yes | The subscription ID (GUID) of the subscription to which to deploy an instance of the RAFT service |
 | `deploymentName` | Yes | The name of your deployment; we will use this as the base name for all objects we create to instantiate the RAFT service |
 | `region` | Yes | The [region identifier](https://azure.microsoft.com/en-us/global-infrastructure/geographies/) that is closest to your location, or that's necessary for any compliance purposes |
-| `metricsOptIn`* | Yes | Whether you want the service to send us anonymized usage data; we use this to improve the service and respond to errors and other problems proactively (Note: to change you choice, just update the field and redeploy) |
-| `isDevelop` | No | Is this deployment for developing the RAFT service?    Setting this value to true will generate yaml variables for use in your build pipelines |
-| `useAppInsights` | No | deploy AppInsights and use it to write all service logs |
-| `registry`** | No | registry which stores service images. Default: mcr.microsoft.com |
+| `metricsOptIn`* | Yes | Whether you want the service to send us anonymized usage data; we use this to improve the service and respond to errors and other problems proactively (Note: to change you choice, just update the field and redeploy) Default: true|
+| `isDevelop` | No | Is this deployment for developing the RAFT service? Default: false |
+| `isPrivateRegistry` | No | When developing for the RAFT service, indicates a private registry is used to find images. Default: false |
+| `useAppInsights` | Yes | Deploy AppInsights and use it to write all service logs. Default: true |
+| `registry` | Yes | Registry which stores service images. Default: mcr.microsoft.com |
 
 ### *Telemetry
 *By default, we collect anonymous usage data from your RAFT instance, which helps
-us understand how users use RAFT and the problems they experience, which in turn
+us understand how users use RAFT and the problems they experience, which in turn,
 helps us improve the quality of the offering over time.  Specifically, We do **not**
 collect any data about the targets and results of tools you might run.  The data
 fields we collect are defined in the `src/Contracts/Telemetry.fs` source file.   To opt-out of
@@ -146,12 +169,11 @@ deploymentName - RAFT deployment name
         - no dashes
 
 region - Region to deploy RAFT (e.g. westus2)
-    See https://azure.microsoft.com/en-us/global-infrastructure/regions/
-    for a list of regions
-
-isDevelop - Is this deployment for developing the RAFT service?
-    Setting this value to true will generate yaml variables for use in your
-    build pipelines.
+    See the documentation on container instance region availability at
+    https://docs.microsoft.com/en-us/azure/container-instances/container-instances-region-availability
+    to pick the optimal region for your deployment.
+    All jobs will be deployed by default in the same
+    region as your service deployment
 
 metricsOptIn - allow Microsoft collect anonymized metrics from the deployment.
 
@@ -159,6 +181,7 @@ useAppInsights - deploy AppInsights and use it to write all service logs
 
 registry - registry which stores service images.
     Default: mcr.microsoft.com
+
 -------------------------
 To apply any changes made to the defaults.json file,
 please run 'raft.py service deploy'
@@ -167,7 +190,7 @@ please run 'raft.py service deploy'
 
 <br/>
 
-Using a text editor of your choice, please update the `defaults.json` file with
+Using a text editor of your choice, update the `defaults.json` file with
 the values you determined in Step 3, and then re-run:
 
 ```javascript
@@ -196,6 +219,6 @@ get familiar with the output.
 
 Two tools are deployed by default: [RESTler](https://github.com/microsoft/restler) and [ZAP](https://www.zaproxy.org/).
 
-You can see their configuration under the `cli/raft-tools/tools` folder.
+You can see how they are configured by looking at the configuration files under the `cli/raft-tools/tools` folder.
 
-See an explanation of the `config.json` file in [How a job executes](how-it-works/how-a-job-executes.md).
+See an explanation of the `config.json` file in [How to onboard a tool](how-to-onboard-a-tool.md).
