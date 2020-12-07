@@ -1,4 +1,6 @@
 {
+  "rootFileShare" : "{ci-run}",
+  "namePrefix" : "petstore3-test-fuzz-lean-",
   "host": "localhost",
 
   "resources": {
@@ -6,10 +8,17 @@
     "MemoryGBs": 8
   },
 
+  "webhook":{
+    "name" : "petstore3-fuzz",
+    "metadata" : {
+      "buildUrl" : "{build-url}/Raft/_build/results?buildId={build-id}&view=results"
+    }
+  },
+
   "readonlyFileShareMounts": [
     {
-      "FileShareName": "{compile.jobId}",
-      "MountPath": "/job-compile"
+      "FileShareName": "{ci-run}",
+      "MountPath": "/ci-run"
     }
   ],
 
@@ -26,21 +35,16 @@
         "Run" : {
           "Command" : "/bin/sh",
           "Arguments" : ["-c", "java -jar /swagger-petstore/jetty-runner.jar --log $RAFT_WORK_DIRECTORY/yyyy_mm_dd-requests.log --port 8081 /swagger-petstore/server.war"]
-        },
-        "Shell" : "/bin/sh",
-        "OutputFolder" : "restler_petstore3"
+        }
       },
       {
         "Container" : "swaggerapi/petstore3",
-        "Port" : 8080,
-        "ExpectedDurationUntilReady" : "00:00:30",
-        "PostRun" : {
-          "Command" : "/bin/sh", 
-          "Arguments" : ["-c", "cp /var/log/*-requests.log $RAFT_WORK_DIRECTORY"],
-          "ExpectedRunDuration" : "00:00:10"
-        },
-        "Shell" : "/bin/sh",
-        "OutputFolder" : "zap_petstore3"
+        "Port" : 8082,
+        "ExpectedDurationUntilReady" : "00:02:00",
+        "Run" : {
+          "Command" : "/bin/sh",
+          "Arguments" : ["-c", "java -jar /swagger-petstore/jetty-runner.jar --log $RAFT_WORK_DIRECTORY/yyyy_mm_dd-requests.log --port 8082 /swagger-petstore/server.war"]
+        }
       }
     ]
   },
@@ -48,7 +52,7 @@
     {
       "toolName": "RESTler",
       "outputFolder": "fuzz",
-      "duration": "00:30:00",
+      "duration": "00:10:00",
       "toolConfiguration": {
         "task": "Fuzz",
         "runConfiguration": {
@@ -56,15 +60,15 @@
             "Port" : 8081 
           },
           "useSsl" : false,
-          "inputFolderPath": "/job-compile/compile"
+          "inputFolderPath": "/ci-run/{compile.jobId}/compile"
         }
       }
-    },
+    },  
     {
-      "toolName" : "ZAP",
-      "outputFolder" : "zap",
+      "toolName": "ZAP",
+      "outputFolder": "zap",
       "swaggerLocation": {
-        "URL" : "http://localhost:8080/api/v3/openapi.json"
+        "URL" : "http://localhost:8082/api/v3/openapi.json"
       }
     }
   ]

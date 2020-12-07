@@ -1316,10 +1316,13 @@ module ContainerInstances =
                         let webhookDefinition = Microsoft.FSharpLu.Json.Compact.deserialize<Raft.Job.Webhook option>(jobEntity.Webhook)
                         match webhookDefinition with
                         | Some webhook ->
-                            if webhook.Metadata.IsEmpty then
+                            match webhook.Metadata with
+                            | None ->
+                                return None
+                            | Some m when m.IsEmpty ->
                                  return None
-                            else
-                                return Some webhook.Metadata
+                            | Some m ->
+                                return Some m
                         | None ->
                             return None
                     else
