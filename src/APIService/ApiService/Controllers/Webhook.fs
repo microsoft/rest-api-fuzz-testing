@@ -400,6 +400,7 @@ type webhooksController(configuration : IConfiguration, telemetryClient : Teleme
                             JobId = jobId
                             AgentName = "1"
                             Metadata = None
+                            ResultsUrl = Some "https://azure-storage/results"
                             BugDetails =
                                 Some(
                                     Map.empty
