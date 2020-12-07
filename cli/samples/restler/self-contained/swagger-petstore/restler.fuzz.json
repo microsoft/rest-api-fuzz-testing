@@ -1,12 +1,7 @@
 {
   "host": "localhost",
   "webhook": {
-    "name": "petstore-fuzz",
-    "metadata": {
-      "app" : "petstore",
-      "swagger_version" : "v2",
-      "action" : "fuzz"	
-    }
+    "name": "petstore-fuzz"
   },
 
   "readonlyFileShareMounts": [

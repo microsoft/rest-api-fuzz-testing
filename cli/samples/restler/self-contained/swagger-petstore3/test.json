@@ -1,4 +1,6 @@
 {
+  "rootFileShare" : "{ci-run}",
+  "namePrefix" : "petstore3-test-",
   "host": "localhost",
 
   "resources": {
@@ -6,10 +8,17 @@
     "MemoryGBs": 8
   },
 
+  "webhook":{
+    "name" : "petstore3-test",
+    "metadata" : {
+      "buildUrl" : "{build-url}/Raft/_build/results?buildId={build-id}&view=results"
+    }
+  },
+
   "readonlyFileShareMounts": [
     {
-      "FileShareName": "{compile.jobId}",
-      "MountPath": "/job-compile"
+      "FileShareName": "{ci-run}",
+      "MountPath": "/ci-run"
     }
   ],
 
@@ -29,7 +38,7 @@
           "ExpectedRunDuration" : "00:00:10"
         },
         "Shell" : "/bin/sh",
-        "OutputFolder" : "zap_petstore3"
+        "OutputFolder" : "petstore3"
       }
     ]
   },
@@ -44,7 +53,7 @@
             "Port" : 8080 
           },
           "useSsl" : false,
-          "inputFolderPath": "/job-compile/compile"
+          "inputFolderPath": "/ci-run/{compile.jobId}/compile"
         }
       }
     }

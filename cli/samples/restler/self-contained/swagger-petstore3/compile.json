@@ -1,18 +1,11 @@
-{
+{ 
+  "rootFileShare" : "{ci-run}",
+  "namePrefix" : "petstore3-compile-",
   "swaggerLocation": {
     "URL" : "http://localhost:8082/api/v3/openapi.json"
   },
 
-  "resources": {
-    "Cores": 4,
-    "MemoryGBs": 8
-  },
-
   "testTargets" : {
-    "resources" : {
-      "Cores" : 2,
-      "MemoryGBs" : 4
-    },
     "targets" : [
       {
         "Container" : "swaggerapi/petstore3",

@@ -3,10 +3,7 @@
     "URL" : "http://localhost:8080/api/swagger.json"
   },
   "webhook": {
-    "name": "petstore-compile",
-    "metadata": {
-	    "action" : "compile"
-    }
+    "name": "petstore-compile"
   },
   "testTargets" : {
     "targets" : [
