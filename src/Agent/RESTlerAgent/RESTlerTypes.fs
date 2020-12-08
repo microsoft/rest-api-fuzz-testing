@@ -310,10 +310,7 @@ module Logs =
             num_fully_valid: int
             num_sequence_failures: int
             num_invalid_by_failed_resource_creations: int
-            throughput: float
             total_object_creations: int
-            total_unique_test_cases: float
-            total_sequences: int
             total_requests_sent : IDictionary<string, int>
             bug_buckets : IDictionary<string, int>
         }

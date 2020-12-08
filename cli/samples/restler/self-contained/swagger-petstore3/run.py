@@ -4,47 +4,60 @@
 import pathlib
 import sys
 import os
+import json
 
 cur_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.join(cur_dir, '..', '..', '..', '..'))
-from raft_sdk.raft_service import RaftCLI, RaftJobConfig, RaftJobError
+sys.path.append(os.path.join(cur_dir, '..'))
+from raft_sdk.raft_service import RaftCLI, RaftJobConfig, RaftJobError, RaftDefinitions
 
-def run(compile, test, fuzz):
-    # instantiate RAFT CLI
-    cli = RaftCLI()
 
+def run(cli, config, subs):
     # Create compilation job configuration
-    compile_job_config = RaftJobConfig(file_path=compile)
-    print('Compile')
+    job_config = RaftJobConfig(file_path=config, substitutions=subs)
+    print(f'Running {config}')
     # submit a new job with the Compile config and get new job ID
-    compile_job = cli.new_job(compile_job_config)
+    job = cli.new_job(job_config)
     # wait for a job with ID from compile_job to finish the run
-    cli.poll(compile_job['jobId'])
-
-    # use compile job as input for fuzz job
-    subs = {}
-    subs['{compile.jobId}'] = compile_job['jobId']
-
-    test_job_config = RaftJobConfig(file_path=test, substitutions=subs)
-    print('Test')
-    # create new fuzz job configuration
-    test_job = cli.new_job(test_job_config)
-    # wait for job ID from fuzz_job to finish the run
-    cli.poll(test_job['jobId'])
-
-    # create a new job config with Fuzz configuration JSON
-    fuzz_job_config = RaftJobConfig(file_path=fuzz, substitutions=subs)
-    print('Fuzz')
-    # create new fuzz job configuration
-    fuzz_job = cli.new_job(fuzz_job_config)
-
-    # wait for job ID from fuzz_job to finish the run
-    cli.poll(fuzz_job['jobId'])
+    cli.poll(job['jobId'])
+    return job['jobId']
 
 if __name__ == "__main__":
     try:
-        run(os.path.join(cur_dir, "restler.compile.json"),
-            os.path.join(cur_dir, "restler.test.json"), 
-            os.path.join(cur_dir, "restler.zap.fuzz.json"))
+        defaults = None
+
+        if sys.argv[1] == '--build':
+            build_id = sys.argv[2].replace(".", "-")
+        print(f"BUILD ID : {build_id}")
+
+        with open(os.path.join(cur_dir, '..', 'defaults.json'), 'r') as defaults_json:
+            defaults = json.load(defaults_json)
+            if sys.argv[3] == '--secret':
+                defaults['secret'] = sys.argv[4]
+
+        # instantiate RAFT CLI
+        cli = RaftCLI(defaults)
+        defs = RaftDefinitions(defaults)
+
+        compile_job_id = None
+        subs = {
+            "{ci-run}" : f"{build_id}",
+            "{build-url}" : os.environ['SYSTEM_COLLECTIONURI'],
+            "{build-id}" : os.environ['BUILD_BUILDID'],
+            "{raft-subscription}": defs.subscription,
+            "{raft-resource-group}" : defs.resource_group,
+            "{raft-storage-account}" : defs.storage_account
+        }
+        for arg in sys.argv[1:]:
+            if arg == 'compile':
+                compile_job_id = run(cli, os.path.join(cur_dir, 'compile.json'), subs)
+                subs['{compile.jobId}'] = compile_job_id
+
+            if arg == 'test':
+                run(cli, os.path.join(cur_dir, "test.json"), subs), 
+
+            if arg == 'test-fuzz-lean':
+                run(cli, os.path.join(cur_dir, "test-fuzz-lean.json"), subs), 
+
     except RaftJobError as ex:
         print(f'ERROR: {ex.message}')
+        sys.exit(1)

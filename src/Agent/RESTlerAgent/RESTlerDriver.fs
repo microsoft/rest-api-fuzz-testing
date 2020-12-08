@@ -7,7 +7,7 @@ open System
 open Microsoft.FSharpLu
 
 module RESTler =
-    let version = "7.0.0"
+    let version = "7.1.0"
 
 module private RESTlerInternal =
     let inline (++) (path1: string) (path2 : string) = IO.Path.Join(path1, path2)
@@ -151,15 +151,20 @@ module private RESTlerInternal =
             if Seq.isEmpty experiments then
                 None
             else
-                let startedExperiments =
-                    experiments 
-                    |> Seq.filter ( fun e -> e.CreationTimeUtc >= runStartTime)
-                    |> Seq.sortBy ( fun e -> e.CreationTimeUtc )
+                try
+                    let startedExperiments =
+                        experiments 
+                        |> Seq.filter ( fun e -> e.CreationTimeUtc >= runStartTime)
+                        |> Seq.sortBy ( fun e -> e.CreationTimeUtc )
 
-                if (Seq.length startedExperiments > 1) then
-                    printfn "There are : %d [%A] that have been create past %A. Using one closest to start time of this run." 
-                                (Seq.length startedExperiments) startedExperiments runStartTime
-                startedExperiments |> Seq.tryHead
+                    if (Seq.length startedExperiments > 1) then
+                        printfn "There are : %d [%A] that have been create past %A. Using one closest to start time of this run." 
+                                    (Seq.length startedExperiments) startedExperiments runStartTime
+                    startedExperiments |> Seq.tryHead
+                with
+                | :? System.IO.IOException as ioex ->
+                    printfn "Getting experiment folder interrupted due to : %s" ioex.Message
+                    None
         else
             None
  
@@ -433,7 +438,10 @@ let getListOfBugsFromBugBuckets bugBuckets =
             let path = bugBuckets ++ "bug_buckets.json"
             if IO.File.Exists path then
                 let bugHashes: RESTlerTypes.Logs.BugHashes = Json.Compact.Strict.deserializeFile path
-                return Some bugHashes
+                if isNull (box bugHashes) then
+                    return None
+                else
+                    return Some bugHashes
             else
                 return Some Map.empty
         else
@@ -476,7 +484,7 @@ let pollForBugFound workingDirectory (token: Threading.CancellationToken) (runSt
                                     if IO.File.Exists bugsFoundPosted then
                                         let! bugsPosted = IO.File.ReadAllLinesAsync(bugsFoundPosted) |> Async.AwaitTask
                                         return Set.ofArray bugsPosted
-                                    else 
+                                    else
                                         return ignoreBugHashes
                                 }
                             let! updatedBugsPosted =
@@ -484,13 +492,11 @@ let pollForBugFound workingDirectory (token: Threading.CancellationToken) (runSt
                                 |> Seq.map (fun (KeyValue(bugHash, bugFile)) ->
                                     async {
                                         if not <| postedBugs.Contains bugHash then
-                                            printfn "Posting bug found %s with hash %s" bugFile.file_path bugHash
                                             do! onBugFound (Map.empty.Add("Experiment", experiment.Name).Add("BugBucket", bugFile.file_path).Add("BugHash", bugHash))
                                         return bugHash
                                     }
                                 ) |> Async.Sequential
                             do! IO.File.WriteAllLinesAsync(bugsFoundPosted, updatedBugsPosted) |> Async.AwaitTask
-
                     return! poll()
             }
     poll()

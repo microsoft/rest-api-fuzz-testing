@@ -52,11 +52,6 @@ Here's a breakdown of the estimated Azure spend for running RAFT:
 - Container Instances - about $0.045 cents per running hour.  (A container instance
   is created for each submitted job and runs for the specified duration in the job definition.)
 
-In summary, a RAFT instance that ran a series of daily tests against ten REST
-APIs would cost less than $100 a month.
-
-NOTE: `defaults.json` provides a flag to disable deployment of Application Insights during the initial service deployment. This will reduce Azure costs without affecting service functionality.
-
 <br/>
 
 ## How a job executes

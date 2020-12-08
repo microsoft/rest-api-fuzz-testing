@@ -13,4 +13,4 @@ steps:
       azureSubscription: $(raft-subscription)
       scriptType: 'pscore'
       scriptLocation: 'inlineScript'
-      inlineScript: "python Scripts/Tests/bvt.py --defaults-context-json '$(raft-defaults)' --secret $(bvt-secret) --host $(bvt-host)"
+      inlineScript: "python Scripts/Tests/bvt-petstore3.py --build $(Build.BuildNumber) --defaults-context-json '$(raft-defaults)' --secret $(bvt-secret)"

@@ -86,7 +86,6 @@ def bvt(cli, definitions, bvt_host):
         fuzz_config_path = os.path.abspath(os.path.join(cli_path, 'samples', 'restler', 'no-authentication', 'sample.restler.fuzz.json'))
         subs['{compile.jobId}'] = compile_job['jobId']
         fuzz_config = raft.RaftJobConfig(file_path=fuzz_config_path, substitutions=subs)
-        fuzz_config.config['duration'] = '00:20:00'
         fuzz_job = cli.new_job(fuzz_config) 
         cli.poll(fuzz_job['jobId'], 10)
 

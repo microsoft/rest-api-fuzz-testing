@@ -6,11 +6,13 @@ module Raft.StorageEntities
 open Microsoft.Azure.Cosmos.Table
 
 let JobStatusTableName = "JobStatus"
-type JobStatusEntity(jobId, agentName, jobStatus, jobState) = 
+type JobStatusEntity(jobId, agentName, jobStatus, jobState, utcEventTime, resultsUrl) = 
     inherit TableEntity(partitionKey=jobId, rowKey=agentName)
-    new() = JobStatusEntity(null, null, null, null)
+    new() = JobStatusEntity(null, null, null, null, System.DateTime.MinValue, null)
     member val JobStatus : string = jobStatus with get, set
     member val JobState : string = jobState with get, set
+    member val ResultsUrl : string = resultsUrl with get, set
+    member val UtcEventTime : System.DateTime = utcEventTime with get, set
 
 
 let JobTableName = "Job" 

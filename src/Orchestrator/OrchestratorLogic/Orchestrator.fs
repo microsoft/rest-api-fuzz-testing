@@ -124,7 +124,7 @@ module ContainerInstances =
 
     let containerGroupName (jobId: string) = jobId
 
-    let createJobStatus (jobId: string) (state: JobState) (details: Map<string, string> option) =
+    let createJobStatus (jobId: string) (state: JobState) (resultsUrl : string option) (details: Map<string, string> option) =
         let message: JobStatus =
             {
                 AgentName = jobId.ToString()
@@ -135,12 +135,13 @@ module ContainerInstances =
                 UtcEventTime = System.DateTime.UtcNow
                 Details = details
                 Metadata = None
+                ResultsUrl = resultsUrl
             }
         Raft.Message.RaftEvent.createJobEvent message
 
-    let postStatus (jobStatusSender: ServiceBus.Core.MessageSender) (jobId: string) (state: JobState) (details: Map<string, string> option) =
+    let postStatus (jobStatusSender: ServiceBus.Core.MessageSender) (jobId: string) (state: JobState) (resultsUrl : string option) (details: Map<string, string> option) =
         async {
-            let jobStatus = createJobStatus jobId state details
+            let jobStatus = createJobStatus jobId state resultsUrl details
             do! jobStatusSender.SendAsync( 
                     ServiceBus.Message ( RaftEvent.serializeToBytes jobStatus )
                 ).ToAsync
@@ -321,6 +322,15 @@ module ContainerInstances =
                     return failwithf "Failed to get configuration for unsupported tool: %A" task.ToolName
             }
 
+    let jobResultsUrl subscription resourceGroup storageAccountName containerGroupName rootFileShare =
+        "https://ms.portal.azure.com/#blade/Microsoft_Azure_FileStorage/"
+                    + "FileShareMenuBlade/overview/storageAccountId/"
+                    + "%2Fsubscriptions%2F" + subscription
+                    + "%2FresourceGroups%2F" + resourceGroup
+                    + "%2Fproviders%2FMicrosoft.Storage%2FstorageAccounts%2F"
+                    + (sprintf "%s/" storageAccountName)
+                    + (sprintf "path/%s/protocol/" (Option.defaultValue containerGroupName rootFileShare))
+
     let createJobShareAndFolders (logger: ILogger) (containerGroupName: string) (sasUrl: string) (jobCreateRequest: CreateJobRequest) =
         async {
             let shareName, createSubDirectory, shareQuota =
@@ -493,6 +503,11 @@ module ContainerInstances =
                 )
             r, isIdling
 
+    let getTaskWorkDirectoryPath (containerGroupName : string) (rootFileShare: string option) (workDirectory : string) (taskOutputFolder : string) =
+        match rootFileShare with
+        | None -> sprintf "%s/%s" workDirectory taskOutputFolder
+        | Some _ -> sprintf "%s/%s/%s" workDirectory containerGroupName taskOutputFolder
+
     let getContainerGroupInstanceConfiguration
             (containerGroupName: string)
             (logger:ILogger)
@@ -527,7 +542,7 @@ module ContainerInstances =
                                     return
                                         {
                                             RunDirectory = Some runDirectory
-                                            WorkDirectory = Some(sprintf "%s/%s" workDirectory task.OutputFolder)
+                                            WorkDirectory = Some(getTaskWorkDirectoryPath containerGroupName jobCreateRequest.JobDefinition.RootFileShare workDirectory task.OutputFolder)
                                             ContainerName = (sprintf "%d-%s" i task.OutputFolder).ToLowerInvariant()
                                             ToolConfiguration = toolConfig
                                         }
@@ -791,7 +806,7 @@ module ContainerInstances =
                                             RunDirectory = None
                                             WorkDirectory =
                                                 match target.OutputFolder with
-                                                | Some x -> Some(sprintf "%s/%s" workDirectory x)
+                                                | Some x -> Some(getTaskWorkDirectoryPath containerGroupName jobCreateRequest.JobDefinition.RootFileShare workDirectory x)
                                                 | None -> None
 
                                             ToolConfiguration = {
@@ -957,14 +972,14 @@ module ContainerInstances =
                         | :? Microsoft.Rest.Azure.CloudException as ce ->
                             // it looks like the error when container group is transitioning states is OK to ignore. Need to get more info on that.
                             logError "Failed to deploy container group %s due to %A (status code : %A)" containerGroupName ex ce.Response.StatusCode
-                            do! postStatus JobState.Error (Some (Map.empty.Add("Error", ex.Message)))
+                            do! postStatus JobState.Error None (Some (Map.empty.Add("Error", ex.Message)))
 
                         | _ ->
                             logError "Failed to deploy container group %s due to %A" containerGroupName ex
-                            do! postStatus JobState.Error (Some (Map.empty.Add ("Error", ex.Message)))
+                            do! postStatus JobState.Error None (Some (Map.empty.Add ("Error", ex.Message)))
                     | _ ->
                         logError "Failed to deploy container group %s due to %A" containerGroupName ex
-                        do! postStatus JobState.Error (Some (Map.empty.Add("Error", ex.Message)))
+                        do! postStatus JobState.Error None (Some (Map.empty.Add("Error", ex.Message)))
                 }
 
             match existingContainerGroupOpt with
@@ -984,7 +999,7 @@ module ContainerInstances =
                 if decodedMessage.MessagePostCount > 0 && isError then
                     logInfo "Message for job %A will not be reposted initial container group creation did not succeed" decodedMessage.Message.JobId
                 else
-                    do! postStatus JobState.Creating None
+                    do! postStatus JobState.Creating None None
                     match! createContainerGroupInstance containerGroupName logger azure secrets agentConfig (dockerConfigs, toolsConfigs) decodedMessage.Message reportDeploymentError with
                     | Result.Ok () ->
                         //this is newly created container. Poll until it is fully running and then update job status
@@ -997,7 +1012,7 @@ module ContainerInstances =
                         stopWatch.Stop()
                         logError "Failed to create container group for job : %A due to %A (Time it took: %f total seconds)" decodedMessage.Message.JobId ex stopWatch.Elapsed.TotalSeconds
                         Central.Telemetry.TrackError (TelemetryValues.Exception ex)
-                        do! postStatus JobState.Error (Some (Map.empty.Add("Error", ex.Message)))
+                        do! postStatus JobState.Error None (Some (Map.empty.Add("Error", ex.Message)))
 
             | Some existingContainerGroup ->
                 match Option.ofObj existingContainerGroup.State with
@@ -1007,7 +1022,9 @@ module ContainerInstances =
                         stopWatch.Stop()
                         logInfo "Time took to deploy job: %s total seconds %f. State: %s; Provisioning State : %s" 
                             containerGroupName stopWatch.Elapsed.TotalSeconds state existingContainerGroup.ProvisioningState
-                        do! postStatus JobState.Created None
+
+                        let resultsUrl = jobResultsUrl azure.SubscriptionId agentConfig.ResourceGroup agentConfig.StorageAccount containerGroupName decodedMessage.Message.JobDefinition.RootFileShare
+                        do! postStatus JobState.Created (Some resultsUrl) None
 
                         if decodedMessage.Message.IsIdlingRun then
                             do! runDebugContainers existingContainerGroup logger agentConfig dockerConfigs toolsConfigs decodedMessage.Message
@@ -1087,7 +1104,7 @@ module ContainerInstances =
         
             }
 
-        let setRow (agentConfig : AgentConfig) (jobId: string, agentName : string) (message: string, state: Raft.JobEvents.JobState) (etag: string) =
+        let setRow (agentConfig : AgentConfig) (jobId: string, agentName : string) (message: string, state: Raft.JobEvents.JobState, utcEventTime : DateTime, resultsUrl : string) (etag: string) =
             async {
                 let! table = getJobStatusTable agentConfig.StorageTableConnectionString
                 let entity = JobStatusEntity(
@@ -1095,6 +1112,8 @@ module ContainerInstances =
                                 agentName,
                                 message,
                                 state |> Microsoft.FSharpLu.Json.Compact.serialize,
+                                utcEventTime,
+                                resultsUrl,
                                 ETag = etag)
 
                 let insertOp = TableOperation.InsertOrReplace(entity)
@@ -1130,25 +1149,29 @@ module ContainerInstances =
                 match! JobStatus.getRow agentConfig (jobId, agentName) with
                 | Result.Error() -> logInfo "[STATUS] Failed to retrieve job status table row for %s:%s" jobId agentName
                 | Result.Ok(r) ->
-                    let currentStatusWithHigherPrecedence, etag =
+                    let currentStatusWithHigherPrecedence, utcEventTime, resultsUrl, etag =
                         match r with
                         | Some row ->
+                            let resultsUrl = Option.defaultValue row.ResultsUrl decodedMessage.Message.ResultsUrl
                             let state = JobStatus.getState row
-                            // if current row job state is one of the next states down the line, then ignore current message altogether.
-                            // Since current message is "late"
-                            if state ??> decodedMessage.Message.State then
-                                Some (JobStatus.getEvent row), row.ETag
+                            if state = decodedMessage.Message.State && decodedMessage.Message.UtcEventTime > row.UtcEventTime then
+                                None, decodedMessage.Message.UtcEventTime, resultsUrl, row.ETag
+                            else if (state ??> decodedMessage.Message.State) then
+                                // if current row job state is one of the next states down the line, then ignore current message altogether.
+                                // Since current message is "late"
+                                Some (JobStatus.getEvent row), row.UtcEventTime, resultsUrl, row.ETag
                             else
-                                None, row.ETag
+                                None, decodedMessage.Message.UtcEventTime, resultsUrl, row.ETag
                         | None ->
-                            None, null
+                            let resultsUrl = Option.defaultValue null decodedMessage.Message.ResultsUrl
+                            None, decodedMessage.Message.UtcEventTime, resultsUrl, null
 
                     match currentStatusWithHigherPrecedence with
                     | Some currentRowMessage ->
                         logInfo "Dropping new status message since current status has higher precedence : %A and new message state is : %A [current status: %A new message status: %s ]" 
                                     currentRowMessage.Message.State decodedMessage.Message.State currentRowMessage message
                     | None ->
-                        let! updated = JobStatus.setRow agentConfig (jobId, agentName) (message, decodedMessage.Message.State) etag
+                        let! updated = JobStatus.setRow agentConfig (jobId, agentName) (message, decodedMessage.Message.State, utcEventTime, resultsUrl) etag
                         if not updated then
                             //Table record got updated by someone else, figure out what to do next.
                             match decodedMessage.Message.State with
@@ -1281,7 +1304,13 @@ module ContainerInstances =
                         let webhookDefinition = Microsoft.FSharpLu.Json.Compact.deserialize<Raft.Job.Webhook option>(jobEntity.Webhook)
                         match webhookDefinition with
                         | Some webhook ->
-                            return Some webhook.Metadata 
+                            match webhook.Metadata with
+                            | None ->
+                                return None
+                            | Some m when m.IsEmpty ->
+                                 return None
+                            | Some m ->
+                                return Some m
                         | None ->
                             return None
                     else
@@ -1289,21 +1318,37 @@ module ContainerInstances =
                         return None
                 }
 
+            let getResultsUrl jobId =
+                async {
+                    match! JobStatus.getRow agentConfig (jobId, jobId) with
+                    | Result.Error() -> return None
+                    | Result.Ok(r) ->
+                        match r with
+                        | None -> return None
+                        | Some row -> return (if String.IsNullOrWhiteSpace row.ResultsUrl then None else Some row.ResultsUrl)
+                }
+
             let eventType = RaftEvent.getEventType message
             if eventType = JobStatus.EventType then
                 let jobStatus : RaftEvent.RaftJobEvent<JobStatus> = RaftEvent.deserializeEvent message
                 let! metadata = getMetadata jobStatus.Message.JobId
+                let! resultsUrl = getResultsUrl jobStatus.Message.JobId
                 let updatedJobStatus = { jobStatus with
                                            Message = { jobStatus.Message with
-                                                         Metadata =  metadata }
+                                                         Metadata =  metadata
+                                                         ResultsUrl = resultsUrl
+                                                       }
                                        }
                 do! processMessage updatedJobStatus.Message.JobId updatedJobStatus
             else if eventType = BugFound.EventType then
                 let bugFound : RaftEvent.RaftJobEvent<BugFound> = RaftEvent.deserializeEvent message
                 let! metadata = getMetadata bugFound.Message.JobId
+                let! resultsUrl = getResultsUrl bugFound.Message.JobId
                 let updatedBugFound = { bugFound with
                                            Message = { bugFound.Message with
-                                                         Metadata =  metadata }
+                                                         Metadata =  metadata
+                                                         ResultsUrl = resultsUrl
+                                                        }
                                        }
 
                 do! processMessage updatedBugFound.Message.JobId updatedBugFound
@@ -1501,7 +1546,7 @@ module ContainerInstances =
                     | JobState.Completing ->
                         return false
                     | s when JobState.Completing ??> s ->
-                        do! postStatus communicationClients.JobEventsSender cg.Name JobState.Completing None
+                        do! postStatus communicationClients.JobEventsSender cg.Name JobState.Completing None None
                         let testTargets =
                             cg.Containers
                             |> Seq.map(fun (KeyValue(_, c)) -> c)
@@ -1663,7 +1708,7 @@ module ContainerInstances =
                                                 return details
                                         }
 
-                                    do! postStatus communicationClients.JobEventsSender g.Name state (Some detailsWithUsage)
+                                    do! postStatus communicationClients.JobEventsSender g.Name state None (Some detailsWithUsage)
 
                                     for v in instancesExitedWithError do
                                         let! failedContainerLogs = g.GetLogContentAsync(v.Name).ToAsync

@@ -33,30 +33,30 @@ def webhook_triggers_results(job_id, test_url):
 def time_span(t_start, t_end):
     return time.strftime("%H:%M:%S", time.gmtime(t_end - t_start))
 
-def bvt(cli, definitions):
+def bvt(cli, definitions, subs):
     print('Getting available wehook events')
     webhook_events = cli.list_available_webhooks_events()
     try:
         test_url = webhooks_test_url(definitions.subscription, definitions.resource_group, definitions.test_infra)
         for event in webhook_events:
             print(f'Setting webhook for {event}')
-            compile_webhook = cli.set_webhooks_subscription('petstore-compile', event, test_url)
-            fuzz_webhook = cli.set_webhooks_subscription('petstore-fuzz', event, test_url)
+            compile_webhook = cli.set_webhooks_subscription('petstore3-compile', event, test_url)
+            fuzz_webhook = cli.set_webhooks_subscription('petstore3-fuzz', event, test_url)
 
-        added_compile = cli.list_webhooks('petstore-compile', event)
+        added_compile = cli.list_webhooks('petstore3-compile', event)
         if len(added_compile) == 0:
-            raise Exception('Expected petstore-compile webhooks not to be empty after creation')
+            raise Exception('Expected petstore3-compile webhooks not to be empty after creation')
 
-        added_fuzz = cli.list_webhooks('petstore-fuzz', event)
+        added_fuzz = cli.list_webhooks('petstore3-fuzz', event)
         if len(added_fuzz) == 0:
-            raise Exception('Expected petstore-fuzz webhooks not to be empty after creation')
+            raise Exception('Expected petstore3-fuzz webhooks not to be empty after creation')
 
         t_pre_compile = time.time()
 
         print('Compile')
-        compile_config_path = os.path.abspath(os.path.join(cli_path, 'samples', 'restler', 'self-contained', 'swagger-petstore', 'restler.compile.json'))
+        compile_config_path = os.path.abspath(os.path.join(cli_path, 'samples', 'restler', 'self-contained', 'swagger-petstore3', 'compile.json'))
 
-        compile_config = raft.RaftJobConfig(file_path=compile_config_path)
+        compile_config = raft.RaftJobConfig(file_path=compile_config_path, substitutions=subs)
         compile_job = cli.new_job(compile_config)
         cli.poll(compile_job['jobId'], 10)
 
@@ -81,11 +81,9 @@ def bvt(cli, definitions):
                             f' {after_compile_pre_fuzz}')
 
         print('Fuzz')
-        fuzz_config_path = os.path.abspath(os.path.join(cli_path, 'samples', 'restler', 'self-contained', 'swagger-petstore', 'restler.fuzz.json'))
-        subs = {}
+        fuzz_config_path = os.path.abspath(os.path.join(cli_path, 'samples', 'restler', 'self-contained', 'swagger-petstore3', 'fuzz.json'))
         subs['{compile.jobId}'] = compile_job['jobId']
         fuzz_config = raft.RaftJobConfig(file_path=fuzz_config_path, substitutions=subs)
-        fuzz_config.config['duration'] = '00:20:00'
         fuzz_job = cli.new_job(fuzz_config)
         cli.poll(fuzz_job['jobId'], 10)
 
@@ -104,8 +102,8 @@ def bvt(cli, definitions):
                     raise Exception('Expected job to be in completed state when retrieved job list.'
                                     f'{after_fuzz}')
         
-        if m != 2:
-            raise Exception('Expected 2 after compile job step'
+        if m != 3:
+            raise Exception('Expected 3 after compile job step'
                             f' for job {fuzz_job["jobId"]}'
                             f' got {m}'
                             f' {after_fuzz}')
@@ -136,7 +134,7 @@ def bvt(cli, definitions):
         print('Validating that bugs posted events matches total bugs found in job status')
         total_bugs_found = 0
         for r in job_status_events:
-            if r['Data']['State'] == 'Completed' and r['Data']['AgentName'] != r['Data']['JobId']:
+            if r['Data']['State'] == 'Completed' and r['Data']['AgentName'] != r['Data']['JobId'] and r['Data']['Tool'] == 'RESTler':
                 total_bugs_found += r['Data']['Metrics']['TotalBugBucketsCount']
 
         print(f'Total bugs found: {total_bugs_found}')
@@ -161,12 +159,11 @@ def bvt(cli, definitions):
         if len(deleted_fuzz) > 0:
             raise Exception('Expected petstore-fuzz webhooks to be empty after deletion, instead got %s', deleted_compile)
 
-
-
 if __name__ == "__main__":
     formatter = argparse.ArgumentDefaultsHelpFormatter
     parser = argparse.ArgumentParser(description='bvt', formatter_class=formatter)
     raft.add_defaults_and_secret_args(parser)
+    parser.add_argument('--build', required=True)
     args = parser.parse_args()
 
     if args.defaults_context_json:
@@ -179,4 +176,10 @@ if __name__ == "__main__":
     definitions = RaftDefinitions(defaults)
     defaults['secret'] = args.secret
     cli = RaftCLI(defaults)
-    bvt(cli, definitions)
+    subs = {
+        "{build-url}" : os.environ.get('SYSTEM_COLLECTIONURI'),
+        "{build-id}" : os.environ.get('BUILD_BUILDID'),
+        "{ci-run}" : args.build.replace('.', '-')
+    }
+    print(f"SUBS: {subs}")
+    bvt(cli, definitions, subs)

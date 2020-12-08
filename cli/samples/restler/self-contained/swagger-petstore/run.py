@@ -14,8 +14,6 @@ def run(compile, test, fuzz, replay):
     cli = RaftCLI()
     # Create compilation job configuration
     compile_job_config = RaftJobConfig(file_path=compile)
-    # add webhook metadata that will be included in every triggered webhook by Compile job
-    compile_job_config.add_metadata({"branch":"wizbangFeature"})
     print('Compile')
     # submit a new job with the Compile config and get new job ID
     compile_job = cli.new_job(compile_job_config)
@@ -37,8 +35,6 @@ def run(compile, test, fuzz, replay):
     # create a new job config with Fuzz configuration JSON
     fuzz_job_config = RaftJobConfig(file_path=fuzz, substitutions=subs)
     print('Fuzz')
-    # add webhook metadata that will included in every triggered webhook by Fuzz job
-    fuzz_job_config.add_metadata({"branch":"wizbangFeature"})
     # create new fuzz job configuration
     fuzz_job = cli.new_job(fuzz_job_config)
 

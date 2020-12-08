@@ -72,25 +72,6 @@ class RaftCLI():
                             self.context['tenantId'],
                             self.context.get('secret'))
 
-    def result_url(self, job_id):
-        '''
-            Constructs Azure File Storage results URL
-
-            Parameters:
-                job_id: job ID
-
-            Returns:
-                URL that contains results of the job run
-        '''
-        return(
-            "https://ms.portal.azure.com/#blade/Microsoft_Azure_FileStorage/"
-            "FileShareMenuBlade/overview/storageAccountId/"
-            f"%2Fsubscriptions%2F{self.definitions.subscription}"
-            f"%2FresourceGroups%2F{self.definitions.resource_group}"
-            f"%2Fproviders%2FMicrosoft.Storage%2FstorageAccounts%2F"
-            f"{self.definitions.storage_account}/"
-            f"path/{job_id}/protocol/")
-
     def job_status(self, job_id):
         '''
             Gets job status
@@ -286,6 +267,10 @@ class RaftCLI():
         for s in status:
             if s['agentName'] == s['jobId']:
                 print(f"{s['jobId']} {s['state']}")
+                if s.get('utcEventTime'):
+                    print(f'UtcEventTime: {s["utcEventTime"]}')
+                if s.get('resultsUrl'):
+                    print(f'Results: {s["resultsUrl"]}')
                 if s.get('details'):
                     print("Details:")
                     for k in s['details']:
@@ -321,6 +306,7 @@ class RaftCLI():
                     print("Details:")
                     for k in s['details']:
                         print(f"{k} : {s['details'][k]}")
+
                 print('======================')
 
     def poll(self, job_id, poll_interval=10):

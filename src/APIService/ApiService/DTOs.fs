@@ -318,4 +318,5 @@ module DTOs =
 
             AgentName : string 
 
+            ResultsUrl : string
         }

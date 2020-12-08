@@ -2,12 +2,7 @@
   "host": "localhost",
 
   "webhook": {
-    "name": "petstore",
-    "metadata": {
-      "app" : "petstore",
-      "swagger_version" : "v2",
-      "action" : "test"	
-    }
+    "name": "petstore-test"
   },
   "readonlyFileShareMounts": [
     {

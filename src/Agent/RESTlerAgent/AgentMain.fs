@@ -506,6 +506,7 @@ let main argv =
                     Metrics = None
                     UtcEventTime = System.DateTime.UtcNow
                     Details = None
+                    ResultsUrl = None
                 }: Raft.JobEvents.JobStatus)
 
         printfn "Got job configuration message: %A" restlerPayload
@@ -580,6 +581,7 @@ let main argv =
                                                     Metrics = summary
                                                     UtcEventTime = System.DateTime.UtcNow
                                                     Details = Some( details.Add("numberOfBugsFound", sprintf "%d" bugsListLen))
+                                                    ResultsUrl = None
                                                 } : Raft.JobEvents.JobStatus)
             }
 
@@ -596,6 +598,7 @@ let main argv =
                                             AgentName = agentName
                                             Metadata = None
                                             BugDetails = Some bugDetails
+                                            ResultsUrl = None
                                         } : Raft.JobEvents.BugFound)
             }
 
@@ -852,6 +855,7 @@ let main argv =
                                                         Metrics = None
                                                         UtcEventTime = System.DateTime.UtcNow
                                                         Details = Some (Map.ofSeq replaySummaryDetails)
+                                                        ResultsUrl = None
                                                     } : Raft.JobEvents.JobStatus)
 
                                     return replaySummaryDetails
@@ -921,10 +925,7 @@ let main argv =
                         //.Add("numFullyValid", sprintf "%d" status.num_fully_valid)
                         //.Add("numSequenceFailures", sprintf "%d" status.num_sequence_failures)
                         //.Add("numInvalidByFailedResourceCreations", sprintf "%d" status.num_invalid_by_failed_resource_creations)
-                        //.Add("throughput", sprintf "%f" status.throughput)
                         //.Add("totalObjectCreations", sprintf "%d" status.total_object_creations)
-                        //.Add("totalUniqueTestCases", sprintf "%f" status.total_unique_test_cases)
-                        //.Add("totalSequences", sprintf "%d" status.total_sequences)
                 )
 
         printfn "Sending final event: %A with summary: %A and details %A" state summary details
@@ -938,6 +939,7 @@ let main argv =
                         Metrics = summary
                         UtcEventTime = System.DateTime.UtcNow
                         Details = details
+                        ResultsUrl = None
                     } : Raft.JobEvents.JobStatus)
 
         let restlerTelemetry = Restler.Telemetry.getDataFromTestingSummary testingSummary
@@ -972,6 +974,7 @@ let main argv =
                                     Metrics = None
                                     UtcEventTime = System.DateTime.UtcNow
                                     Details = Some (Map.empty.Add("Error", ex.Message))
+                                    ResultsUrl = None
                                 } : Raft.JobEvents.JobStatus)
 
                         do! System.Console.Error.FlushAsync().ToAsync

@@ -33,8 +33,9 @@ deploymentName - RAFT deployment name
         - no dashes
 
 region - Region to deploy RAFT (e.g. westus2)
+    See the documentation on container instance region availability at
     https://docs.microsoft.com/en-us/azure/container-instances/container-instances-region-availability
-    for to pick the optimal region for your deployment.
+    to pick the optimal region for your deployment.
     All jobs will be deployed by default in the same
     region as your service deployment
 

@@ -1,0 +1,61 @@
+{
+  "rootFileShare" : "{ci-run}",
+  "namePrefix" : "petstore3-test-",
+  "host": "localhost",
+
+  "resources": {
+    "Cores": 4,
+    "MemoryGBs": 8
+  },
+
+  "webhook":{
+    "name" : "petstore3-test",
+    "metadata" : {
+      "buildUrl" : "{build-url}/Raft/_build/results?buildId={build-id}&view=results"
+    }
+  },
+
+  "readonlyFileShareMounts": [
+    {
+      "FileShareName": "{ci-run}",
+      "MountPath": "/ci-run"
+    }
+  ],
+
+ "testTargets" : { 
+    "resources" : {
+      "Cores" : 2,
+      "MemoryGBs" : 4
+    },
+    "targets" : [
+      {
+        "Container" : "swaggerapi/petstore3",
+        "Ports" : [8080],
+        "ExpectedDurationUntilReady" : "00:00:30",
+        "PostRun" : {
+          "Command" : "/bin/sh", 
+          "Arguments" : ["-c", "cp /var/log/*-requests.log $RAFT_WORK_DIRECTORY"],
+          "ExpectedRunDuration" : "00:00:10"
+        },
+        "Shell" : "/bin/sh",
+        "OutputFolder" : "petstore3"
+      }
+    ]
+  },
+  "tasks": [
+    {
+      "toolName": "RESTler",
+      "outputFolder": "test",
+      "toolConfiguration": {
+        "task": "test",
+        "runConfiguration": {
+          "targetEndpointConfiguration" : {
+            "Port" : 8080 
+          },
+          "useSsl" : false,
+          "inputFolderPath": "/ci-run/{compile.jobId}/compile"
+        }
+      }
+    }
+  ]
+}

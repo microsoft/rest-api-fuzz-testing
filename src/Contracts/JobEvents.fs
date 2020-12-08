@@ -73,6 +73,7 @@ type JobStatus =
         Details: Map<string, string> option
         Metadata : Map<string, string> option
         AgentName: string
+        ResultsUrl : string option
     }
 
     static member EventType = Events.JobEventTypes.JobStatus.ToString()
@@ -84,6 +85,7 @@ type BugFound =
         AgentName : string
         Metadata : Map<string, string> option
         BugDetails : Map<string, string> option
+        ResultsUrl : string option
     }
 
     static member EventType = Events.JobEventTypes.BugFound.ToString()

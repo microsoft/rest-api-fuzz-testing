@@ -96,7 +96,7 @@ type FileShareMount =
 type Webhook =
     {
         Name : string
-        Metadata : Map<string, string>
+        Metadata : Map<string, string> option
     }
 
 
