@@ -13,7 +13,7 @@ cli_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),'..', '..', '
 sys.path.append(cli_path)
 import raft
 from raft_sdk.raft_service import RaftCLI
-from raft_sdk.raft_common import RaftDefinitions
+from raft_sdk.raft_common import RaftDefinitions, RaftApiException
 from raft_sdk.raft_deploy import azure_function_keys
 
 def webhooks_test_url(subscription_id, resource_group, function):
@@ -40,8 +40,23 @@ def bvt(cli, definitions, subs):
         test_url = webhooks_test_url(definitions.subscription, definitions.resource_group, definitions.test_infra)
         for event in webhook_events:
             print(f'Setting webhook for {event}')
-            compile_webhook = cli.set_webhooks_subscription('petstore3-compile', event, test_url)
-            fuzz_webhook = cli.set_webhooks_subscription('petstore3-fuzz', event, test_url)
+            try:
+                compile_webhook = cli.set_webhooks_subscription('petstore3-compile', event, test_url)
+                print(f'Set webhooks {compile_webhook}')
+            except RaftApiException as ex:
+                if ex.status_code == 504:
+                    print(f'Proceeding even though got gateway timeout error when setting webhook {ex}')
+                else:
+                    raise ex
+
+            try:
+                fuzz_webhook = cli.set_webhooks_subscription('petstore3-fuzz', event, test_url)
+                print(f'Set webhooks {fuzz_webhook}')
+            except RaftApiException as ex:
+                if ex.status_code == 504:
+                    print(f'Proceeding even though got gateway timeout error when setting webhook {ex}')
+                else:
+                    raise ex
 
         added_compile = cli.list_webhooks('petstore3-compile', event)
         if len(added_compile) == 0:
