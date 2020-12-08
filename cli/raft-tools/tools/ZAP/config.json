@@ -3,7 +3,7 @@
 	"run" : {
 		"command" : "bash", 
 		"arguments" : ["-c", 
-		    "sleep $RAFT_STARTUP_DELAY; cd $RAFT_TOOL_RUN_DIRECTORY; ln -s $RAFT_WORK_DIRECTORY /zap/wrk; python3 run.py install; python3 run.py" ]
+		"touch /.dockerenv; cd $RAFT_TOOL_RUN_DIRECTORY; ln -s $RAFT_WORK_DIRECTORY /zap/wrk; python3 run.py install; sleep $RAFT_STARTUP_DELAY; python3 run.py" ]
 	},
 	"idle" : {
 		"command" : "bash",
