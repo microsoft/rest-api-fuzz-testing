@@ -1330,21 +1330,37 @@ module ContainerInstances =
                         return None
                 }
 
+            let getResultsUrl jobId =
+                async {
+                    match! JobStatus.getRow agentConfig (jobId, jobId) with
+                    | Result.Error() -> return None
+                    | Result.Ok(r) ->
+                        match r with
+                        | None -> return None
+                        | Some row -> return (if String.IsNullOrWhiteSpace row.ResultsUrl then None else Some row.ResultsUrl)
+                }
+
             let eventType = RaftEvent.getEventType message
             if eventType = JobStatus.EventType then
                 let jobStatus : RaftEvent.RaftJobEvent<JobStatus> = RaftEvent.deserializeEvent message
                 let! metadata = getMetadata jobStatus.Message.JobId
+                let! resultsUrl = getResultsUrl jobStatus.Message.JobId
                 let updatedJobStatus = { jobStatus with
                                            Message = { jobStatus.Message with
-                                                         Metadata =  metadata }
+                                                         Metadata =  metadata
+                                                         ResultsUrl = resultsUrl
+                                                       }
                                        }
                 do! processMessage updatedJobStatus.Message.JobId updatedJobStatus
             else if eventType = BugFound.EventType then
                 let bugFound : RaftEvent.RaftJobEvent<BugFound> = RaftEvent.deserializeEvent message
                 let! metadata = getMetadata bugFound.Message.JobId
+                let! resultsUrl = getResultsUrl bugFound.Message.JobId
                 let updatedBugFound = { bugFound with
                                            Message = { bugFound.Message with
-                                                         Metadata =  metadata }
+                                                         Metadata =  metadata
+                                                         ResultsUrl = resultsUrl
+                                                        }
                                        }
 
                 do! processMessage updatedBugFound.Message.JobId updatedBugFound

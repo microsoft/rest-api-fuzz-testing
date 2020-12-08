@@ -85,6 +85,7 @@ type BugFound =
         AgentName : string
         Metadata : Map<string, string> option
         BugDetails : Map<string, string> option
+        ResultsUrl : string option
     }
 
     static member EventType = Events.JobEventTypes.BugFound.ToString()

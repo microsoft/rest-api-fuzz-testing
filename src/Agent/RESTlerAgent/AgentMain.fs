@@ -587,6 +587,7 @@ let main argv =
                                             AgentName = agentName
                                             Metadata = None
                                             BugDetails = Some bugDetails
+                                            ResultsUrl = None
                                         } : Raft.JobEvents.BugFound)
             }
 
