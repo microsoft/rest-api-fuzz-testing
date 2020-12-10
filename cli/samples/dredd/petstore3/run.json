@@ -1,0 +1,32 @@
+{
+  "testTargets" : {
+    "services":
+      [
+        {
+          "Container" : "swaggerapi/petstore",
+          "Port" : 8080,
+          "ExpectedDurationUntilReady" : "00:00:30",
+          "shell" : "/bin/sh",
+          "PostRun" : {
+            "ShellArguments" : ["-c", "cp /var/log/*-requests.log $RAFT_WORK_DIRECTORY"],
+            "ExpectedRunDuration" : "00:00:10"
+          },
+          "OutputFolder" : "dredd_petstore"
+        }
+    ]
+  },
+  "testTasks" :{
+    "targetConfiguration" : {
+        "apiSpecifications": ["http://localhost:8080/api/swagger.json"],
+        "host" : "http://localhost",
+        "port" : 8080
+      },
+      "tasks": [
+        {
+          "isIdling" : true,
+          "toolName" : "Dredd",
+          "outputFolder" : "dredd"
+        }
+      ]
+    }
+  }
