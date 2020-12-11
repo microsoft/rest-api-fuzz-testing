@@ -9,12 +9,7 @@ module Authentication =
         | MSAL of string
         | TxtToken of string
 
-type SwaggerLocation =
-    // URL to a swagger definition
-    | URL of string
-    // This can be a path to a file from a mounted file share
-    | FilePath of string
-
+type ApiSpecification = string
 
 type GpuConfig =
     {
@@ -71,7 +66,7 @@ type RaftTask =
         OutputFolder : string
 
         /// overwrite where to get swagger definition from
-        SwaggerLocations : (SwaggerLocation array) option
+        ApiSpecifications : (ApiSpecification array) option
 
         /// The string to use in overriding the Host for each request
         Host : string option
@@ -103,7 +98,7 @@ type Webhook =
 type JobDefinition =
     {
         /// where to get swagger definition from
-        SwaggerLocations : (SwaggerLocation array) option
+        ApiSpecifications : (ApiSpecification array) option
 
         /// prefix for jobId
         NamePrefix : string option

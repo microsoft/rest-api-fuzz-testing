@@ -22,12 +22,10 @@
     {
       "toolName" : "ZAP",
       "outputFolder" : "zap",
-      "swaggerLocations": [{
-        "URL" : "http://localhost:8080/api/v3/openapi.json"
-      },
-      {
-        "URL" : "http://localhost:8080/api/v3/openapi.json"
-      }]
+      "apiSpecifications": [
+        "http://localhost:8080/api/v3/openapi.json",
+        "http://localhost:8080/api/v3/openapi.json"
+      ]
     }
   ]
 }

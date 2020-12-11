@@ -38,12 +38,6 @@ def auth_token(init):
                 print(f'Unhandled authentication configuration {auth_config}')
     return None
 
-def get_swagger(target):
-    if target and target.get("url"):
-        return target["url"]
-    elif target.get("filePath"):
-        return target["filePath"]
-
 if __name__ == "__main__":
     if len(sys.argv) == 2 and sys.argv[1] == "install":
         subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", os.path.join(run_directory, "requirements.txt")])
@@ -55,11 +49,11 @@ if __name__ == "__main__":
         with open(os.path.join(work_directory, 'task-config.json'), 'r') as task_config:
             config = json.load(task_config)
         i = 0
-        n_targets = len(config.get("swaggerLocations"))
-        for t in config.get("swaggerLocations"):
+        n_targets = len(config.get("apiSpecifications"))
+        for t in config.get("apiSpecifications"):
             print(f'Starting zap for target {t}')
             if token:
-                subprocess.check_call([sys.executable, "scan.py", f"{i}", f"{n_targets}", get_swagger(t), token])
+                subprocess.check_call([sys.executable, "scan.py", f"{i}", f"{n_targets}", t, token])
             else:
-                subprocess.check_call([sys.executable, "scan.py", f"{i}", f"{n_targets}", get_swagger(t)])
+                subprocess.check_call([sys.executable, "scan.py", f"{i}", f"{n_targets}", t])
             i = i + 1

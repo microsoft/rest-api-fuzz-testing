@@ -58,35 +58,21 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
 
         let outputFolders = requestPayload.Tasks |> Array.map (fun t -> t.OutputFolder) |> Array.sort
 
-        let validateSwaggerLocations (swaggerLocation:DTOs.SwaggerLocation) =
+        let validateApiSpecification (apiSpecification:string) =
             // Validate the swagger URL.
-            if not <| isNull (box swaggerLocation) then
-                if not <| String.IsNullOrWhiteSpace(swaggerLocation.URL) then
-                    if not <| String.IsNullOrWhiteSpace(swaggerLocation.FilePath) then
-                        raiseApiError({
-                            Error = {
-                                Code = ApiErrorCode.ParseError
-                                Message = "Only one value is allowed to be set for Swagger location (FilePath or URL)"
-                                Target = "validateAndPatchPayload"
-                                Details = Array.empty
-                                InnerError = {Message = ""}
-                            }
-                        })
-                    else
-                        match Uri.TryCreate(swaggerLocation.URL, UriKind.Absolute) with
-                        | true, _ -> ()
-                        | false, _ -> raiseApiError({
-                            Error = {
-                                Code = ApiErrorCode.ParseError
-                                Message = "Invalid Swagger Uri. The Uri must be a valid, absolute Uri."
-                                Target = "validateAndPatchPayload"
-                                Details = Array.empty
-                                InnerError = {Message = ""}
-                            }
-                        })
+            if String.IsNullOrWhiteSpace(apiSpecification) then
+                    raiseApiError({
+                        Error = {
+                            Code = ApiErrorCode.ParseError
+                            Message = "Api Specification is ether null or empty"
+                            Target = "validateAndPatchPayload"
+                            Details = Array.empty
+                            InnerError = {Message = ""}
+                        }
+                    })
 
-        if not <| isNull (box requestPayload.SwaggerLocations) then
-            requestPayload.SwaggerLocations |> Array.iter validateSwaggerLocations 
+        if not <| isNull (box requestPayload.ApiSpecifications) then
+            requestPayload.ApiSpecifications |> Array.iter validateApiSpecification
 
         let requestPayload =
             match isNull (box requestPayload.Resources), isNull(box requestPayload.TestTargets) with
@@ -179,8 +165,8 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                 Tasks =
                     requestPayload.Tasks
                     |> Array.map (fun t ->
-                        if isNull (box t.SwaggerLocations) then
-                            { t with SwaggerLocations = requestPayload.SwaggerLocations }
+                        if isNull (box t.ApiSpecifications) then
+                            { t with ApiSpecifications = requestPayload.ApiSpecifications}
                         else 
                             t
                     )
@@ -281,8 +267,8 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                     }
                 })
 
-            if not <| isNull(box t.SwaggerLocations) then
-                t.SwaggerLocations |> Array.iter validateSwaggerLocations 
+            if not <| isNull(box t.ApiSpecifications) then
+                t.ApiSpecifications |> Array.iter validateApiSpecification
         )
 
         if not <| isNull requestPayload.ReadOnlyFileShareMounts then
