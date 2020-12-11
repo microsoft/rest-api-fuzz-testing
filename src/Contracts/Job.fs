@@ -28,8 +28,7 @@ type Resources =
 
 type Command =
     {
-        Command : string
-        Arguments : string array option
+        ShellArguments : string array option
         ExpectedRunDuration: System.TimeSpan option
     }
 
@@ -41,11 +40,13 @@ type TestTargetDefinition =
         Ports : int array option
 
         IsIdling : bool option
+        
+        Shell : string option
         Run : Command option
         Idle : Command option
         PostRun : Command option
+        
         OutputFolder : string option
-        Shell : string option
 
         EnvironmentVariables : Map<string, string> option
         KeyVaultSecrets : string array option

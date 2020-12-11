@@ -20,8 +20,7 @@
         "Shell" : "/bin/sh",
         "OutputFolder" : "petstore",
         "PostRun" : {
-          "Command" : "/bin/sh", 
-          "Arguments" : ["-c", "cp /var/log/*-requests.log $RAFT_WORK_DIRECTORY"],
+          "ShellArguments" : ["-c", "cp /var/log/*-requests.log $RAFT_WORK_DIRECTORY"],
           "ExpectedRunDuration" : "00:00:10"
         }
       }

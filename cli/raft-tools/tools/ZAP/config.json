@@ -1,13 +1,12 @@
 {
 	"container" : "owasp/zap2docker-stable",
+	"shell" : "bash",
 	"run" : {
-		"command" : "bash", 
-		"arguments" : ["-c", 
+		"shellArguments" : ["-c", 
 		"touch /.dockerenv; cd $RAFT_TOOL_RUN_DIRECTORY; ln -s $RAFT_WORK_DIRECTORY /zap/wrk; python3 run.py install; sleep $RAFT_STARTUP_DELAY; python3 run.py" ]
 	},
 	"idle" : {
-		"command" : "bash",
-		"arguments" : ["-c", "echo DebugMode; while true; do sleep 100000; done;"]
+		"shellArguments" : ["-c", "echo DebugMode; while true; do sleep 100000; done;"]
 	},
 	"environmentVariables" :{
 		"IS_CONTAINERIZED" : "true"
