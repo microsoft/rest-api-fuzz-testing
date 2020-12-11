@@ -131,8 +131,7 @@ module DTOs =
     [<CLIMutable>]
     type Command =
         {
-            Command : string
-            Arguments : string array
+            ShellArguments : string array
             ExpectedRunDuration: Nullable<TimeSpan>
         }
 

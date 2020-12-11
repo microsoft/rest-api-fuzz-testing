@@ -1,16 +1,14 @@
 {
 	"container" : "{PrivateRegistryRestler}/restapifuzztesting/restler-agent:v1.latest",
+	"shell" : "/bin/sh",
 	"run" : {
-		"command" : "/bin/sh", 
-		"arguments" : ["-c",
+		"shellArguments" : ["-c",
 			"sleep $RAFT_STARTUP_DELAY; dotnet /raft/agent/RestlerAgent.dll --agent-name ${RAFT_CONTAINER_NAME} --job-id ${RAFT_JOB_ID} --task-config-path ${RAFT_WORK_DIRECTORY}/task-config.json --work-directory ${RAFT_WORK_DIRECTORY} --restler-path /RESTler --app-insights-instrumentation-key ${RAFT_APP_INSIGHTS_KEY} --output-sas \"${RAFT_SB_OUT_SAS}\""
 		]
 	},
 	"idle" : {
-		"command" : "/bin/sh",
-		"arguments" : ["-c", "echo DebugMode; while true; do sleep 100000; done;"]
+		"shellArguments" : ["-c", "echo DebugMode; while true; do sleep 100000; done;"]
 	},
-	"shell" : "/bin/sh",
 	"environmentVariables" : {
 		"RESTLER_TELEMETRY_OPTOUT" : "0"	
 	}

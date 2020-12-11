@@ -32,18 +32,18 @@
         "Container" : "swaggerapi/petstore3",
         "Ports" : [8081],
         "ExpectedDurationUntilReady" : "00:02:00",
+        "Shell" : "/bin/sh",
         "Run" : {
-          "Command" : "/bin/sh",
-          "Arguments" : ["-c", "java -jar /swagger-petstore/jetty-runner.jar --log $RAFT_WORK_DIRECTORY/yyyy_mm_dd-requests.log --port 8081 /swagger-petstore/server.war"]
+          "ShellArguments" : ["-c", "java -jar /swagger-petstore/jetty-runner.jar --log $RAFT_WORK_DIRECTORY/yyyy_mm_dd-requests.log --port 8081 /swagger-petstore/server.war"]
         }
       },
       {
         "Container" : "swaggerapi/petstore3",
         "Ports" : [8082],
         "ExpectedDurationUntilReady" : "00:02:00",
+        "Shell" : "/bin/sh",
         "Run" : {
-          "Command" : "/bin/sh",
-          "Arguments" : ["-c", "java -jar /swagger-petstore/jetty-runner.jar --log $RAFT_WORK_DIRECTORY/yyyy_mm_dd-requests.log --port 8082 /swagger-petstore/server.war"]
+          "ShellArguments" : ["-c", "java -jar /swagger-petstore/jetty-runner.jar --log $RAFT_WORK_DIRECTORY/yyyy_mm_dd-requests.log --port 8082 /swagger-petstore/server.war"]
         }
       }
     ]

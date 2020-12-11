@@ -39,11 +39,13 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
         ]
         |> Set.ofList
 
-
     // Validation function to validate the job request
     // If something does not validate, we want to throw an exception with a a standard error type
     // that is informative for the customer.
     let validateAndPatchPayload (requestPayload: DTOs.JobDefinition) =
+        let inline isNotSet (o : ^T) = isNull (box o)
+        let inline isSet (o : ^T) = o |> isNotSet |> not
+
         if Array.isEmpty requestPayload.Tasks then
             raiseApiError ({ 
                 Error =
@@ -71,19 +73,35 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                         }
                     })
 
-        if not <| isNull (box requestPayload.ApiSpecifications) then
+        if isSet requestPayload.ApiSpecifications then
             requestPayload.ApiSpecifications |> Array.iter validateApiSpecification
 
+        if isSet requestPayload.TestTargets && isSet requestPayload.TestTargets.Targets then
+            requestPayload.TestTargets.Targets
+            |> Array.iter(fun tt ->
+                if String.IsNullOrWhiteSpace tt.Shell then
+                    if isSet tt.PostRun || isSet tt.Idle || isSet tt.Run then
+                        raiseApiError({
+                            Error = {
+                                Code = ApiErrorCode.ParseError
+                                Message = "Shell value must be set if Run, PostRun, or Idle are defined in the test target"
+                                Target = "validateAndPatchPayload"
+                                Details = Array.empty
+                                InnerError = {Message = ""}
+                            }
+                        })
+            )
+
         let requestPayload =
-            match isNull (box requestPayload.Resources), isNull(box requestPayload.TestTargets) with
-            | true, true ->
+            match isSet requestPayload.Resources, isSet requestPayload.TestTargets with
+            | false, false ->
                 {
                     requestPayload with
-                        Resources = { Cores = 1; MemoryGBs = 1 }}
-
-            | false, true-> requestPayload
-            | true, false ->
-                if isNull (box requestPayload.TestTargets.Resources) then
+                        Resources = { Cores = 1; MemoryGBs = 1 }
+                }
+            | true, false -> requestPayload
+            | false, true ->
+                if isNotSet requestPayload.TestTargets.Resources then
                     {
                         requestPayload with
                             Resources = {Cores = 2; MemoryGBs = 2}
@@ -103,8 +121,8 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                             InnerError = {Message = ""}
                         }
                     })
-            | false, false ->
-                if isNull (box requestPayload.TestTargets.Resources) then
+            | true, true ->
+                if isNotSet requestPayload.TestTargets.Resources then
                     raiseApiError({
                         Error = {
                             Code = ApiErrorCode.ParseError
@@ -135,7 +153,6 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                                 InnerError = {Message = ""}
                             }
                         })
-
                     requestPayload
 
         if requestPayload.Resources.Cores < 1 then
@@ -165,9 +182,9 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                 Tasks =
                     requestPayload.Tasks
                     |> Array.map (fun t ->
-                        if isNull (box t.ApiSpecifications) then
+                        if isNotSet t.ApiSpecifications then
                             { t with ApiSpecifications = requestPayload.ApiSpecifications}
-                        else 
+                        else
                             t
                     )
                     |> Array.map(fun t ->
@@ -186,7 +203,7 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
 
         let taskAuthentication =
             requestPayload.Tasks
-            |> Array.filter(fun t -> not <| isNull (box t.AuthenticationMethod))
+            |> Array.filter(fun t -> isSet t.AuthenticationMethod)
             |> Array.map (fun t -> t.AuthenticationMethod)
 
         if requestPayload.Tasks.Length > requestPayload.Resources.MemoryGBs * 10 then
@@ -267,11 +284,11 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                     }
                 })
 
-            if not <| isNull(box t.ApiSpecifications) then
+            if isSet t.ApiSpecifications then
                 t.ApiSpecifications |> Array.iter validateApiSpecification
         )
 
-        if not <| isNull requestPayload.ReadOnlyFileShareMounts then
+        if isSet requestPayload.ReadOnlyFileShareMounts then
             requestPayload.ReadOnlyFileShareMounts
             |> Array.iter(fun fs ->
                 if String.IsNullOrWhiteSpace fs.FileShareName || String.IsNullOrWhiteSpace fs.MountPath then
@@ -286,7 +303,7 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                     })
             )
 
-        if not <| isNull requestPayload.ReadWriteFileShareMounts then
+        if isSet requestPayload.ReadWriteFileShareMounts then
             requestPayload.ReadWriteFileShareMounts
             |> Array.iter(fun fs ->
                 if String.IsNullOrWhiteSpace fs.FileShareName || String.IsNullOrWhiteSpace fs.MountPath then
@@ -300,7 +317,6 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                         }
                     })
             )
-
 
         //U+0000 to U+001F
         //U+007F to U+009F
@@ -317,7 +333,7 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                 }
             })
 
-        if not <| isNull(box requestPayload.Webhook) then
+        if isSet requestPayload.Webhook then
             if String.IsNullOrWhiteSpace requestPayload.Webhook.Name then
                 raiseApiError({
                     Error = {
