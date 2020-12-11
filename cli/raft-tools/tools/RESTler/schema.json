@@ -207,15 +207,23 @@
                         "type": "boolean",
                         "description": "Use SSL when connecting to the server"
                     },
+                    "authenticationTokenRefreshIntervalSeconds" : {
+                        "type": "integer",
+                        "description": "Authentication token refresh interval",
+                        "format": "int32"
+                    },
                     "pathRegex": {
                         "type": "string",
                         "description": "Path regex for filtering tested endpoints",
                         "nullable": true
                     },
-                    "authenticationTokenRefreshIntervalSeconds" : {
-                        "type": "integer",
-                        "description": "Authentciation token refresh interval",
-                        "format": "int32"
+                    "ignoreBugHashes" : {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "List of bug hashes to ignore when posting Bug Found webhook",
+                        "nullable": true
                     }
                 },
                 "additionalProperties": false,
@@ -239,9 +247,9 @@
                 "properties": {
                     "task": {
                         "type": "string",
-						"description": "Can be compile, fuzz, test, replay",
+						"description": "RESTLer task types",
                         "nullable": false,
-                        "enum" : ["compile", "test", "fuzz", "replay"]
+                        "enum" : ["compile", "test", "fuzz", "replay", "testFuzzLean", "fuzzRandomWalk", "fuzzBfsCheap"]
                     },
                     "compileConfiguration": {
                         "$ref": "#/components/schemas/CompileConfiguration"
@@ -254,7 +262,7 @@
                     },
                     "agentConfiguration": {
                         "$ref": "#/components/schemas/AgentConfiguration"
-                    },
+                    }
                 },
                 "additionalProperties": false,
 				"description": "RESTler payload"
