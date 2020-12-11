@@ -1,7 +1,7 @@
 {
-  "swaggerLocations": [{
-    "URL": "https://{sample.host}/swagger/v1/swagger.json"
-  }],
+  "apiSpecifications": [
+    "https://{sample.host}/swagger/v1/swagger.json"
+  ],
   "host": "{sample.host}",
   "namePrefix": "sample-compile-",
   "rootFileshare": "sample",

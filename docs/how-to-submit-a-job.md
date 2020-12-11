@@ -75,7 +75,7 @@ Now that you've settled on the options you'll set and their respective values, i
 to create the job definition JSON file you'll use to submit the job and put RAFT to work.
 
 All Job Definition JSON files must define at least 1 entry in the `tasks` array.
-The `swaggerLocations`, `host`, and `duration` fields can be defined globally
+The `apiSpecifications`, `host`, and `duration` fields can be defined globally
 or locally, depending on whether you want these values to apply to all tasks or
 to individual tasks.
 
@@ -84,7 +84,7 @@ swagger location and host settings, along with two tasks:
 
 ```json
 {
-  "swaggerLocations": [{
+  "apiSpecifications": [{
     "URL" : "https://{sample.host}/swagger/v1/swagger.json"
   }],
   "host": "{sample.host}",
@@ -107,12 +107,12 @@ occur:
 
 - A container group would be created and be named using the JOBID
 
-- A container associated with "MyFirstTool" would be created, taking the `swaggerLocations` and `host`
+- A container associated with "MyFirstTool" would be created, taking the `apiSpecifications` and `host`
   parameters from the global position, and `toolName` and `outputFolder` parameters
   from the task definition.  Since there is no `duration` field, it will run until it
   completes. 
 
-- A container named "MySecondTool" would be created, taking the `swaggerLocations` and `host`
+- A container named "MySecondTool" would be created, taking the `apiSpecifications` and `host`
   parameters from the global position, and `toolName`, `duration`, and `outputFolder`
   parameters from the task definition.  It will run until it completes, or until 2 hours 
   ten minutes have passed, whichever occurs first.

@@ -33,13 +33,6 @@ module DTOs =
             TxtToken: string
     }
 
-    [<CLIMutable>]
-    type SwaggerLocation =
-        {
-            URL: string
-            FilePath: string
-        }
-
     /// <summary>
     /// RAFT task to run.
     /// </summary>
@@ -60,9 +53,9 @@ module DTOs =
             OutputFolder : string
 
             /// <summary>
-            /// Override swagger specification locations
+            /// Override OpenApi/swagger specifications locations for the job run. Can be URL or file path.
             /// </summary>
-            SwaggerLocations : SwaggerLocation array
+            ApiSpecifications : string array
 
             /// <summary>
             /// Override the Host for each request.
@@ -194,9 +187,9 @@ module DTOs =
     type JobDefinition =
         {
             /// <summary>
-            /// Swagger specifications location for the job run
+            /// OpenApi/swagger specifications locations for the job run. Can be URL or file path.
             /// </summary>
-            SwaggerLocations : SwaggerLocation array
+            ApiSpecifications : string array
 
             /// <summary> 
             /// String used as a prefix added to service generated job ID.

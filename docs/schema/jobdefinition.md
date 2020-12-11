@@ -65,19 +65,10 @@ Defines where to find the swagger file. This can be a Uri, or a file path which 
 a file that is mounted on the container. 
 
 ```
-  "swagger": { 
-	  "$type" : "URL",
-	  "value": "https://someurl/swagger.json" 
-  }
-```
-
-or
-
-```
-"swagger": { 
-	  "$type" : "FilePath",
-	  "value": "/folderA/folderB/swagger.json" 
-  }
+  "apiSpecifications": [ 
+	  "https://someurl/swagger.json",
+    "/folderA/folderB/swagger.json" 
+  ]
 ```
 
 ## Tasks (required object)

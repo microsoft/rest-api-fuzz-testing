@@ -517,34 +517,38 @@ let main argv =
 
         let compileSwaggerGrammar(compilerConfiguration) =
             async {
-                match task.SwaggerLocations with
+                match task.ApiSpecifications with
                 | None -> return failwith "Cannot perform compilation step, since Swagger Grammar location is not set"
-                | Some swaggerLocations ->
-                    let! swagger =
-                        swaggerLocations
-                        |> Array.map (fun swaggerLocation ->
+                | Some apiSpecifications ->
+                    let! apiSpecifications =
+                        apiSpecifications
+                        |> Array.map (fun apiSpecificationLocation ->
                             async {
-                                let! swagger =
+                                let! apiSpecification =
                                     async {
-                                        match swaggerLocation with
-                                        | Raft.Job.SwaggerLocation.URL url ->
-                                            let! swagger = downloadFile workDirectory "swagger.json" url
-                                            printfn "Downloaded swagger spec to :%s" swagger
-                                            return swagger
-                                        | Raft.Job.FilePath path -> 
-                                            return path
+                                        if IO.File.Exists apiSpecificationLocation then
+                                            return apiSpecificationLocation
+                                        else 
+                                            match System.Uri.TryCreate(apiSpecificationLocation, UriKind.Absolute) with
+                                            | true, url ->
+                                                let! apiSpecification = downloadFile workDirectory (Array.last url.Segments) apiSpecificationLocation
+                                                printfn "Downloaded apiSpecification spec to :%s" apiSpecification
+                                                return apiSpecification
+                                            | false, _ ->
+                                                return failwithf "Invalid api specification location : %s" apiSpecificationLocation
+
                                     }
 
-                                match validateJsonFile swagger with
+                                match validateJsonFile apiSpecification with
                                 | Result.Ok () -> ()
-                                | Result.Error (err) -> failwithf "File %s is not a valid JSON file due to %s" swagger err
+                                | Result.Error (err) -> failwithf "File %s is not a valid JSON file due to %s" apiSpecification err
 
-                                return swagger
+                                return apiSpecification
                             }
                         )
                         |> Async.Sequential
 
-                    let compilerConfig = createRESTlerCompilerConfiguration workDirectory (Swagger (swagger |> Array.toList)) customDictionaryPath compilerConfiguration
+                    let compilerConfig = createRESTlerCompilerConfiguration workDirectory (Swagger (apiSpecifications |> Array.toList)) customDictionaryPath compilerConfiguration
                     do! Raft.RESTlerDriver.compile restlerPath workDirectory compilerConfig
             }
 
