@@ -1,7 +1,6 @@
 {
   "rootFileShare" : "{ci-run}",
   "namePrefix" : "petstore3-test-fuzz-lean-",
-  "host": "localhost",
 
   "resources": {
     "Cores": 4,
@@ -30,7 +29,7 @@
     "targets" : [
       {
         "Container" : "swaggerapi/petstore3",
-        "Port" : 8081,
+        "Ports" : [8081],
         "ExpectedDurationUntilReady" : "00:02:00",
         "Shell" : "/bin/sh",
         "Run" : {
@@ -39,21 +38,24 @@
       }
     ]
   },
-  "tasks": [
-    {
-      "toolName": "RESTler",
-      "outputFolder": "test-fuzz-lean",
-      "duration": "01:00:00",
-      "toolConfiguration": {
-        "task": "TestFuzzLean",
-        "runConfiguration": {
-          "targetEndpointConfiguration" : {
-            "Port" : 8081 
-          },
-          "useSsl" : false,
-          "inputFolderPath": "/ci-run/{compile.jobId}/compile"
+  "testTasks" : {
+    "tasks": [
+      {
+        "toolName": "RESTler",
+        "outputFolder": "test-fuzz-lean",
+        "duration": "01:00:00",
+        "testTargetConfiguration" : {
+          "host": "localhost",
+          "Port" : 8081 
+        },
+        "toolConfiguration": {
+          "task": "TestFuzzLean",
+          "runConfiguration": {
+            "useSsl" : false,
+            "inputFolderPath": "/ci-run/{compile.jobId}/compile"
+          }
         }
-      }
-    }  
-  ]
+      }  
+    ]
+  }
 }

@@ -20,24 +20,26 @@
       }
     ]
   },
-  "tasks": [
-    {
-      "toolName": "RESTler",
-      "outputFolder": "RESTler-replay-{experiment}-all-bug-buckets",
-      "toolConfiguration": {
-        "task": "Replay",
-        "runConfiguration": {
-          "targetEndpointConfiguration" : {
-            "Port" : 8080 
-          },
-          "useSsl" : false,
-          "inputFolderPath": "/job-run/{outputFolder}/RestlerResults/{experiment}/bug_buckets",
-          "ignoreBugHashes" : [
-            "PayloadBodyChecker_500_acb1c0dcc79e949c24bec51f0ea3f841c61c38a3",
-            "PayloadBodyChecker_500_b8ebb5eaf46cdad18ac1d8e9ed67e2cdc729db3d"
-          ]
+  "testTasks" : {
+    "testTargetConfiguration" : {
+      "Port" : 8080 
+    },
+    "tasks": [
+      {
+        "toolName": "RESTler",
+        "outputFolder": "RESTler-replay-{experiment}-all-bug-buckets",
+        "toolConfiguration": {
+          "task": "Replay",
+          "runConfiguration": {
+            "useSsl" : false,
+            "inputFolderPath": "/job-run/{outputFolder}/RestlerResults/{experiment}/bug_buckets",
+            "ignoreBugHashes" : [
+              "PayloadBodyChecker_500_acb1c0dcc79e949c24bec51f0ea3f841c61c38a3",
+              "PayloadBodyChecker_500_b8ebb5eaf46cdad18ac1d8e9ed67e2cdc729db3d"
+            ]
+          }
         }
       }
-    }
-  ]
+    ]
+  }
 }

@@ -68,15 +68,6 @@ type ReplayConfiguration =
         BugBuckets : string array option
     }
 
-type TargetEndpointConfiguration =
-    {
-        /// The IP of the endpoint being fuzzed
-        Ip: string option
-
-        /// The port of the endpoint being fuzzed
-        Port: int
-    }
-
 type RunConfiguration = 
     {
         /// Path to grammar py relative to compile folder path. If not set then default "grammar.py" grammar is assumed
@@ -87,9 +78,6 @@ type RunConfiguration =
         /// this share. Agent will make a copy of all needed files to it's work directory.
         /// For Replay task: path to RESTler Fuzz or Test run that contains bug buckets to replay
         InputFolderPath: string
-
-        // endpoint configuration required when running fuzz or test tasks
-        TargetEndpointConfiguration: TargetEndpointConfiguration option
 
         /// The delay in seconds after invoking an API that creates a new resource
         ProducerTimingDelay : int option

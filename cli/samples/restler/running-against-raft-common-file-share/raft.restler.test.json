@@ -1,5 +1,4 @@
 {
-  "host": "{defaults.deploymentName}-raft-apiservice.azurewebsites.net",
   "rootFileShare": "raft",
   "readOnlyFileShareMounts": [
     {
@@ -7,35 +6,40 @@
       "MountPath": "/job-compile"
     }
   ],
-  "tasks": [
-    {
-      "toolName": "RESTler",
-      "outputFolder": "RESTler-test",
-      "keyVaultSecrets": [ "RaftServicePrincipal" ],
-      "authenticationMethod": {
-        "MSAL": "RaftServicePrincipal"
-      },
-      "toolConfiguration": {
-        "task": "Test",
-        "runConfiguration": {
-          "inputFolderPath": "/job-compile/{compile.jobId}/compile"
-        }
-      }
+  "testTasks": {
+    "testTargetConfiguration" : {
+      "host": "{defaults.deploymentName}-raft-apiservice.azurewebsites.net",
     },
-    {
-      "toolName": "RESTler",
-      "outputFolder": "RESTler-test-fuzz-lean",
-      "keyVaultSecrets": [ "RaftServicePrincipal" ],
-      "authenticationMethod": {
-        "MSAL": "RaftServicePrincipal"
+    "tasks": [
+      {
+        "toolName": "RESTler",
+        "outputFolder": "RESTler-test",
+        "keyVaultSecrets": [ "RaftServicePrincipal" ],
+        "authenticationMethod": {
+          "MSAL": "RaftServicePrincipal"
+        },
+        "toolConfiguration": {
+          "task": "Test",
+          "runConfiguration": {
+            "inputFolderPath": "/job-compile/{compile.jobId}/compile"
+          }
+        }
       },
-      "toolConfiguration": {
-        "task": "TestFuzzLean",
-        "runConfiguration": {
-          "inputFolderPath": "/job-compile/{compile.jobId}/compile",
-          "authenticationTokenRefreshIntervalSeconds": 300
+      {
+        "toolName": "RESTler",
+        "outputFolder": "RESTler-test-fuzz-lean",
+        "keyVaultSecrets": [ "RaftServicePrincipal" ],
+        "authenticationMethod": {
+          "MSAL": "RaftServicePrincipal"
+        },
+        "toolConfiguration": {
+          "task": "TestFuzzLean",
+          "runConfiguration": {
+            "inputFolderPath": "/job-compile/{compile.jobId}/compile",
+            "authenticationTokenRefreshIntervalSeconds": 300
+          }
         }
       }
-    }
-  ]
+    ]
+  }
 }

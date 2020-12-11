@@ -61,10 +61,13 @@ type jobsPOSTTests() =
 
             let contents = File.ReadAllText("test-restler-compile.json")
             let compileJobDefinition = Newtonsoft.Json.JsonConvert.DeserializeObject<DTOs.JobDefinition>(contents, Fixtures.createSerializerSettings())
+            
             let compileJobDefinition =
-                {
-                    compileJobDefinition with
-                        Tasks = Array.empty
+                { compileJobDefinition with
+                    TestTasks = {
+                            compileJobDefinition.TestTasks with
+                                Tasks = Array.empty
+                    }
                 }
 
             let jobController = jobsController(Fixtures.createFakeTelemetryClient, Fixtures.createFakeLogger<jobsController>)

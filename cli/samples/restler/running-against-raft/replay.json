@@ -5,23 +5,25 @@
       "MountPath": "/job-run"
     }
   ],
-  "tasks": [
-    {
-      "toolName": "RESTler",
-      "outputFolder": "RESTler-replay-{experiment}-bugBucket",
-      "keyVaultSecrets": [ "RaftServicePrincipal" ],
-      "authenticationMethod": {
-        "MSAL": "RaftServicePrincipal"
-      },
-      "toolConfiguration": {
-        "task": "Replay",
-        "runConfiguration": {
-          "inputFolderPath": "/job-run/{outputFolder}/RestlerResults/{experiment}/bug_buckets"
+  "testTasks": {
+    "tasks": [
+      {
+        "toolName": "RESTler",
+        "outputFolder": "RESTler-replay-{experiment}-bugBucket",
+        "keyVaultSecrets": [ "RaftServicePrincipal" ],
+        "authenticationMethod": {
+          "MSAL": "RaftServicePrincipal"
         },
-        "replayConfiguration": {
-          "bugBuckets": [ "{bugBucket}" ]
+        "toolConfiguration": {
+          "task": "Replay",
+          "runConfiguration": {
+            "inputFolderPath": "/job-run/{outputFolder}/RestlerResults/{experiment}/bug_buckets"
+          },
+          "replayConfiguration": {
+            "bugBuckets": [ "{bugBucket}" ]
+          }
         }
       }
-    }
-  ]
+    ]
+  }
 }

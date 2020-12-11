@@ -1,12 +1,16 @@
 {
-  "apiSpecifications": [
-    "https://{sample.host}/swagger/v1/swagger.json"
-  ],
-  "host": "{sample.host}",
-  "tasks": [
-    {
-      "toolName": "ZAP",
-      "outputFolder": "zap-out"
-    }
-  ]
+  "testTasks" : {
+    "tasks": [
+      {
+        "toolName": "ZAP",
+        "outputFolder": "zap-out",
+        "testTargetConfiguration" : {
+          "apiSpecifications": [
+            "https://{sample.host}/swagger/v1/swagger.json"
+          ],
+          "host": "{sample.host}"
+        }
+      }
+    ]
+  }
 }

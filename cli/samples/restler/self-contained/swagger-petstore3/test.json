@@ -1,7 +1,6 @@
 {
   "rootFileShare" : "{ci-run}",
   "namePrefix" : "petstore3-test-",
-  "host": "localhost",
 
   "resources": {
     "Cores": 4,
@@ -41,20 +40,23 @@
       }
     ]
   },
-  "tasks": [
-    {
-      "toolName": "RESTler",
-      "outputFolder": "test",
-      "toolConfiguration": {
-        "task": "test",
-        "runConfiguration": {
-          "targetEndpointConfiguration" : {
-            "Port" : 8080 
-          },
-          "useSsl" : false,
-          "inputFolderPath": "/ci-run/{compile.jobId}/compile"
+  "testTasks" : {
+    "tasks": [
+      {
+        "toolName": "RESTler",
+        "testTargetConfiguration" : {
+          "host": "localhost",
+          "Port" : 8080 
+        },
+        "outputFolder": "test",
+        "toolConfiguration": {
+          "task": "test",
+          "runConfiguration": {
+            "useSsl" : false,
+            "inputFolderPath": "/ci-run/{compile.jobId}/compile"
+          }
         }
       }
-    }
-  ]
+    ]
+  }
 }

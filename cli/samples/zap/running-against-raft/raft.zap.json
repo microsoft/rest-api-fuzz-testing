@@ -1,17 +1,21 @@
 {
-  "apiSpecifications": [
-    "https://{defaults.deploymentName}-raft-apiservice.azurewebsites.net/swagger/v1/swagger.json"
-  ],
-  "host": "{defaults.deploymentName}-raft-apiservice.azurewebsites.net",
-  "tasks": [
-    {
-      "toolName": "ZAP",
-      "keyVaultSecrets": [ "RaftServicePrincipal" ],
-      "outputFolder": "zap-results",
+  "testTasks" : {
+    "testTargetConfiguration" : {
+      "host": "{defaults.deploymentName}-raft-apiservice.azurewebsites.net",
+      "apiSpecifications": [
+        "https://{defaults.deploymentName}-raft-apiservice.azurewebsites.net/swagger/v1/swagger.json"
+      ]
+    },
+    "tasks": [
+      {
+        "toolName": "ZAP",
+        "keyVaultSecrets": [ "RaftServicePrincipal" ],
+        "outputFolder": "zap-results",
 
-      "authenticationMethod": {
-        "MSAL": "RaftServicePrincipal"
+        "authenticationMethod": {
+          "MSAL": "RaftServicePrincipal"
+        }
       }
-    }
-  ]
+    ]
+  }
 }
