@@ -18,7 +18,7 @@ subscription and receive $200 in credits. You can run this service (and much mor
 free for 30 days!
 
 To deploy the service download the CLI release and run `python raft.py service deploy`. See
-the [documentation](docs/how-to-deploy.md) for more details.
+the [documentation](docs/how-to-deploy.md) for more details and the video tutorials linked below.
 
 Once deployed, read about [how to submit a job](docs/how-to-submit-a-job.md) and
 use the [samples](docs/samples.md) to try out the service and fuzzers!
@@ -28,6 +28,7 @@ use the [samples](docs/samples.md) to try out the service and fuzzers!
 * [Table of Contents](docs/index.md)
 * [Overview](docs/how-it-works)
 * [FAQ](docs/faq.md)
+* [Video Tutorials](https://www.youtube.com/channel/UCUgE9Mv0GsavLg4I7z0lHVA)
 
 ### Swagger Documentation
 Once the service is created, you can examine the REST interface of the service by browsing to the swagger page at https://\<deploymentName\>-raft-apiservice.azurewebsites.net/swagger
