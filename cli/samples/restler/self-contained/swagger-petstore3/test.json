@@ -26,7 +26,7 @@
       "Cores" : 2,
       "MemoryGBs" : 4
     },
-    "targets" : [
+    "services" : [
       {
         "Container" : "swaggerapi/petstore3",
         "Ports" : [8080],

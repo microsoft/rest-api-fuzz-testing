@@ -76,8 +76,8 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
         if isSet requestPayload.TestTasks.TargetConfiguration && isSet requestPayload.TestTasks.TargetConfiguration.ApiSpecifications then
             requestPayload.TestTasks.TargetConfiguration.ApiSpecifications |> Array.iter validateApiSpecification
 
-        if isSet requestPayload.TestTargets && isSet requestPayload.TestTargets.Targets then
-            requestPayload.TestTargets.Targets
+        if isSet requestPayload.TestTargets && isSet requestPayload.TestTargets.Services then
+            requestPayload.TestTargets.Services
             |> Array.iter(fun tt ->
                 if String.IsNullOrWhiteSpace tt.Shell then
                     if isSet tt.PostRun || isSet tt.Idle || isSet tt.Run then

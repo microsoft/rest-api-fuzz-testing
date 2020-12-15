@@ -169,7 +169,7 @@ module DTOs =
         }
 
     [<CLIMutable>]
-    type TestTargetDefinition =
+    type ServiceDefinition =
         {
             [<Required>]
             Container : string
@@ -192,7 +192,7 @@ module DTOs =
     type TestTargets =
         {
             Resources : Resources
-            Targets : TestTargetDefinition array
+            Services : ServiceDefinition array
         }
 
 

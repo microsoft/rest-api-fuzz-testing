@@ -1,6 +1,6 @@
 {
   "testTargets" : {
-    "targets":
+    "services":
       [
         {
           "Container" : "swaggerapi/petstore3",

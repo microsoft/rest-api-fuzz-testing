@@ -11,7 +11,7 @@
   ],
 
  "testTargets" : { 
-    "targets" : [
+    "services" : [
       {
         "Container" : "swaggerapi/petstore",
         "Ports" : [8080],

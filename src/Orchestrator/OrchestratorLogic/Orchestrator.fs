@@ -379,7 +379,7 @@ module ContainerInstances =
 
             match jobCreateRequest.JobDefinition.TestTargets with
             | Some tt ->
-                for target in tt.Targets do
+                for target in tt.Services do
                     match target.OutputFolder with
                     | Some outputFolder ->
                         let taskDirectory = sprintf "%s%s" subDirectory outputFolder
@@ -734,10 +734,10 @@ module ContainerInstances =
                         match jobCreateRequest.JobDefinition.TestTargets with
                         | None -> TimeSpan.Zero
                         | Some ts ->
-                            if Array.isEmpty ts.Targets then
+                            if Array.isEmpty ts.Services then
                                 TimeSpan.Zero
                             else
-                                (ts.Targets |> Array.maxBy (fun t -> t.ExpectedDurationUntilReady)).ExpectedDurationUntilReady
+                                (ts.Services |> Array.maxBy (fun t -> t.ExpectedDurationUntilReady)).ExpectedDurationUntilReady
 
                     let setupContainerEnvironment (i : int) (config: ContainerToolRun) =
                         let secrets =
@@ -813,7 +813,7 @@ module ContainerInstances =
                             match jobCreateRequest.JobDefinition.TestTargets with
                             | Some t ->
                                 let targetRuns =
-                                    t.Targets
+                                    t.Services
                                     |> Array.mapi (fun i target ->
                                         {
                                             ContainerName = sprintf "%s-%d" TestTarget i
@@ -855,7 +855,7 @@ module ContainerInstances =
                             | None -> None
                             | Some tt ->
                                 let timeOut =
-                                    tt.Targets
+                                    tt.Services
                                     |> Array.map (fun t ->
                                         match t.PostRun with
                                         | None -> None

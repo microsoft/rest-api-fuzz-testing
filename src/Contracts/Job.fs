@@ -32,7 +32,7 @@ type Command =
         ExpectedRunDuration: System.TimeSpan option
     }
 
-type TestTargetDefinition =
+type ServiceDefinition =
     //accessible within conatiner group at localhost:port
     {
         Container : string
@@ -55,7 +55,7 @@ type TestTargetDefinition =
 type TestTarget =
     {
         Resources : Resources
-        Targets : TestTargetDefinition array
+        Services : ServiceDefinition array
     }
 
 type TargetConfiguration =
