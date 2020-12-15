@@ -1,5 +1,4 @@
 {
-  "host": "localhost",
   "webhook": {
     "name": "petstore-fuzz"
   },
@@ -26,25 +25,28 @@
       }
     ]
   },
-  "tasks": [
-    {
-      "toolName": "RESTler",
-      "outputFolder": "{outputFolder}",
-      "duration": "00:10:00",
-      "toolConfiguration": {
-        "task": "Fuzz",
-        "runConfiguration": {
-          "targetEndpointConfiguration" : {
-            "Port" : 8080 
-          },
-          "useSsl" : false,
-          "inputFolderPath": "/job-compile/compile",
-          "IgnoreBugHashes" : [
-            "PayloadBodyChecker_500_3d6e2d1e897967f3bc14cd8f08252a98b25c4d48",
-            "PayloadBodyChecker_500_6a4f4fb484d57121a271a4c65948ba8149e92dee"
-          ]
+  "testTasks" : {
+    "testTargetConfiguration" : {
+      "host": "localhost",
+      "port" : 8080
+    },
+    "tasks": [
+      {
+        "toolName": "RESTler",
+        "outputFolder": "{outputFolder}",
+        "duration": "00:10:00",
+        "toolConfiguration": {
+          "task": "Fuzz",
+          "runConfiguration": {
+            "useSsl" : false,
+            "inputFolderPath": "/job-compile/compile",
+            "IgnoreBugHashes" : [
+              "PayloadBodyChecker_500_3d6e2d1e897967f3bc14cd8f08252a98b25c4d48",
+              "PayloadBodyChecker_500_6a4f4fb484d57121a271a4c65948ba8149e92dee"
+            ]
+          }
         }
       }
-    }
-  ]
+    ]
+  }
 }

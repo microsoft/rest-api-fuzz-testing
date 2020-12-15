@@ -371,7 +371,7 @@ module ContainerInstances =
 
             do! saveString (sprintf "%sjob-config.json" subDirectory) (Microsoft.FSharpLu.Json.Compact.Strict.serialize jobCreateRequest)
 
-            for task in jobCreateRequest.JobDefinition.Tasks do
+            for task in jobCreateRequest.JobDefinition.TestTasks.Tasks do
                 let taskDirectory = sprintf "%s%s" subDirectory task.OutputFolder
                 let directoryClient = shareClient.GetDirectoryClient(taskDirectory)
                 let! _  = directoryClient.CreateIfNotExistsAsync().ToAsync
@@ -539,14 +539,14 @@ module ContainerInstances =
 
             let! shareName = createJobShareAndFolders logger containerGroupName sasUrl jobCreateRequest
 
-            jobCreateRequest.JobDefinition.Tasks
+            jobCreateRequest.JobDefinition.TestTasks.Tasks
             |> Array.countBy(fun task -> task.ToolName)
             |> (fun tasks ->
-                Central.Telemetry.TrackMetric(TelemetryValues.Tasks(tasks, jobCreateRequest.JobDefinition.Tasks.Length), "N")
+                Central.Telemetry.TrackMetric(TelemetryValues.Tasks(tasks, jobCreateRequest.JobDefinition.TestTasks.Tasks.Length), "N")
             )
 
             let! containerToolRuns = 
-                jobCreateRequest.JobDefinition.Tasks 
+                jobCreateRequest.JobDefinition.TestTasks.Tasks 
                 |> Array.mapi (fun i task ->
                                 async {
                                     let! (runDirectory, toolConfig) = makeToolConfig task
@@ -667,7 +667,7 @@ module ContainerInstances =
         async {
             let logInfo format = Printf.kprintf logger.LogInformation format
             try
-                if Array.isEmpty jobCreateRequest.JobDefinition.Tasks then
+                if Array.isEmpty jobCreateRequest.JobDefinition.TestTasks.Tasks then
                     return failwithf "No tasks defined for the job: %A" jobCreateRequest.JobId
                 else
                     logInfo "Creating container group for job: %A" jobCreateRequest.JobId

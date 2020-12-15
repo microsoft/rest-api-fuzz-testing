@@ -58,19 +58,26 @@ type TestTarget =
         Targets : TestTargetDefinition array
     }
 
+type TestTargetConfiguration =
+    {
+        Host : string option
+        Port : int option
+        IP : string option
+
+        /// where to get service under test API specifications definition from
+        /// Could be file path or url
+        ApiSpecifications : (ApiSpecification array) option
+    }
+
 type RaftTask =
     {
         ToolName: string
 
+        TestTargetConfiguration: TestTargetConfiguration option
+
         IsIdling: bool
         /// Output folder name to store agent generated output
         OutputFolder : string
-
-        /// overwrite where to get swagger definition from
-        ApiSpecifications : (ApiSpecification array) option
-
-        /// The string to use in overriding the Host for each request
-        Host : string option
 
         /// Duration of the job; if not set, then job runs till completion
         Duration: System.TimeSpan option
@@ -81,6 +88,12 @@ type RaftTask =
         AuthenticationMethod : Authentication.TokenRefresh option
 
         ToolConfiguration : Newtonsoft.Json.Linq.JObject
+    }
+
+type TestTasks =
+    {
+        TestTargetConfiguration : TestTargetConfiguration option
+        Tasks : RaftTask array
     }
 
 type FileShareMount =
@@ -98,9 +111,6 @@ type Webhook =
 
 type JobDefinition =
     {
-        /// where to get swagger definition from
-        ApiSpecifications : (ApiSpecification array) option
-
         /// prefix for jobId
         NamePrefix : string option
 
@@ -114,7 +124,7 @@ type JobDefinition =
         // !!NOTE!!: according to Azure Container spec, we can have up to 60 elements
         // of TestTargets and Tasks combined
         TestTargets : TestTarget option
-        Tasks : RaftTask array
+        TestTasks : TestTasks
 
         /// Duration of the job; if not set, then job runs till completion
         Duration: System.TimeSpan option

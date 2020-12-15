@@ -1,7 +1,6 @@
 { 
   "rootFileShare" : "{ci-run}",
   "namePrefix" : "petstore3-compile-",
-  "apiSpecifications": ["http://localhost:8082/api/v3/openapi.json"],
 
   "resources": {
     "Cores": 4,
@@ -30,13 +29,18 @@
         }
     ]
   },
-  "tasks": [
-    {
-      "toolName": "RESTler",
-      "outputFolder": "compile",
-      "toolConfiguration": {
-        "task": "Compile"
+  "testTasks" : {
+    "testTargetConfiguration" : {
+      "apiSpecifications": ["http://localhost:8082/api/v3/openapi.json"]
+    },
+    "tasks": [
+      {
+        "toolName": "RESTler",
+        "outputFolder": "compile",
+        "toolConfiguration": {
+          "task": "Compile"
+        }
       }
-    }
-  ]
+    ]
+  }
 }

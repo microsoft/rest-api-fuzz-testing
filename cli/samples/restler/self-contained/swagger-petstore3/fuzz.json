@@ -1,7 +1,6 @@
 {
   "rootFileShare" : "{ci-run}",
   "namePrefix" : "petstore3-test-fuzz-lean-",
-  "host": "localhost",
 
   "resources": {
     "Cores": 4,
@@ -48,28 +47,33 @@
       }
     ]
   },
-  "tasks": [
-    {
-      "toolName": "RESTler",
-      "outputFolder": "fuzz",
-      "duration": "00:10:00",
-      "toolConfiguration": {
-        "task": "Fuzz",
-        "runConfiguration": {
-          "targetEndpointConfiguration" : {
-            "Port" : 8081 
-          },
-          "useSsl" : false,
-          "inputFolderPath": "/ci-run/{compile.jobId}/compile"
+  "testTasks" : {
+    "tasks": [
+      {
+        "toolName": "RESTler",
+        "outputFolder": "fuzz",
+        "duration": "00:10:00",
+        "testTargetConfiguration" : {
+          "host": "localhost",
+          "Port" : 8081
+        },
+        "toolConfiguration": {
+          "task": "Fuzz",
+          "runConfiguration": {
+            "useSsl" : false,
+            "inputFolderPath": "/ci-run/{compile.jobId}/compile"
+          }
+        }
+      },  
+      {
+        "toolName": "ZAP",
+        "outputFolder": "zap",
+        "testTargetConfiguration" : {
+          "apiSpecifications": [
+            "http://localhost:8082/api/v3/openapi.json"
+          ]
         }
       }
-    },  
-    {
-      "toolName": "ZAP",
-      "outputFolder": "zap",
-      "apiSpecifications": [
-        "http://localhost:8082/api/v3/openapi.json"
-      ]
-    }
-  ]
+    ]
+  }
 }

@@ -1,24 +1,30 @@
 {
-  "apiSpecifications": ["https://{defaults.deploymentName}-raft-apiservice.azurewebsites.net/swagger/v1/swagger.json" ],
-  "tasks": [
-    {
-      "toolName": "RESTler",
-      "outputFolder": "{defaults.deploymentName}-compile",
+  "testTasks" : {
+    "testTargetConfiguration" : {
+      "apiSpecifications": ["https://{defaults.deploymentName}-raft-apiservice.azurewebsites.net/swagger/v1/swagger.json" ]
+    },
+    "tasks": [
+      {
+        "toolName": "RESTler",
+        "outputFolder": "{defaults.deploymentName}-compile",
 
-      "toolConfiguration": {
-        "task": "Compile",
-        "compileConfiguration": {
-          "useRefreshableToken": true
+        "toolConfiguration": {
+          "task": "Compile",
+          "compileConfiguration": {
+            "useRefreshableToken": true
+          }
+        }
+      },
+      {
+        "toolName": "RESTler",
+        "outputFolder": "sample-compile",
+        "testTargetConfiguration" : {
+          "apiSpecifications": ["https://{sample.host}/swagger/v1/swagger.json"]
+        },
+        "toolConfiguration": {
+          "task": "Compile"
         }
       }
-    },
-    {
-      "toolName": "RESTler",
-      "outputFolder": "sample-compile",
-      "toolConfiguration": {
-        "task": "Compile"
-      },
-      "apiSpecifications": ["https://{sample.host}/swagger/v1/swagger.json"]
-    }
-  ]
+    ]
+  }
 }

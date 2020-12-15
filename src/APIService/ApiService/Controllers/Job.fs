@@ -46,7 +46,7 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
         let inline isNotSet (o : ^T) = isNull (box o)
         let inline isSet (o : ^T) = o |> isNotSet |> not
 
-        if Array.isEmpty requestPayload.Tasks then
+        if Array.isEmpty requestPayload.TestTasks.Tasks then
             raiseApiError ({ 
                 Error =
                     { 
@@ -58,7 +58,7 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                     }
                 })
 
-        let outputFolders = requestPayload.Tasks |> Array.map (fun t -> t.OutputFolder) |> Array.sort
+        let outputFolders = requestPayload.TestTasks.Tasks |> Array.map (fun t -> t.OutputFolder) |> Array.sort
 
         let validateApiSpecification (apiSpecification:string) =
             // Validate the swagger URL.
@@ -73,8 +73,8 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                         }
                     })
 
-        if isSet requestPayload.ApiSpecifications then
-            requestPayload.ApiSpecifications |> Array.iter validateApiSpecification
+        if isSet requestPayload.TestTasks.TestTargetConfiguration && isSet requestPayload.TestTasks.TestTargetConfiguration.ApiSpecifications then
+            requestPayload.TestTasks.TestTargetConfiguration.ApiSpecifications |> Array.iter validateApiSpecification
 
         if isSet requestPayload.TestTargets && isSet requestPayload.TestTargets.Targets then
             requestPayload.TestTargets.Targets
@@ -179,34 +179,33 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
 
         let requestPayload =
             {requestPayload with
-                Tasks =
-                    requestPayload.Tasks
-                    |> Array.map (fun t ->
-                        if isNotSet t.ApiSpecifications then
-                            { t with ApiSpecifications = requestPayload.ApiSpecifications}
-                        else
-                            t
-                    )
-                    |> Array.map(fun t ->
-                        if String.IsNullOrWhiteSpace t.Host then
-                            { t with Host = requestPayload.Host }
-                        else
-                            t
-                    )
-                    |> Array.map(fun t ->
-                        if not t.Duration.HasValue then
-                            { t with Duration = requestPayload.Duration }
-                        else
-                            t
-                    )
-            }
+                TestTasks =
+                    {requestPayload.TestTasks with
+                        Tasks =
+                            requestPayload.TestTasks.Tasks
+                            |> Array.map (fun t ->
+                                if isNotSet t.TestTargetConfiguration then
+                                    { t with
+                                        TestTargetConfiguration = requestPayload.TestTasks.TestTargetConfiguration
+                                    }
+                                else
+                                    t
+                            )
+                            |> Array.map(fun t ->
+                                if not t.Duration.HasValue then
+                                    { t with Duration = requestPayload.Duration }
+                                else
+                                    t
+                            )
+                    }
+                }
 
         let taskAuthentication =
-            requestPayload.Tasks
+            requestPayload.TestTasks.Tasks
             |> Array.filter(fun t -> isSet t.AuthenticationMethod)
             |> Array.map (fun t -> t.AuthenticationMethod)
 
-        if requestPayload.Tasks.Length > requestPayload.Resources.MemoryGBs * 10 then
+        if requestPayload.TestTasks.Tasks.Length > requestPayload.Resources.MemoryGBs * 10 then
             raiseApiError ({ 
                 Error =
                     { 
@@ -271,7 +270,7 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                     }
             })
 
-        requestPayload.Tasks
+        requestPayload.TestTasks.Tasks
         |> Array.iter(fun t ->
             if not <| Utilities.toolsSchemas.ContainsKey t.ToolName then
                 raiseApiError({
@@ -284,8 +283,8 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                     }
                 })
 
-            if isSet t.ApiSpecifications then
-                t.ApiSpecifications |> Array.iter validateApiSpecification
+            if isSet t.TestTargetConfiguration.ApiSpecifications then
+                t.TestTargetConfiguration.ApiSpecifications |> Array.iter validateApiSpecification
         )
 
         if isSet requestPayload.ReadOnlyFileShareMounts then
@@ -653,12 +652,21 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
             let! result = Utilities.raftStorage.GetJobStatusEntities query
 
             let statuses : DTOs.JobStatus seq = result
-                                                |> Seq.map(fun (s: JobStatusEntity) -> Raft.Message.RaftEvent.deserializeEvent s.JobStatus)
+                                                |> Seq.map(fun (s: JobStatusEntity) ->
+                                                    try
+                                                        Some (Raft.Message.RaftEvent.deserializeEvent s.JobStatus)
+                                                    with
+                                                    | ex ->
+                                                        log.Error (sprintf "Failed to deserialize: %A due to %A" s.JobStatus ex) []
+                                                        None
+                                                    )
+                                                |> Seq.choose id
                                                 |> Seq.map (fun jobStatus -> jobStatus.Message)
 
             stopWatch.Stop()
             Central.Telemetry.TrackMetric (TelemetryValues.ApiRequest(method, float stopWatch.ElapsedMilliseconds), "milliseconds", this :> ControllerBase)
             return JsonResult(statuses)
+
         }
 
       

@@ -93,7 +93,7 @@ class StatusReporter(StreamHandler):
 
 zap = __import__("zap-api-scan")
 
-def run_zap(target_index, targets_total, target, token):
+def run_zap(target_index, targets_total, host, target, token):
     if token:
         utils.log_trace('Authentication token is set')
         auth = ('-config replacer.full_list(0).description=auth1'
@@ -107,6 +107,11 @@ def run_zap(target_index, targets_total, target, token):
         utils.log_trace('Authentication token is not set')
         zap_auth_config = []
 
+    if host:
+        host_config = ['-O', host]
+        utils.log_trace(f'OpenAPI host override is set to {host}')
+    else:
+        host_config = []
     os.chdir(zap_dir)
     r = 0
     try:
@@ -122,7 +127,13 @@ def run_zap(target_index, targets_total, target, token):
         status_reporter = StatusReporter(details)
         logger = logging.getLogger()
         logger.addHandler(status_reporter)
-        zap.main(['-t', target, '-f', 'openapi', '-J', f'{target_index}-report.json', '-r', f'{target_index}-report.html', '-w', f'{target_index}-report.md', '-x', f'{target_index}-report.xml', '-d'] + zap_auth_config)
+        zap.main([ '-t', target,
+                   '-f', 'openapi',
+                   '-J', f'{target_index}-report.json',
+                   '-r', f'{target_index}-report.html',
+                   '-w', f'{target_index}-report.md',
+                   '-x', f'{target_index}-report.xml',
+                   '-d'] + zap_auth_config + host_config)
         details["Scan progress"] = "Active scan progress %: 100"
         utils.report_status_running(details)
 
@@ -140,10 +151,10 @@ def run_zap(target_index, targets_total, target, token):
     utils.sb_client.close()
     return r
 
-def run(target_index, targets_total, target, token):
+def run(target_index, targets_total, host, target, token):
     try:
         utils.report_status_created()
-        return run_zap(target_index, targets_total, target, token)
+        return run_zap(target_index, targets_total, host, target, token)
     except Exception as ex:
         utils.log_exception()
         utils.report_status_error({"Error" : f"{ex}"})
@@ -155,10 +166,22 @@ def run(target_index, targets_total, target, token):
 if __name__ == "__main__":
     target_index = int(sys.argv[1])
     targets_total = int(sys.argv[2])
-    target = sys.argv[3]
 
-    if len(sys.argv) == 5:
-        run(target_index, targets_total, target, sys.argv[4])
-    else:
-        run(target_index, targets_total, target, None)
+    host = None
+    target = None
+    token = None
 
+    args = sys.argv
+    i = 1
+    for arg in args[i:]:
+        if arg == '--target':
+            target = args[i+1]
+
+        if arg == '--token':
+            token = args[i+1]
+
+        if arg == '--host':
+            host = args[i+1]
+        i=i+1
+
+    run(target_index, targets_total, host, target, token)

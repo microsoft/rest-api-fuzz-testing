@@ -49,11 +49,20 @@ if __name__ == "__main__":
         with open(os.path.join(work_directory, 'task-config.json'), 'r') as task_config:
             config = json.load(task_config)
         i = 0
-        n_targets = len(config.get("apiSpecifications"))
-        for t in config.get("apiSpecifications"):
+        test_target_config = config['testTargetConfiguration']
+        host = test_target_config.get('host')
+        port = test_target_config.get('port')
+        n_targets = len(test_target_config.get("apiSpecifications"))
+        for t in test_target_config.get("apiSpecifications"):
             print(f'Starting zap for target {t}')
+            args = [sys.executable, "scan.py", f"{i}", f"{n_targets}", '--target', t]
             if token:
-                subprocess.check_call([sys.executable, "scan.py", f"{i}", f"{n_targets}", t, token])
-            else:
-                subprocess.check_call([sys.executable, "scan.py", f"{i}", f"{n_targets}", t])
+                args.extend(['--token', token])
+
+            if host:
+                if port:
+                    host = f"{host}:{port}"
+                args.extend(['--host', host])
+
+            subprocess.check_call(args)
             i = i + 1

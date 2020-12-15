@@ -1,7 +1,4 @@
 {
-  "apiSpecifications": [
-    "http://localhost:8080/api/swagger.json"
-  ],
   "webhook": {
     "name": "petstore-compile"
   },
@@ -20,13 +17,20 @@
       }
     ]
   },
-  "tasks": [
-    {
-      "toolName": "RESTler",
-      "outputFolder": "compile",
-      "toolConfiguration": {
-        "task": "Compile"
+  "testTasks" : {
+    "testTargetConfiguration" : {
+      "apiSpecifications": [
+        "http://localhost:8080/api/swagger.json"
+      ]
+    },
+    "tasks": [
+      {
+        "toolName": "RESTler",
+        "outputFolder": "compile",
+        "toolConfiguration": {
+          "task": "Compile"
+        }
       }
-    }
-  ]
+    ]
+  }
 }

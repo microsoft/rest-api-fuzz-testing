@@ -1,19 +1,23 @@
 {
-  "apiSpecifications": [
-    "https://{sample.host}/swagger/v1/swagger.json"
-  ],
   "namePrefix": "sample-compile-",
   "webhook": {
-    "name": "sample-compile",
-    "metadata": {}
+    "name": "sample-compile"
   },
-  "tasks": [
-    {
-      "toolName": "RESTler",
-      "outputFolder": "compile",
-      "toolConfiguration": {
-        "task": "Compile"
+  
+  "testTasks": {
+    "testTargetConfiguration" : {
+      "apiSpecifications": [
+        "https://{sample.host}/swagger/v1/swagger.json"
+      ]
+    },
+    "tasks": [
+      {
+        "toolName": "RESTler",
+        "outputFolder": "compile",
+        "toolConfiguration": {
+          "task": "Compile"
+        }
       }
-    }
-  ]
+    ]
+  }
 }
