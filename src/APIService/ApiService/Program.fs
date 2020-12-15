@@ -30,10 +30,10 @@ open Swashbuckle.AspNetCore.SwaggerGen
 
 module main = 
 
-    let loadSchemaDocuments() = 
+    let loadSchemaDocuments (settings : IConfiguration) = 
         async {
-            let utilsFileShare = Environment.GetEnvironmentVariable("RAFT_UTILS_FILESHARE")
-            let utilsSas = Environment.GetEnvironmentVariable("RAFT_UTILS_SAS")
+            let utilsFileShare = settings.["RAFT_UTILS_FILESHARE"]
+            let utilsSas = settings.["RAFT_UTILS_SAS"]
 
             let directoryClient = Azure.Storage.Files.Shares.ShareDirectoryClient(utilsSas, utilsFileShare, "tools")
 
@@ -102,7 +102,7 @@ module main =
         interface ISchemaFilter with
             member this.Apply(schema: OpenApiSchema, context: SchemaFilterContext): unit =
                 if not (isNull context.MemberInfo) &&
-                   context.MemberInfo.Name = "TaskConfiguration" &&
+                   context.MemberInfo.Name = "ToolConfiguration" &&
                    context.MemberInfo.DeclaringType.Name = "RaftTask" then
 
                    let schemaDocuments = getSchemaDocuments (Utilities.toolsSchemas) |> Async.RunSynchronously
@@ -149,7 +149,7 @@ module main =
         printfn "Initializing central telemetry"
         ignore <| Central.Initialize (TelemetryClient(new TelemetryConfiguration(metricsKey), InstrumentationKey = metricsKey)) siteHash
 
-        Raft.Utilities.toolsSchemas <- loadSchemaDocuments () |> Async.RunSynchronously
+        Raft.Utilities.toolsSchemas <- loadSchemaDocuments settings |> Async.RunSynchronously
         Raft.Utilities.serviceStartTime <- System.DateTimeOffset.UtcNow
         Raft.Utilities.raftStorage <- Raft.Storage.RaftStorage(settings.[Constants.StorageTableConnectionString])
         Raft.Utilities.serviceBusSenders <- Map.empty
