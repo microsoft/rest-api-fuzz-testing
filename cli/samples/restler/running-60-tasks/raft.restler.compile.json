@@ -5,7 +5,7 @@
   },
   "rootFileShare": "60-compile",
   "testTasks": {
-    "testTargetConfiguration" : {
+    "targetConfiguration" : {
       "apiSpecifications": [
         "https://{host}/swagger/v1/swagger.json"
       ]

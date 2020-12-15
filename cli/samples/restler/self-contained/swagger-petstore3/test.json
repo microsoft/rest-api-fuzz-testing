@@ -44,7 +44,7 @@
     "tasks": [
       {
         "toolName": "RESTler",
-        "testTargetConfiguration" : {
+        "targetConfiguration" : {
           "host": "localhost",
           "Port" : 8080 
         },

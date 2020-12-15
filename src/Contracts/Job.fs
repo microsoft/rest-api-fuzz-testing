@@ -58,7 +58,7 @@ type TestTarget =
         Targets : TestTargetDefinition array
     }
 
-type TestTargetConfiguration =
+type TargetConfiguration =
     {
         Host : string option
         Port : int option
@@ -73,7 +73,7 @@ type RaftTask =
     {
         ToolName: string
 
-        TestTargetConfiguration: TestTargetConfiguration option
+        TargetConfiguration: TargetConfiguration option
 
         IsIdling: bool
         /// Output folder name to store agent generated output
@@ -92,7 +92,7 @@ type RaftTask =
 
 type TestTasks =
     {
-        TestTargetConfiguration : TestTargetConfiguration option
+        TargetConfiguration : TargetConfiguration option
         Tasks : RaftTask array
     }
 

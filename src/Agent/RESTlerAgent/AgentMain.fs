@@ -174,13 +174,13 @@ let createRESTlerEngineParameters
         MutationsFilePath = mutationsFilePath
 
         /// The string to use in overriding the Host for each request
-        Host =  match task.TestTargetConfiguration with Some tt -> tt.Host | None -> None
+        Host =  match task.TargetConfiguration with Some tt -> tt.Host | None -> None
 
         /// The IP of the endpoint being fuzzed
-        TargetIp = match task.TestTargetConfiguration with Some tt -> tt.IP | None -> None
+        TargetIp = match task.TargetConfiguration with Some tt -> tt.IP | None -> None
 
         /// The port of the endpoint being fuzzed
-        TargetPort = match task.TestTargetConfiguration with Some tt -> tt.Port | None -> None
+        TargetPort = match task.TargetConfiguration with Some tt -> tt.Port | None -> None
 
         /// The maximum fuzzing time in hours
         MaxDurationHours = task.Duration |> Option.map(fun d -> d.TotalHours)
@@ -556,11 +556,11 @@ let main argv =
 
         let compileSwaggerGrammar(compilerConfiguration) =
             async {
-                match task.TestTargetConfiguration with
-                | None -> return failwith "Cannot perform compilation step, since TestTargetConfiguration is not set"
-                | Some testTargetConfiguration ->
-                    match testTargetConfiguration.ApiSpecifications with
-                    | None -> return failwith "Cannot perform compilation step, since ApiSpecifications are not set in TestTargetConfiguration, i.e. Swagger Grammar location"
+                match task.TargetConfiguration with
+                | None -> return failwith "Cannot perform compilation step, since TargetConfiguration is not set"
+                | Some targetConfiguration ->
+                    match targetConfiguration.ApiSpecifications with
+                    | None -> return failwith "Cannot perform compilation step, since ApiSpecifications are not set in TargetConfiguration, i.e. Swagger Grammar location"
                     | Some apiSpecifications ->
                         let! apiSpecifications =
                             apiSpecifications
@@ -698,13 +698,13 @@ let main argv =
             async {
                 //same command line parameters as fuzzing, except for fuzzing parameter pass sprintf "--replay_log %s" replayLogFilePath
                 let task =
-                    match task.TestTargetConfiguration with
+                    match task.TargetConfiguration with
                     | None ->
                         let taskConfigurationPath = jobConfiguration.InputFolderPath ++ ".." ++ ".." ++ ".." ++ IO.FileInfo(taskConfigurationPath).Name
                         let prevTask: Raft.Job.RaftTask = Json.Compact.deserializeFile taskConfigurationPath
                         {
                             task with
-                                TestTargetConfiguration = prevTask.TestTargetConfiguration
+                                TargetConfiguration = prevTask.TargetConfiguration
                         }
 
                     | _ -> task

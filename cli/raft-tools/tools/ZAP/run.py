@@ -49,7 +49,7 @@ if __name__ == "__main__":
         with open(os.path.join(work_directory, 'task-config.json'), 'r') as task_config:
             config = json.load(task_config)
         i = 0
-        test_target_config = config['testTargetConfiguration']
+        test_target_config = config['targetConfiguration']
         host = test_target_config.get('host')
         port = test_target_config.get('port')
         n_targets = len(test_target_config.get("apiSpecifications"))

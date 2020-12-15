@@ -21,7 +21,7 @@
     ]
   },
   "testTasks" : {
-    "testTargetConfiguration" : {
+    "targetConfiguration" : {
       "Port" : 8080 
     },
     "tasks": [

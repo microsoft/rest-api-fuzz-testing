@@ -11,7 +11,7 @@
     }
   ],
   "testTasks": {
-    "testTargetConfiguration" : {
+    "targetConfiguration" : {
       "host": "{sample.host}"
     },
     "tasks": [

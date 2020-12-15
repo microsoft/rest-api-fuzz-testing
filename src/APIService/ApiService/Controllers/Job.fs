@@ -73,8 +73,8 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                         }
                     })
 
-        if isSet requestPayload.TestTasks.TestTargetConfiguration && isSet requestPayload.TestTasks.TestTargetConfiguration.ApiSpecifications then
-            requestPayload.TestTasks.TestTargetConfiguration.ApiSpecifications |> Array.iter validateApiSpecification
+        if isSet requestPayload.TestTasks.TargetConfiguration && isSet requestPayload.TestTasks.TargetConfiguration.ApiSpecifications then
+            requestPayload.TestTasks.TargetConfiguration.ApiSpecifications |> Array.iter validateApiSpecification
 
         if isSet requestPayload.TestTargets && isSet requestPayload.TestTargets.Targets then
             requestPayload.TestTargets.Targets
@@ -184,9 +184,9 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                         Tasks =
                             requestPayload.TestTasks.Tasks
                             |> Array.map (fun t ->
-                                if isNotSet t.TestTargetConfiguration then
+                                if isNotSet t.TargetConfiguration then
                                     { t with
-                                        TestTargetConfiguration = requestPayload.TestTasks.TestTargetConfiguration
+                                        TargetConfiguration = requestPayload.TestTasks.TargetConfiguration
                                     }
                                 else
                                     t
@@ -283,8 +283,8 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                     }
                 })
 
-            if isSet t.TestTargetConfiguration.ApiSpecifications then
-                t.TestTargetConfiguration.ApiSpecifications |> Array.iter validateApiSpecification
+            if isSet t.TargetConfiguration.ApiSpecifications then
+                t.TargetConfiguration.ApiSpecifications |> Array.iter validateApiSpecification
         )
 
         if isSet requestPayload.ReadOnlyFileShareMounts then

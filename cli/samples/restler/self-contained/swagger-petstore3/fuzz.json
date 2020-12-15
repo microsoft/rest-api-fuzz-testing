@@ -53,7 +53,7 @@
         "toolName": "RESTler",
         "outputFolder": "fuzz",
         "duration": "00:10:00",
-        "testTargetConfiguration" : {
+        "targetConfiguration" : {
           "host": "localhost",
           "Port" : 8081
         },
@@ -68,7 +68,7 @@
       {
         "toolName": "ZAP",
         "outputFolder": "zap",
-        "testTargetConfiguration" : {
+        "targetConfiguration" : {
           "apiSpecifications": [
             "http://localhost:8082/api/v3/openapi.json"
           ]

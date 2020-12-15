@@ -3,7 +3,7 @@ readOnlyFileShareMounts:
   - FileShareName: raft
     MountPath: "/job-compile"
 testTasks:
-  testTargetConfiguration:
+  targetConfiguration:
     host: {defaults.deploymentName}-raft-apiservice.azurewebsites.net
   tasks:
   - toolName: RESTler

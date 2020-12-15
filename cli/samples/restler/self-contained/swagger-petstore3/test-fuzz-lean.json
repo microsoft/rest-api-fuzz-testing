@@ -45,7 +45,7 @@
         "toolName": "RESTler",
         "outputFolder": "test-fuzz-lean",
         "duration": "01:00:00",
-        "testTargetConfiguration" : {
+        "targetConfiguration" : {
           "host": "localhost",
           "Port" : 8081 
         },

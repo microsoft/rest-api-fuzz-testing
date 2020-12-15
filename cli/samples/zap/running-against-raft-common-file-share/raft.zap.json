@@ -1,7 +1,7 @@
 {
   "rootFileshare": "raft",
   "testTasks" : {
-    "testTargetConfiguration" : {
+    "targetConfiguration" : {
       "apiSpecifications": [
         "https://{defaults.deploymentName}-raft-apiservice.azurewebsites.net/swagger/v1/swagger.json"
       ],

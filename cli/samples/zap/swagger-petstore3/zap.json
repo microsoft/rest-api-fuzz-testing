@@ -20,7 +20,7 @@
       {
         "toolName" : "ZAP",
         "outputFolder" : "zap",
-        "testTargetConfiguration" : {
+        "targetConfiguration" : {
           "host": "localhost",
           "port" : 8080,
           "apiSpecifications": [

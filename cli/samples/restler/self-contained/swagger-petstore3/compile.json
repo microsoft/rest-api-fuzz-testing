@@ -30,7 +30,7 @@
     ]
   },
   "testTasks" : {
-    "testTargetConfiguration" : {
+    "targetConfiguration" : {
       "apiSpecifications": ["http://localhost:8082/api/v3/openapi.json"]
     },
     "tasks": [

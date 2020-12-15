@@ -34,7 +34,7 @@ module DTOs =
     }
 
     [<CLIMutable>]
-    type TestTargetConfiguration =
+    type TargetConfiguration =
         {
             /// <summary>
             /// Override the Host for each request.
@@ -77,9 +77,9 @@ module DTOs =
             OutputFolder : string
 
             /// <summary>
-            /// Override TestTargetConfiguration
+            /// Override TargetConfiguration
             /// </summary>
-            TestTargetConfiguration : TestTargetConfiguration
+            TargetConfiguration : TargetConfiguration
 
             /// <summary>
             /// If true - do not run the task. Idle container to allow user to connect to it.
@@ -116,7 +116,7 @@ module DTOs =
     [<CLIMutable>]
     type TestTasks =
         {
-            TestTargetConfiguration: TestTargetConfiguration
+            TargetConfiguration: TargetConfiguration
 
             [<Required>]
             Tasks : RaftTask array
