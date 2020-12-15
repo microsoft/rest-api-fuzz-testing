@@ -16,8 +16,9 @@
             "useRefreshableToken": true,
             "customDictionary": {
               "customPayload": {
-                "cores" : ["1"],
-                "memoryGBs" : ["1"],
+                "ip" : ["10.10.10.10"],
+                "cores" : ["1", "2"],
+                "memoryGBs" : ["1", "2"],
                 "toolName" : ["ZAP"],
                 "duration": [ "00:10:00" ],
                 "apiSpecifications": [ "https://some.service.azurewebsites.net/swagger.json", "/swagger-folder/swagger.json" ],
@@ -25,7 +26,8 @@
                 "targetUrl": [ "{replace-with-valid-webhook-URL}" ],
                 "event": [ "JobStatus" ],
                 "timeSpanFilter": [ "00:10:00" ],
-                "expectedDuration": [ "00:10:00" ],
+                "expectedRunDuration": [ "00:10:00" ],
+                "expectedDurationUntilReady": [ "00:10:00" ],
                 "eventName": [ "JobStatus" ],
                 "region" : ["eastus2"]
               }

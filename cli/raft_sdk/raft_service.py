@@ -232,9 +232,9 @@ class RaftCLI():
                 List of webhook definitions
         '''
         if event:
-            url = f'/webhooks?name={name}&event={event}'
+            url = f'/webhooks?webhookName={name}&event={event}'
         else:
-            url = f'/webhooks?name={name}'
+            url = f'/webhooks?webhookName={name}'
 
         response = self.raft_api.get(url)
         if response.ok:

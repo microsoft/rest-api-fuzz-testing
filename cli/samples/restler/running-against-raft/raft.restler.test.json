@@ -21,7 +21,8 @@
           "task": "TestFuzzLean",
           "runConfiguration": {
             "inputFolderPath": "/job-compile/RESTler-compile",
-            "authenticationTokenRefreshIntervalSeconds": 300
+            "authenticationTokenRefreshIntervalSeconds": 300,
+            "maxRequestExecutionTime" : 300
           }
         }
       },
@@ -35,7 +36,8 @@
         "toolConfiguration": {
           "task": "Test",
           "runConfiguration": {
-            "inputFolderPath": "/job-compile/RESTler-compile"
+            "inputFolderPath": "/job-compile/RESTler-compile",
+            "maxRequestExecutionTime" : 300
           }
         }
       }

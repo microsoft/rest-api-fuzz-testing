@@ -68,6 +68,22 @@ type ReplayConfiguration =
         BugBuckets : string array option
     }
 
+
+type CheckerSettings =
+    {
+        Mode : string
+    }
+
+type PerResourceSetting =
+    {
+        //seconds
+        ProducerTimingDelay : int
+        //
+        CreateOnce: bool
+        //path to custom dictionary
+        CustomDictionary : CustomDictionary
+    }
+
 type RunConfiguration = 
     {
         /// Path to grammar py relative to compile folder path. If not set then default "grammar.py" grammar is assumed
@@ -94,6 +110,25 @@ type RunConfiguration =
         // In context of Replay - do not replay bugs specified in the list
         // In context of Test or Fuzz - do not post onBugFound events if they are in the list
         IgnoreBugHashes : string array option
+
+        /// Maximum duration of request before RESTler considers it to be timed out
+        MaxRequestExecutionTime : int option
+
+        /// If not set, then preconfigured checkers are used
+        Checkers : Map<string, CheckerSettings> option
+
+        IgnoreDependencies : bool option
+
+        IgnoreFeedback : bool option
+
+        IncludeUserAgent : bool option
+
+        MaxAsyncResourceCreationTime : int option
+        MaxCombinations : int option
+        MaxSequenceLength : int option
+        WaitForAsyncResourceCreation : bool option
+        PerResourceSettings : Map<string, PerResourceSetting> option
+
     }
 
 

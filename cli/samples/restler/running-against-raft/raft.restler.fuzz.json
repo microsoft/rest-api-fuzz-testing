@@ -24,7 +24,8 @@
           "runConfiguration": {
             "inputFolderPath": "/job-compile/RESTler-compile",
             "useSsl": true,
-            "producerTimingDelay": 5
+            "producerTimingDelay": 5,
+            "maxRequestExecutionTime" : 300
           }
         }
       },
@@ -41,7 +42,8 @@
           "runConfiguration": {
             "inputFolderPath": "/job-compile/RESTler-compile",
             "useSsl": true,
-            "producerTimingDelay": 5
+            "producerTimingDelay": 5,
+            "maxRequestExecutionTime" : 300
           }
         }
       }

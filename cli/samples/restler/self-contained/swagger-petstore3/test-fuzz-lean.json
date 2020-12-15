@@ -30,6 +30,7 @@
       {
         "Container" : "swaggerapi/petstore3",
         "Ports" : [8081],
+        "OutputFolder" : "petstore3",
         "ExpectedDurationUntilReady" : "00:02:00",
         "Shell" : "/bin/sh",
         "Run" : {
