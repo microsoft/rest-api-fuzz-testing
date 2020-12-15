@@ -11,21 +11,26 @@ cur_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(cur_dir, '..', '..', '..'))
 import raft
 
+def compile(cli, compile, subs):
+    compile_job_config = raft.RaftJobConfig(file_path=compile, substitutions=subs)
+    print('Compile')
+    return cli.new_job(compile_job_config)
+
+def fuzz(cli, fuzz, subs):
+    fuzz_job_config = raft.RaftJobConfig(file_path=fuzz, substitutions=subs)
+    print('Fuzz')
+    return cli.new_job(fuzz_job_config)
+
 def run(compile, fuzz, sample_host):
     cli = raft.RaftCLI()
     subs = {
         '{sample.host}' : sample_host,
         '{defaults.deploymentName}' : cli.definitions.deployment
     }
-    compile_job_config = raft.RaftJobConfig(file_path=compile, substitutions=subs)
-    print('Compile')
-    compile_job = cli.new_job(compile_job_config)
+    compile_job = compile(cli, compile, subs)
     cli.poll(compile_job['jobId'])
     subs['{compile.jobId}'] = compile_job['jobId']
-
-    fuzz_job_config = raft.RaftJobConfig(file_path=fuzz, substitutions=subs)
-    print('Fuzz')
-    fuzz_job = cli.new_job(fuzz_job_config)
+    fuzz_job = fuzz(cli, fuzz, subs)
     cli.poll(fuzz_job['jobId'])
 
 if __name__ == "__main__":

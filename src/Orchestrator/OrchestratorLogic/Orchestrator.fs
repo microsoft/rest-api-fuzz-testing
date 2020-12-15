@@ -86,6 +86,20 @@ module ContainerInstances =
         let (|AlreadyExists|_|) (e : exn) = 
             exnOfType<Azure.RequestFailedException> (fun ex -> ex.Status = int Net.HttpStatusCode.Conflict) e
 
+        let (|AlreadyDeleted|_|) (e: exn) =
+            let cloudException =
+                exnOfType(
+                    fun (e: Microsoft.Rest.Azure.CloudException) ->
+                        e.Body.Code = "ResourceNotFound" || e.Body.Code = "ContainerGroupNotFound"
+                    ) e
+
+            let errorResponse =
+                exnOfType(
+                    fun (e: Microsoft.Azure.Management.Monitor.Fluent.Models.ErrorResponseException) ->
+                        e.Response.StatusCode = System.Net.HttpStatusCode.NotFound
+                ) e
+
+            Option.orElse (cloudException |> Option.map(fun _ -> e)) (errorResponse |> Option.map (fun _ -> e))
 
     type AgentConfig =
         {
@@ -1254,7 +1268,10 @@ module ContainerInstances =
             try
                 do! azure.ContainerGroups.DeleteByResourceGroupAsync(agentConfig.ResourceGroup, containerGroupName).ToAsync
                 return Result.Ok ()
-            with ex ->
+            with 
+            | Exceptions.AlreadyDeleted _ -> 
+                return Result.Ok()
+            | ex ->
                 Central.Telemetry.TrackError (TelemetryValues.Exception ex)
                 return Result.Error("Failed to delete Container Instance", ex.Message)
         }
@@ -1447,7 +1464,10 @@ module ContainerInstances =
                             ] |> Async.Sequential
                         return Some metricsList 
                     with
-                    | ex -> 
+                    | Exceptions.AlreadyDeleted _ -> 
+                        logInfo "[Metrics] Skipping container group: %s, since it is not found" containerGroup.Name
+                        return None
+                    | ex ->
                         Central.Telemetry.TrackError (TelemetryValues.Exception ex)
                         logError "[Metrics] Failed to get metric %s due to %A" containerGroup.Name ex
                         return None
@@ -1745,6 +1765,8 @@ module ContainerInstances =
                                         logError "[GC] for container group %s failed to delete: %A" g.Name errors
                                         incr failedDeletionsCount
                             with
+                            | Exceptions.AlreadyDeleted _ -> 
+                                logInfo "[GC] Skipping container group: %s, since it is not found" g.Name
                             | ex ->
                                 logError "[GC] for container group: %s due to %A" g.Name ex
                                 Central.Telemetry.TrackError (TelemetryValues.Exception ex)
