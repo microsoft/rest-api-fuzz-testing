@@ -182,6 +182,32 @@
                 "additionalProperties": false,
                 "description": "Configuration of the endpoint under test"
             },
+            "CheckerSettings": {
+                "type": "object",
+                "properties": {
+                "mode": {
+                    "type": "string",
+                    "nullable": true
+                }
+                },
+                "additionalProperties": false
+            },
+            "PerResourceSetting": {
+                "type": "object",
+                "properties": {
+                "producerTimingDelay": {
+                    "type": "integer",
+                    "format": "int32"
+                },
+                "createOnce": {
+                    "type": "boolean"
+                },
+                "customDictionary": {
+                    "$ref": "#/components/schemas/CustomDictionary"
+                }
+                },
+                "additionalProperties": false
+            },
             "RunConfiguration": {
                 "type": "object",
                 "properties": {
@@ -207,16 +233,74 @@
                         "type": "boolean",
                         "description": "Use SSL when connecting to the server"
                     },
+                    "authenticationTokenRefreshIntervalSeconds" : {
+                        "type": "integer",
+                        "description": "Authentication token refresh interval",
+                        "format": "int32"
+                    },
                     "pathRegex": {
                         "type": "string",
                         "description": "Path regex for filtering tested endpoints",
                         "nullable": true
                     },
-                    "authenticationTokenRefreshIntervalSeconds" : {
+                    "ignoreBugHashes" : {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "List of bug hashes to ignore when posting Bug Found webhook",
+                        "nullable": true
+                    },
+                    "maxRequestExecutionTime":{
                         "type": "integer",
-                        "description": "Authentciation token refresh interval",
+                        "description": "Maximum request execution time",
                         "format": "int32"
-                    }
+                    },
+                    "ignoreDependencies":{
+                        "type": "boolean",
+                        "description": "Ignore resource dependencies"
+                    },
+                    "ignoreFeedback":{
+                        "type": "boolean",
+                        "description": "Ignore feedback from response"
+                    },
+                    "includeUserAgent":{
+                        "type": "boolean",
+                        "description": "Include RESTler user agent"
+                    },
+                    "maxAsyncResourceCreationTime":{
+                        "type": "integer",
+                        "description": "Maximum resource creation time",
+                        "format": "int32"
+                    },
+                    "maxCombinations":{
+                        "type": "integer",
+                        "description": "Maximum number of permutations when constructing request combinations",
+                        "format": "int32"
+                    },
+                    "maxSequenceLength" :{
+                        "type": "integer",
+                        "description": "Maximum sequence length of requests",
+                        "format": "int32"
+                    },
+                    "waitForAsyncResourceCreation":{
+                        "type": "boolean",
+                        "description": "Wait for asynchronous resource creation"
+                    },
+                    "checkers": {
+                        "type": "object",
+                        "additionalProperties": {
+                        "$ref": "#/components/schemas/CheckerSettings"
+                        },
+                        "nullable": true
+                    },
+                    "perResourceSettings": {
+                        "type": "object",
+                        "additionalProperties": {
+                        "$ref": "#/components/schemas/PerResourceSetting"
+                        },
+                        "nullable": true
+                    }                
                 },
                 "additionalProperties": false,
                 "description": "RESTler job Test, Fuzz or Replay configuration"
@@ -239,9 +323,9 @@
                 "properties": {
                     "task": {
                         "type": "string",
-						"description": "Can be compile, fuzz, test, replay",
+						"description": "RESTLer task types",
                         "nullable": false,
-                        "enum" : ["compile", "test", "fuzz", "replay"]
+                        "enum" : ["compile", "test", "fuzz", "replay", "testFuzzLean", "fuzzRandomWalk", "fuzzBfsCheap"]
                     },
                     "compileConfiguration": {
                         "$ref": "#/components/schemas/CompileConfiguration"
@@ -254,7 +338,7 @@
                     },
                     "agentConfiguration": {
                         "$ref": "#/components/schemas/AgentConfiguration"
-                    },
+                    }
                 },
                 "additionalProperties": false,
 				"description": "RESTler payload"

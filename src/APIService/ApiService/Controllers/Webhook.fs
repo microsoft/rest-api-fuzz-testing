@@ -214,12 +214,12 @@ type webhooksController(configuration : IConfiguration, telemetryClient : Teleme
     ///    "TargetUrl" : "https://mywebhookreceiver"
     /// }
     /// </remarks>
-    /// <param name="name">Name of the webhook "tag"</param>
+    /// <param name="webhookName">Name of the webhook "tag"</param>
     /// <param name="event">Optional query string identifying the event</param>
     /// <response code="200">Returns success.</response>
     /// <response code="404">If the webhook tag is not found</response>
     /// <response code="400">If the event name in the query string is not a supported value</response>
-    member this.List ([<FromQuery>] name:string, [<FromQuery>]event:string) =
+    member this.List ([<FromQuery>] webhookName:string, [<FromQuery>]event:string) =
         task {
             let stopWatch = System.Diagnostics.Stopwatch()
             stopWatch.Start()
@@ -228,7 +228,7 @@ type webhooksController(configuration : IConfiguration, telemetryClient : Teleme
             let tags = tags @ ["Method", method]
 
             try
-                if String.IsNullOrWhiteSpace name then
+                if String.IsNullOrWhiteSpace webhookName then
                     raiseApiError { Error = { Code = ApiErrorCode.QueryStringMissing
                                               Message = "Missing required query string"
                                               Target = method
@@ -239,7 +239,7 @@ type webhooksController(configuration : IConfiguration, telemetryClient : Teleme
 
                 // validate the eventName
                 let gridClient = createGridClient()
-                let subsOption = tryGetSubscriptions gridClient (name.ToLowerInvariant())
+                let subsOption = tryGetSubscriptions gridClient (webhookName.ToLowerInvariant())
                 match subsOption with
                 | Some subs -> 
                     if isNull event then
