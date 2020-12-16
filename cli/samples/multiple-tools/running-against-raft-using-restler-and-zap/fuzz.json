@@ -10,7 +10,7 @@
     "MemoryGBs": 4
   },
   "testTasks" : {
-    "testTargetConfiguration" : {
+    "targetConfiguration" : {
       "host": "{defaults.deploymentName}-raft-apiservice.azurewebsites.net",
       "apiSpecifications": [
         "https://{defaults.deploymentName}-raft-apiservice.azurewebsites.net/swagger/v1/swagger.json"
@@ -43,7 +43,7 @@
         }
       },
       {
-        "testTargetConfiguration" :{
+        "targetConfiguration" :{
           "host": "{sample.host}",
           "apiSpecifications": [
             "https://{sample.host}/swagger/v1/swagger.json"
@@ -55,7 +55,7 @@
       {
         "duration": "00:10:00",
         "toolName": "RESTler",
-        "testTargetConfiguration" : {
+        "targetConfiguration" : {
           "host": "{sample.host}"
         },
         "outputFolder": "sample-RESTler-fuzz",
@@ -70,7 +70,7 @@
       {
         "duration": "00:10:00",
         "toolName": "RESTler",
-        "testTargetConfiguration" : {
+        "targetConfiguration" : {
           "host": "{sample.host}"
         },
         "outputFolder": "sample-RESTler-fuzz-random-walk",
@@ -85,7 +85,7 @@
       {
         "duration": "00:10:00",
         "toolName": "RESTler",
-        "testTargetConfiguration" : {
+        "targetConfiguration" : {
           "host": "{sample.host}"
         },
         "outputFolder": "sample-RESTler-fuzz-bfs-cheap",

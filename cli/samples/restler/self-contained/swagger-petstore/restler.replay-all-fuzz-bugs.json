@@ -6,7 +6,7 @@
     }
   ],
  "testTargets" : { 
-    "targets" : [
+    "services" : [
       {
         "Container" : "swaggerapi/petstore",
         "Ports" : [8080],
@@ -21,7 +21,7 @@
     ]
   },
   "testTasks" : {
-    "testTargetConfiguration" : {
+    "targetConfiguration" : {
       "Port" : 8080 
     },
     "tasks": [

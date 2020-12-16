@@ -32,7 +32,7 @@ type Command =
         ExpectedRunDuration: System.TimeSpan option
     }
 
-type TestTargetDefinition =
+type ServiceDefinition =
     //accessible within conatiner group at localhost:port
     {
         Container : string
@@ -55,10 +55,10 @@ type TestTargetDefinition =
 type TestTarget =
     {
         Resources : Resources
-        Targets : TestTargetDefinition array
+        Services : ServiceDefinition array
     }
 
-type TestTargetConfiguration =
+type TargetConfiguration =
     {
         Host : string option
         Port : int option
@@ -73,7 +73,7 @@ type RaftTask =
     {
         ToolName: string
 
-        TestTargetConfiguration: TestTargetConfiguration option
+        TargetConfiguration: TargetConfiguration option
 
         IsIdling: bool
         /// Output folder name to store agent generated output
@@ -92,7 +92,7 @@ type RaftTask =
 
 type TestTasks =
     {
-        TestTargetConfiguration : TestTargetConfiguration option
+        TargetConfiguration : TargetConfiguration option
         Tasks : RaftTask array
     }
 

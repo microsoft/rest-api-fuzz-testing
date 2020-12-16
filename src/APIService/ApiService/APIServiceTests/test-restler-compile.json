@@ -8,7 +8,7 @@
     }
   },
   "testTasks" : {
-    "testTargetConfiguration": {
+    "targetConfiguration": {
       "apiSpecifications": [
         "https://a-test-service.azurewebsites.net/swagger/v1/swagger.json"
       ],

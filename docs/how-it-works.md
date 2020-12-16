@@ -5,7 +5,7 @@ Testing (RAFT) service.
 
 At a high level, a number of Azure resources are created by the RAFT
 installer, and security tools (that run in containers) are deployed and
-run in Azure against their  configured targets.
+run in Azure against their configured targets.
 
 All the details about those resources and how data is sent to and retrieved from the
 tool containers is described below.

@@ -1,5 +1,5 @@
 testTasks:
-  testTargetConfiguration:
+  targetConfiguration:
     apiSpecifications:
     - "https://{defaults.deploymentName}-raft-apiservice.azurewebsites.net/swagger/v1/swagger.json"
   tasks:
@@ -12,7 +12,7 @@ testTasks:
 
   - toolName: "RESTler"
     outputFolder: "sample-compile"
-    testTargetConfiguration:
+    targetConfiguration:
       apiSpecifications:
       - "https://{sample.host}/swagger/v1/swagger.json"
     toolConfiguration:

@@ -12,7 +12,7 @@
       "Cores" : 2,
       "MemoryGBs" : 4
     },
-    "targets" : [
+    "services" : [
       {
         "Container" : "swaggerapi/petstore3",
         "Ports" : [8082],
@@ -30,7 +30,7 @@
     ]
   },
   "testTasks" : {
-    "testTargetConfiguration" : {
+    "targetConfiguration" : {
       "apiSpecifications": ["http://localhost:8082/api/v3/openapi.json"]
     },
     "tasks": [

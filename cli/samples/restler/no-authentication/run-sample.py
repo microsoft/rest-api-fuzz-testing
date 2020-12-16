@@ -52,6 +52,6 @@ substitute {sample.host} in compile.json and fuzz.json config files')
     else:
         host = sys.argv[1]
 
-    run(os.path.join(cur_dir, "sample.restler.compile.json"),
-        os.path.join(cur_dir, "sample.restler.fuzz.json"), 
+    run(os.path.join(cur_dir, "compile.json"),
+        os.path.join(cur_dir, "fuzz.json"), 
         host)

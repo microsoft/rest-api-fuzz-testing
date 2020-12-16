@@ -3,7 +3,7 @@
     "name": "petstore-compile"
   },
   "testTargets" : {
-    "targets" : [
+    "services" : [
       {
         "Container" : "swaggerapi/petstore",
         "Ports" : [8080],
@@ -18,7 +18,7 @@
     ]
   },
   "testTasks" : {
-    "testTargetConfiguration" : {
+    "targetConfiguration" : {
       "apiSpecifications": [
         "http://localhost:8080/api/swagger.json"
       ]

@@ -7,8 +7,8 @@
     }
   ],
   "testTasks": {
-    "testTargetConfiguration" : {
-      "host": "{defaults.deploymentName}-raft-apiservice.azurewebsites.net",
+    "targetConfiguration" : {
+      "host": "{defaults.deploymentName}-raft-apiservice.azurewebsites.net"
     },
     "tasks": [
       {

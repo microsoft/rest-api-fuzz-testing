@@ -26,7 +26,7 @@
       "Cores" : 2,
       "MemoryGBs" : 4
     },
-    "targets" : [
+    "services" : [
       {
         "Container" : "swaggerapi/petstore3",
         "Ports" : [8081],
@@ -45,7 +45,7 @@
         "toolName": "RESTler",
         "outputFolder": "test-fuzz-lean",
         "duration": "01:00:00",
-        "testTargetConfiguration" : {
+        "targetConfiguration" : {
           "host": "localhost",
           "Port" : 8081 
         },

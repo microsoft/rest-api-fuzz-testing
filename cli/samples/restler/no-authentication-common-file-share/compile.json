@@ -6,7 +6,7 @@
   },
 
   "testTasks": {
-    "testTargetConfiguration" : {
+    "targetConfiguration" : {
       "apiSpecifications": [
         "https://{sample.host}/swagger/v1/swagger.json"
       ],

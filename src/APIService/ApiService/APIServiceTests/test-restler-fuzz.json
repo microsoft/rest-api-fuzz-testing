@@ -1,7 +1,7 @@
 {
   "duration": "00:10:00",
   "testTasks" : {
-    "testTargetConfiguration" : {
+    "targetConfiguration" : {
       "host": "a-test-service.azurewebsites.net",
       "apiSpecifications": [
         "https://a-test-service.azurewebsites.net/swagger/v1/swagger.json"
@@ -43,7 +43,7 @@
       {
         "toolName": "RESTler",
         "outputFolder": "RESTler-fuzz-3",
-        "testTargetConfiguration" : {
+        "targetConfiguration" : {
           "ip": "13.77.182.13",
           "port": "443"
         },

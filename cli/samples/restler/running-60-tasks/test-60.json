@@ -1,49 +1,47 @@
 {
-  "duration": "00:10:00",
+  "resources": {
+    "Cores": 4,
+    "MemoryGBs": 12
+  },
   "ReadOnlyFileShareMounts": [
     {
-      "fileShareName": "{compile.jobId}",
+      "fileShareName": "60-compile",
       "mountPath": "/job-compile"
     }
   ],
+
   "testTasks": {
-    "testTargetConfiguration" : {
-      "host": "{defaults.deploymentName}-raft-apiservice.azurewebsites.net"
+    "targetConfiguration" : {
+      "host": "{host}"
     },
     "tasks": [
       {
         "toolName": "RESTler",
-        "outputFolder": "RESTler-random-walk-fuzz",
+        "outputFolder": "RESTLer-test-fuzz-lean",
         "keyVaultSecrets": [ "RaftServicePrincipal" ],
         "authenticationMethod": {
           "MSAL": "RaftServicePrincipal"
         },
 
         "toolConfiguration": {
-          "task": "FuzzRandomWalk",
+          "task": "TestFuzzLean",
           "runConfiguration": {
-            "inputFolderPath": "/job-compile/RESTler-compile",
-            "useSsl": true,
-            "producerTimingDelay": 5,
-            "maxRequestExecutionTime" : 300
+            "inputFolderPath": "/job-compile/{compile.jobId}",
+            "authenticationTokenRefreshIntervalSeconds": 300
           }
         }
       },
       {
         "toolName": "RESTler",
-        "outputFolder": "RESTler-fuzz",
+        "outputFolder": "RESTler-test",
         "keyVaultSecrets": [ "RaftServicePrincipal" ],
         "authenticationMethod": {
           "MSAL": "RaftServicePrincipal"
         },
-
         "toolConfiguration": {
-          "task": "Fuzz",
+          "task": "Test",
           "runConfiguration": {
-            "inputFolderPath": "/job-compile/RESTler-compile",
-            "useSsl": true,
-            "producerTimingDelay": 5,
-            "maxRequestExecutionTime" : 300
+            "inputFolderPath": "/job-compile/{compile.jobId}"
           }
         }
       }

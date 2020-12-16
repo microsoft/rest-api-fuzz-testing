@@ -26,11 +26,12 @@
       "Cores" : 2,
       "MemoryGBs" : 4
     },
-    "targets" : [
+    "services" : [
       {
         "Container" : "swaggerapi/petstore3",
         "Ports" : [8081],
         "ExpectedDurationUntilReady" : "00:02:00",
+        "OutputFolder" : "petstore3-fuzz",
         "Shell" : "/bin/sh",
         "Run" : {
           "ShellArguments" : ["-c", "java -jar /swagger-petstore/jetty-runner.jar --log $RAFT_WORK_DIRECTORY/yyyy_mm_dd-requests.log --port 8081 /swagger-petstore/server.war"]
@@ -39,6 +40,7 @@
       {
         "Container" : "swaggerapi/petstore3",
         "Ports" : [8082],
+        "OutputFolder" : "petstore3-zap",
         "ExpectedDurationUntilReady" : "00:02:00",
         "Shell" : "/bin/sh",
         "Run" : {
@@ -53,7 +55,7 @@
         "toolName": "RESTler",
         "outputFolder": "fuzz",
         "duration": "00:10:00",
-        "testTargetConfiguration" : {
+        "targetConfiguration" : {
           "host": "localhost",
           "Port" : 8081
         },
@@ -68,7 +70,7 @@
       {
         "toolName": "ZAP",
         "outputFolder": "zap",
-        "testTargetConfiguration" : {
+        "targetConfiguration" : {
           "apiSpecifications": [
             "http://localhost:8082/api/v3/openapi.json"
           ]
