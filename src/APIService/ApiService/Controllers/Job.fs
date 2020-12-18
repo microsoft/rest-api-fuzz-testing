@@ -283,7 +283,7 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                     }
                 })
 
-            if isSet t.TargetConfiguration.ApiSpecifications then
+            if isSet t.TargetConfiguration && isSet t.TargetConfiguration.ApiSpecifications then
                 t.TargetConfiguration.ApiSpecifications |> Array.iter validateApiSpecification
         )
 

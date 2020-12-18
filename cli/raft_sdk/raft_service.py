@@ -348,13 +348,12 @@ class RaftCLI():
                     if print_status:
                         print()
                         self.print_status(status)
-                for s in status:
-                    completed, error = self.is_completed(s)
-                    if completed:
-                        if error:
-                            raise error
-                        else:
-                            return
+                completed, error = self.is_completed(status)
+                if completed:
+                    if error:
+                        raise error
+                    else:
+                        return
             except RaftApiException as ex:
                 if ex.status_code != 404:
                     print(f"{ex.message}")

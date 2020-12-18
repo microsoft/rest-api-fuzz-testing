@@ -1,0 +1,8 @@
+{
+    "name" : "@nsv/raft-dredd",
+    "version" : "1.0.0",
+    "dependencies" : {
+        "@azure/service-bus": "^7.0.0",
+        "applicationinsights": "^1.8.8"
+    }
+}
