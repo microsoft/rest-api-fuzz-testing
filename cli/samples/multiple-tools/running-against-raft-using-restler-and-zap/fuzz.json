@@ -11,9 +11,9 @@
   },
   "testTasks" : {
     "targetConfiguration" : {
-      "host": "{defaults.deploymentName}-raft-apiservice.azurewebsites.net",
+      "endpoint": "https://{defaults.deploymentName}-raft-apiservice.azurewebsites.net",
       "apiSpecifications": [
-        "https://{defaults.deploymentName}-raft-apiservice.azurewebsites.net/swagger/v1/swagger.json"
+        "https://{defaults.deploymentName}-raft-apiservice.azurewebsites.net/swagger/v2/swagger.json"
       ]
     },
     "tasks": [
@@ -44,7 +44,7 @@
       },
       {
         "targetConfiguration" :{
-          "host": "{sample.host}",
+          "endpoint": "https://{sample.host}",
           "apiSpecifications": [
             "https://{sample.host}/swagger/v1/swagger.json"
           ]
@@ -56,7 +56,7 @@
         "duration": "00:10:00",
         "toolName": "RESTler",
         "targetConfiguration" : {
-          "host": "{sample.host}"
+          "endpoint": "https://{sample.host}"
         },
         "outputFolder": "sample-RESTler-fuzz",
 
@@ -71,7 +71,7 @@
         "duration": "00:10:00",
         "toolName": "RESTler",
         "targetConfiguration" : {
-          "host": "{sample.host}"
+          "endpoint": "https://{sample.host}"
         },
         "outputFolder": "sample-RESTler-fuzz-random-walk",
 
@@ -86,7 +86,7 @@
         "duration": "00:10:00",
         "toolName": "RESTler",
         "targetConfiguration" : {
-          "host": "{sample.host}"
+          "endpoint": "https://{sample.host}"
         },
         "outputFolder": "sample-RESTler-fuzz-bfs-cheap",
 

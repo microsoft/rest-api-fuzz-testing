@@ -2,6 +2,7 @@ import json
 import os
 import subprocess
 import sys
+from urllib.parse import urlparse
 
 work_directory = os.environ['RAFT_WORK_DIRECTORY']
 run_directory = os.environ['RAFT_TOOL_RUN_DIRECTORY']
@@ -50,8 +51,9 @@ if __name__ == "__main__":
             config = json.load(task_config)
         i = 0
         test_target_config = config['targetConfiguration']
-        host = test_target_config.get('host')
-        port = test_target_config.get('port')
+
+        endpoint = test_target_config.get('endpoint')
+
         n_targets = len(test_target_config.get("apiSpecifications"))
         for t in test_target_config.get("apiSpecifications"):
             print(f'Starting zap for target {t}')
@@ -59,10 +61,9 @@ if __name__ == "__main__":
             if token:
                 args.extend(['--token', token])
 
-            if host:
-                if port:
-                    host = f"{host}:{port}"
-                args.extend(['--host', host])
+            if endpoint:
+                url = urlparse(endpoint)
+                args.extend(['--host', url.netloc])
 
             subprocess.check_call(args)
             i = i + 1

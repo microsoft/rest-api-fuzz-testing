@@ -21,8 +21,7 @@
         "toolName" : "ZAP",
         "outputFolder" : "zap",
         "targetConfiguration" : {
-          "host": "localhost",
-          "port" : 8080,
+          "endpoint" : "http://localhost:8080",
           "apiSpecifications": [
             "http://localhost:8080/api/v3/openapi.json",
             "http://localhost:8080/api/v3/openapi.json"

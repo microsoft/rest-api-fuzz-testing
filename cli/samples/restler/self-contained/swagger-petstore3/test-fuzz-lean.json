@@ -46,8 +46,7 @@
         "outputFolder": "test-fuzz-lean",
         "duration": "01:00:00",
         "targetConfiguration" : {
-          "host": "localhost",
-          "Port" : 8081 
+          "endpiont": "http://localhost:8081"
         },
         "toolConfiguration": {
           "task": "TestFuzzLean",

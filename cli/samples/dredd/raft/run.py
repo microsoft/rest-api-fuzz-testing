@@ -23,4 +23,4 @@ def run(run_config):
 
 
 if __name__ == "__main__":
-    run(os.path.join(cur_dir, "run.json"))
+    run(os.path.join(cur_dir, "dredd.json"))

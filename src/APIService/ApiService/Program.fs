@@ -67,23 +67,22 @@ module main =
 
     let getSchemaDocuments (schemaEntities: Map<string, string option>) =
         async {
-            return schemaEntities
-                   |> Map.map (fun tool schema -> 
-                                       let reader = Microsoft.OpenApi.Readers.OpenApiStringReader()
-                                       let schemaDocument =
-                                           match schema with
-                                           | None -> 
-                                                let noSchemaToolDoc = OpenApiDocument(Components = OpenApiComponents())
-                                                let noSchemaToolSchema = OpenApiSchema(Title = tool)
-                                                noSchemaToolDoc.Components.Schemas.Add(tool, noSchemaToolSchema)
-                                                noSchemaToolDoc
-                                           | Some s ->
-                                               let schemaDoc, openApiDiagnostic = reader.Read(s)
-                                               if openApiDiagnostic.Errors.Count <> 0 then
-                                                    raise <| Exception("Errors in the schema document")
-                                               schemaDoc
-                                       schemaDocument
-                               )
+            return 
+                schemaEntities
+                |> Map.map (fun tool schema -> 
+                    match schema with
+                    | None -> 
+                        let noSchemaToolDoc = OpenApiDocument(Components = OpenApiComponents())
+                        let noSchemaToolSchema = OpenApiSchema(Title = tool)
+                        noSchemaToolDoc.Components.Schemas.Add(tool, noSchemaToolSchema)
+                        noSchemaToolDoc
+                    | Some s ->
+                        let reader = Microsoft.OpenApi.Readers.OpenApiStringReader()
+                        let schemaDoc, openApiDiagnostic = reader.Read(s)
+                        if openApiDiagnostic.Errors.Count <> 0 then
+                            raise <| Exception("Errors in the schema document")
+                        schemaDoc
+                )
         }
 
     type RaftSwaggerDocumentFilter() =
@@ -129,8 +128,8 @@ module main =
            .UseSwagger()
            .UseSwaggerUI(fun config ->
                 config.ConfigObject.Urls <- [
-                    Swashbuckle.AspNetCore.SwaggerUI.UrlDescriptor(Name = "RAFT API Json", Url = "/swagger/v1/swagger.json")
-                    Swashbuckle.AspNetCore.SwaggerUI.UrlDescriptor(Name = "RAFT API Yaml", Url = "/swagger/v1/swagger.yaml")
+                    Swashbuckle.AspNetCore.SwaggerUI.UrlDescriptor(Name = "RAFT API Json", Url = "/swagger/v2/swagger.json")
+                    Swashbuckle.AspNetCore.SwaggerUI.UrlDescriptor(Name = "RAFT API Yaml", Url = "/swagger/v2/swagger.yaml")
                 ]
             )
            |> ignore
@@ -170,7 +169,7 @@ module main =
         services.AddApplicationInsightsTelemetry()
                 .AddSwaggerGenNewtonsoftSupport()
                 .AddSwaggerGen(fun config -> 
-                    config.SwaggerDoc("v1", OpenApiInfo (Title = "RAFT", Version = "v1"))
+                    config.SwaggerDoc("v2", OpenApiInfo (Title = "RAFT", Version = "v2"))
                     config.UseOneOfForPolymorphism()
 
                     // Set the comments path for the Swagger JSON and UI.

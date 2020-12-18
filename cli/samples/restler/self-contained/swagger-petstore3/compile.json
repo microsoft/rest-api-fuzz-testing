@@ -31,7 +31,8 @@
   },
   "testTasks" : {
     "targetConfiguration" : {
-      "apiSpecifications": ["http://localhost:8082/api/v3/openapi.json"]
+      "apiSpecifications": ["http://localhost:8082/api/v3/openapi.json"],
+      "endpoint" : "http://localhost:8082"
     },
     "tasks": [
       {
@@ -40,6 +41,10 @@
         "toolConfiguration": {
           "task": "Compile"
         }
+      },
+      {
+        "toolName": "Dredd",
+        "outputFolder": "dredd"
       }
     ]
   }

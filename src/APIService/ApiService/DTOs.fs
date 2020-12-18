@@ -37,19 +37,9 @@ module DTOs =
     type TargetConfiguration =
         {
             /// <summary>
-            /// Override the Host for each request.
+            /// Override Endpoint for each request.
             /// </summary>
-            Host : string
-
-            /// <summary>
-            /// Port of the service under test
-            /// </summary>
-            Port : Nullable<int>
-
-            /// <summary>
-            /// IP of the service under test if host is not specified
-            /// </summary>
-            IP : string
+            Endpoint : System.Uri
 
             /// <summary>
             /// List of OpenApi/swagger specifications locations for the job run. Can be URL or file path.

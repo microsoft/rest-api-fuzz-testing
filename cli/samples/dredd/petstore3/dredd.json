@@ -20,9 +20,11 @@
   },
   "testTasks" :{
     "targetConfiguration" : {
-        "apiSpecifications": ["http://localhost:8080/api/swagger.json"],
-        "host" : "http://localhost",
-        "port" : 8080
+        "apiSpecifications": [
+          "http://localhost:8080/api/swagger.json",
+          "http://localhost:8080/api/swagger.json"
+        ],
+        "endpoint" : "http://localhost:8080"
       },
       "tasks": [
         {

@@ -45,7 +45,15 @@ module DtoTypes =
             return d
         }
 
-    
+    let uri =
+        gen {
+            let! port = Arb.generate<FsCheck.PositiveInt>
+            let! host = Arb.generate<FsCheck.HostName>
+            
+            let url = sprintf "https://%s:%d" (host.ToString()) port.Get
+            return System.Uri(url)
+        }
+
     let jObj =
         gen {
             return null
@@ -70,6 +78,11 @@ module DtoTypes =
         static member Metadata() =
             { new Arbitrary<Dictionary<string, string>>() with
                 override _.Generator = metadata
+            }
+
+        static member Uri() =
+            {   new Arbitrary<System.Uri>() with
+                    override _.Generator = uri
             }
 
 
