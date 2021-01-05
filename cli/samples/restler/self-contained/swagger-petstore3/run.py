@@ -43,10 +43,7 @@ if __name__ == "__main__":
         subs = {
             "{ci-run}" : f"{build_id}",
             "{build-url}" : os.environ['SYSTEM_COLLECTIONURI'],
-            "{build-id}" : os.environ['BUILD_BUILDID'],
-            "{raft-subscription}": defs.subscription,
-            "{raft-resource-group}" : defs.resource_group,
-            "{raft-storage-account}" : defs.storage_account
+            "{build-id}" : os.environ['BUILD_BUILDID']
         }
         for arg in sys.argv[1:]:
             if arg == 'compile':

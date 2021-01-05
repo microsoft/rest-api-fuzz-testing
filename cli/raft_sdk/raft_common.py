@@ -131,7 +131,7 @@ class RaftDefinitions():
         self.resource_group = f"{self.deployment}-raft"
         self.app_insights = f"{self.deployment}-raft-ai"
         self.asp = f"{self.deployment}-raft-asp"
-        self.container_tag = "v1.latest"
+        self.container_tag = "v2.latest"
         self.queues = {
                 'job_events': "raft-jobevents",
                 'create_queue': "raft-jobcreate",
@@ -139,17 +139,23 @@ class RaftDefinitions():
             }
 
         self.sub_suffix = self.subscription.split('-')[1]
-        self.orchestrator = f"{self.deployment}-raft-orchestrator" + self.sub_suffix
-        self.service_bus = f"{self.deployment}-raft-servicebus" + self.sub_suffix
-        self.storage_account = f"{self.deployment}raft" + self.sub_suffix
-        self.event_domain = f"{self.deployment}-raft-events" + self.sub_suffix
-        self.storage_utils = f"{self.deployment}raftutil" + self.sub_suffix
-        self.storage_results = f"{self.deployment}raftrslt" + self.sub_suffix
+        self.orchestrator = (f"{self.deployment}"
+                             "-raft-"
+                             f"{self.sub_suffix}-orchestrator")
+        self.service_bus = (f"{self.deployment}"
+                            "-raft-"
+                            f"{self.sub_suffix}-servicebus")
+        self.event_domain = f"{self.deployment}-raft-{self.sub_suffix}-events"
+        self.storage_utils = f"{self.deployment}{self.sub_suffix}raftutil"
+        self.storage_results = f"{self.deployment}{self.sub_suffix}raftrslt"
 
         self.api_service_webapp = f"{self.deployment}-raft-apiservice"
         self.endpoint = f"https://{self.api_service_webapp}.azurewebsites.net"
 
-        self.test_infra = f"{self.deployment}-raft-test-infra" + self.sub_suffix
-        self.test_infra_storage = (f"{self.deployment}rafttest"
-                                   f"{self.sub_suffix}")
-        self.key_vault = f"{self.deployment}-raft-kv" + self.sub_suffix
+        self.test_infra = (f"{self.deployment}"
+                           "-raft-"
+                           f"{self.sub_suffix}-test-infra")
+        self.test_infra_storage = (f"{self.deployment}"
+                                   f"{self.sub_suffix}"
+                                   "rafttest")
+        self.key_vault = f"{self.deployment}-raft-{self.sub_suffix}-kv"
