@@ -1,154 +1,16 @@
 'use strict';
-const fs = require('fs');
-const url = require('url');
-const { exec } = require('child_process');
-
-const appInsights = require('applicationinsights');
-const serviceBus = require('@azure/service-bus');
 
 const toolDirectory = process.env.RAFT_TOOL_RUN_DIRECTORY;
-const workDirectory = process.env.RAFT_WORK_DIRECTORY;
+console.log(toolDirectory + "/../../libs/node-js/raft.js");
 
+const raft = require(toolDirectory + "/../../libs/node-js/raft.js");
+console.log(raft);
 
-const rawdata = fs.readFileSync(workDirectory + '/task-config.json');
-const config = JSON.parse(rawdata);
+const raftUtils = new raft.RaftUtils("Dredd");
 
-class RaftUtils {
-    constructor() {
-        this.telemetryClient = new appInsights.TelemetryClient(process.env['RAFT_APP_INSIGHTS_KEY']);
-        this.serviceBus = new serviceBus.ServiceBusClient(process.env.RAFT_SB_OUT_SAS);
-        this.jobId = process.env['RAFT_JOB_ID'];
-        this.agentName = process.env['RAFT_CONTAINER_NAME'];
-        this.traceProperties =
-            {
-                jobId : this.jobId,
-                taskIndex : process.env['RAFT_TAKS_INDEX'],
-                containerName : this.agentName
-            };
-        this.sbSender = this.serviceBus.createSender(this.serviceBus._connectionContext.config.entityPath);
-    }
-
-    reportBug(bugDetails) {
-        console.log('Sending bug found event: ' + bugDetails.name);
-        this.sbSender.sendMessages(
-            {
-                body: {
-                    eventType : 'BugFound',
-                    message : {
-                        tool : "Dredd",
-                        jobId : this.jobId,
-                        agentName : this.agentName,
-                        bugDetails : bugDetails
-                    }
-                },
-                sessionId : this.jobId 
-            }
-        );
-    }
-
-    reportStatus(state, details) {
-        console.log('Sending job status event: ' + state);
-        return this.sbSender.sendMessages(
-            {
-                body: {
-                    eventType: 'JobStatus', 
-                    message : {
-                        tool: 'Dredd',
-                        jobId : this.jobId,
-                        agentName : this.agentName,
-                        details : details,
-                        utcEventTime : (new Date()).toUTCString(),
-                        state : state
-                    }
-                }, 
-                sessionId : this.jobId 
-            }); 
-    }
-
-    reportStatusCreated(details){
-        this.reportStatus('Created', details);
-    }
-
-    reportStatusRunning(details){
-        this.reportStatus('Running', details);
-    }
-
-    reportStatusCompleted(details){
-        return this.reportStatus('Completed', details);
-    }
-
-    reportStatusError(details){
-        return this.reportStatus('Error', details);
-    }
-
-    logTrace(traceMessage) {
-        this.telemetryClient.trackTrace({message: traceMessage, properties: this.traceProperties});
-    }
-
-    logException(exception) {
-        this.telemetryClient.trackException({exception: exception, properties: this.traceProperties});
-    }
-
-    flush(){
-        this.telemetryClient.flush();
-        this.serviceBus.close();
-    }
-}
-
-const raftUtils = new RaftUtils();
 raftUtils.reportStatusCreated();
 
-function getAuthHeader(callback) {
-    if (!config.authenticationMethod) {
-        raftUtils.logTrace("No authentication");
-        callback(null, null);
-    } else {
-        const authMethods = Object.keys(config.authenticationMethod)
-        if (authMethods.length == 0) {
-            raftUtils.logTrace("No authentication");
-            callback(null, null); 
-        } else if (authMethods.length > 1) {
-            callback(new Error("More than one authentication method is specified: " + config.authenticationMethod), null);
-        } else {
-            const authMethod = authMethods[0];
-            switch (authMethod.toLowerCase()) {
-                case 'msal':
-                    raftUtils.logTrace("Authentication set to MSAL");
-                    const msalDirectory = toolDirectory + "/../../auth/node-js/msal";
-                    exec("npm install " + msalDirectory, (error, _) => {
-                            if (error) {
-                                callback(error);
-                            } else {
-                                const raft_msal = require(msalDirectory + '/msal_token.js')
-                                raft_msal.tokenFromEnvVariable(config.authenticationMethod[authMethod], (error, result) => {
-                                        callback(error, result);
-                                    }
-                                );
-                            }
-                        }
-                    );
-                    break;
-                case 'txttoken':
-                    raftUtils.logTrace("Authentication set to txtToken");
-                    callback(null, process.env['RAFT_' + config.authenticationmethod.txttoken] || process.env[config.authenticationmethod.txttoken] );
-                    break;
-                case 'commandline':
-                    raftUtils.logTrace("Authentication set to commandLine");
-                    exec(config.authenticationmethod.commandline, (error, result) => {
-                            callback(erorr, result);
-                        }
-                    );
-                    break;
-                default:
-                    raftUtils.logTrace("Unhandled authentication method: " + config.authenticationMethod);
-                    callback(new Error("Unhandled authentication method: " + config.authenticationMethod), null);
-                    break;
-            }
-        }
-    }
-}
-
-getAuthHeader((error, result) => {
+raft.getAuthHeader((error, result) => {
     if (error) {
         console.error(error);
         raftUtils.logException(error);
@@ -164,10 +26,11 @@ getAuthHeader((error, result) => {
         var Dredd = require('dredd');
         const EventEmitter = require('events');
         let eventEmitter = new EventEmitter();
+        console.log(raftUtils.config);
 
         let configuration = {
             init: false,
-            endpoint: config.targetConfiguration.endpoint, // your URL to API endpoint the tests will run against
+            endpoint: raft.config.targetConfiguration.endpoint, // your URL to API endpoint the tests will run against
             path: [],         // Required Array if Strings; filepaths to API description documents, can use glob wildcards
             'dry-run': false, // Boolean, do not run any real HTTP transaction
             names: false,     // Boolean, Print Transaction names and finish, similar to dry-run
@@ -177,12 +40,12 @@ getAuthHeader((error, result) => {
             user: null,       // String, Basic Auth credentials in the form username:password
             hookfiles: [],    // Array of Strings, filepaths to files containing hooks (can use glob wildcards)
             reporter: ['markdown', 'html'], // Array of possible reporters, see folder lib/reporters
-            output: [workDirectory + '/report.md', workDirectory + '/report.html'],       // Array of Strings, filepaths to files used for output of file-based reporters
+            output: [raft.workDirectory + '/report.md', raft.workDirectory + '/report.html'],       // Array of Strings, filepaths to files used for output of file-based reporters
             'inline-errors': false, // Boolean, If failures/errors are display immediately in Dredd run
             require: null,    // String, When using nodejs hooks, require the given module before executing hooks
             color: true,
             emitter: eventEmitter, // listen to test progress, your own instance of EventEmitter
-            path: config.targetConfiguration.apiSpecifications
+            path: raft.config.targetConfiguration.apiSpecifications
         }
         var dredd = new Dredd(configuration);
 
