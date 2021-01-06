@@ -2,7 +2,7 @@
     "openapi": "3.0.1",
     "info": {
         "title": "RESTler",
-        "version": "v1"
+        "version": "v2"
     },
     "paths": {},
     "components": {
@@ -165,22 +165,31 @@
                 "additionalProperties": false,
                 "description": "RESTler configuration for replaying request sequences that triggered a reproducable bug"
             },
-            "TargetEndpointConfiguration": {
+            "CheckerSettings": {
                 "type": "object",
                 "properties": {
-                    "ip": {
-                        "type": "string",
-                        "description": "The IP of the endpoint being fuzzed",
-                        "nullable": true
-                    },
-                    "port": {
-                        "type": "integer",
-                        "description": "The port of the endpoint being fuzzed. Defaults to 443.",
-                        "format": "int32"
-                    }
+                "mode": {
+                    "type": "string",
+                    "nullable": true
+                }
                 },
-                "additionalProperties": false,
-                "description": "Configuration of the endpoint under test"
+                "additionalProperties": false
+            },
+            "PerResourceSetting": {
+                "type": "object",
+                "properties": {
+                "producerTimingDelay": {
+                    "type": "integer",
+                    "format": "int32"
+                },
+                "createOnce": {
+                    "type": "boolean"
+                },
+                "customDictionary": {
+                    "$ref": "#/components/schemas/CustomDictionary"
+                }
+                },
+                "additionalProperties": false
             },
             "RunConfiguration": {
                 "type": "object",
@@ -194,9 +203,6 @@
                         "type": "string",
                         "description": "For Test or Fuzz tasks: Grammar is produced by compile step. The compile step\r\nfile share is mounted and set here. Agent will not modify\r\nthis share. Agent will make a copy of all needed files to it's work directory.\r\nFor Replay task: path to RESTler Fuzz or Test run that contains bug buckets to replay",
                         "nullable": true
-                    },
-                    "targetEndpointConfiguration": {
-                        "$ref": "#/components/schemas/TargetEndpointConfiguration"
                     },
                     "producerTimingDelay": {
                         "type": "integer",
@@ -224,7 +230,57 @@
                         },
                         "description": "List of bug hashes to ignore when posting Bug Found webhook",
                         "nullable": true
-                    }
+                    },
+                    "maxRequestExecutionTime":{
+                        "type": "integer",
+                        "description": "Maximum request execution time",
+                        "format": "int32"
+                    },
+                    "ignoreDependencies":{
+                        "type": "boolean",
+                        "description": "Ignore resource dependencies"
+                    },
+                    "ignoreFeedback":{
+                        "type": "boolean",
+                        "description": "Ignore feedback from response"
+                    },
+                    "includeUserAgent":{
+                        "type": "boolean",
+                        "description": "Include RESTler user agent"
+                    },
+                    "maxAsyncResourceCreationTime":{
+                        "type": "integer",
+                        "description": "Maximum resource creation time",
+                        "format": "int32"
+                    },
+                    "maxCombinations":{
+                        "type": "integer",
+                        "description": "Maximum number of permutations when constructing request combinations",
+                        "format": "int32"
+                    },
+                    "maxSequenceLength" :{
+                        "type": "integer",
+                        "description": "Maximum sequence length of requests",
+                        "format": "int32"
+                    },
+                    "waitForAsyncResourceCreation":{
+                        "type": "boolean",
+                        "description": "Wait for asynchronous resource creation"
+                    },
+                    "checkers": {
+                        "type": "object",
+                        "additionalProperties": {
+                        "$ref": "#/components/schemas/CheckerSettings"
+                        },
+                        "nullable": true
+                    },
+                    "perResourceSettings": {
+                        "type": "object",
+                        "additionalProperties": {
+                        "$ref": "#/components/schemas/PerResourceSetting"
+                        },
+                        "nullable": true
+                    }                
                 },
                 "additionalProperties": false,
                 "description": "RESTler job Test, Fuzz or Replay configuration"

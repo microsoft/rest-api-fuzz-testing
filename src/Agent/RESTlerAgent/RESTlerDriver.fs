@@ -263,8 +263,8 @@ module private RESTlerInternal =
             let compilerConfigPath = workingDirectory ++ "config.json"
             let compilerConfig =
                 { config with
-                    grammarOutputDirectoryPath = Some workingDirectory
-                    customDictionaryFilePath = config.customDictionaryFilePath }
+                    GrammarOutputDirectoryPath = Some workingDirectory
+                    CustomDictionaryFilePath = config.CustomDictionaryFilePath }
             Json.Compact.serializeToFile compilerConfigPath compilerConfig
 
             // Run compiler
@@ -292,12 +292,12 @@ module private RESTlerInternal =
         Json.Compact.serializeToFile settingsFilePath settings
         [
             sprintf "--settings %s" settingsFilePath
-            sprintf "--restler_grammar \"%s\"" parameters.grammarFilePath
-            sprintf "--custom_mutations \"%s\"" parameters.mutationsFilePath
+            sprintf "--restler_grammar \"%s\"" parameters.GrammarFilePath
+            sprintf "--custom_mutations \"%s\"" parameters.MutationsFilePath
 
             // Checkers
-            (if parameters.checkerOptions.Length > 0 then
-                parameters.checkerOptions
+            (if parameters.CheckerOptions.Length > 0 then
+                parameters.CheckerOptions
                 |> List.map (fun (x, y) -> sprintf "%s %s" x y)
                 |> String.concat " "
             else "")
@@ -307,7 +307,7 @@ module private RESTlerInternal =
     let validateAuthentication workingDirectory (tokenOptions : RESTlerTypes.Engine.RefreshableTokenOptions) =
         async {
             printfn "Validating authentication configuration"
-            let cmd, args = "/bin/sh", sprintf "-c \"%s\"" tokenOptions.refreshCommand
+            let cmd, args = "/bin/sh", sprintf "-c \"%s\"" tokenOptions.RefreshCommand
 
             let! r = startProcessAsync cmd args "." None (Some(workingDirectory ++ "stderr-auth.txt"))
             match r.ExitCode with
@@ -319,7 +319,7 @@ module private RESTlerInternal =
     let test testType restlerRootDirectory workingDirectory (parameters: Raft.RESTlerTypes.Engine.EngineParameters) = 
         async {
             do!
-                match parameters.refreshableTokenOptions with
+                match parameters.RefreshableTokenOptions with
                 | None -> async.Return()
                 | Some t -> validateAuthentication workingDirectory t
 
@@ -331,7 +331,7 @@ module private RESTlerInternal =
     let fuzz fuzzType restlerRootDirectory workingDirectory (parameters: Raft.RESTlerTypes.Engine.EngineParameters) = 
         async {
             do!
-                match parameters.refreshableTokenOptions with
+                match parameters.RefreshableTokenOptions with
                 | None -> async.Return()
                 | Some t -> validateAuthentication workingDirectory t
 
@@ -342,7 +342,7 @@ module private RESTlerInternal =
     let replay restlerRootDirectory workingDirectory replayLogFilePath (parameters: Raft.RESTlerTypes.Engine.EngineParameters) = 
         async {
             do!
-                match parameters.refreshableTokenOptions with
+                match parameters.RefreshableTokenOptions with
                 | None -> async.Return()
                 | Some t -> validateAuthentication workingDirectory t
 

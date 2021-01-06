@@ -9,17 +9,6 @@ open FsCheck.Xunit
 module DtoTypes =
     open Raft.Controllers.DTOs
 
-    let swaggerLocation =
-        Gen.oneof [ 
-            gen {
-                let! s = Arb.generate<NonNull<string>>
-                return ({URL = s.Get; FilePath = null} : SwaggerLocation)
-            }
-            gen {
-                let! s = Arb.generate<NonNull<string>>
-                return ({URL = null; FilePath = s.Get}: SwaggerLocation)
-            }
-        ]
 
     let authenticationMethod =
         Gen.oneof [
@@ -56,7 +45,15 @@ module DtoTypes =
             return d
         }
 
-    
+    let uri =
+        gen {
+            let! port = Arb.generate<FsCheck.PositiveInt>
+            let! host = Arb.generate<FsCheck.HostName>
+            
+            let url = sprintf "https://%s:%d" (host.ToString()) port.Get
+            return System.Uri(url)
+        }
+
     let jObj =
         gen {
             return null
@@ -73,11 +70,6 @@ module DtoTypes =
                 override _.Generator = authenticationMethod
             }
 
-        static member SwaggerLocation() =
-            { new Arbitrary<SwaggerLocation>() with
-                override _.Generator = swaggerLocation
-            }
-
         static member FileShareMount() =
             { new Arbitrary<FileShareMount>() with
                 override _.Generator = fileShareMount
@@ -86,6 +78,11 @@ module DtoTypes =
         static member Metadata() =
             { new Arbitrary<Dictionary<string, string>>() with
                 override _.Generator = metadata
+            }
+
+        static member Uri() =
+            {   new Arbitrary<System.Uri>() with
+                    override _.Generator = uri
             }
 
 

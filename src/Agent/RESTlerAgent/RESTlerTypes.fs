@@ -11,49 +11,77 @@ module Engine =
     type RefreshableTokenOptions =
         {
             /// The duration after which to refresh the token
-            refreshInterval : int
+            RefreshInterval : int
 
             /// The command that, when run, generates a new token in the form required
             /// by the API (e.g. 'Header : <value>')
-            refreshCommand : string
+            RefreshCommand : string
+        }
+
+
+    type EnginePerResourceSetting =
+        {
+            //seconds
+            ProducerTimingDelay : int
+            //use 1
+            CreateOnce: bool
+            //path to custom dictionary
+            CustomDictionary : string
+        }
+
+    type CheckerSettings =
+        {
+            Mode : string
         }
 
     /// The user-facing engine parameters
     type EngineParameters =
         {
             /// File path to the REST-ler (python) grammar.
-            grammarFilePath : string
+            GrammarFilePath : string
 
             /// File path to the custom fuzzing dictionary.
-            mutationsFilePath : string
+            MutationsFilePath : string
 
             /// The IP of the endpoint being fuzzed
-            targetIp : string option
+            TargetIp : string option
 
             /// The port of the endpoint being fuzzed
-            targetPort : int option
+            TargetPort : int option
 
             /// The maximum fuzzing time in hours
-            maxDurationHours : float option
+            MaxDurationHours : float option
 
             /// The authentication options, when tokens are required
-            refreshableTokenOptions : RefreshableTokenOptions option
+            RefreshableTokenOptions : RefreshableTokenOptions option
 
             /// The delay in seconds after invoking an API that creates a new resource
-            producerTimingDelay : int
+            ProducerTimingDelay : int
 
             /// Specifies to use SSL when connecting to the server
-            useSsl : bool
+            UseSsl : bool
 
             /// The string to use in overriding the Host for each request
-            host : string option
+            Host : string option
 
             /// Path regex for filtering tested endpoints
-            pathRegex : string option
+            PathRegex : string option
 
             /// The checker options
             /// ["enable or disable", "list of specified checkers"]
-            checkerOptions : (string * string) list
+            CheckerOptions : (string * string) list
+            Checkers : Map<string, CheckerSettings> option
+
+            MaxRequestExecutionTime : int option
+
+            IgnoreDependencies : bool option
+            IgnoreFeedback : bool option
+            IncludeUserAgent : bool option
+            MaxAsyncResourceCreationTime : int option
+            MaxCombinations : int option
+            MaxSequenceLength : int option
+            WaitForAsyncResourceCreation : bool option
+            PerResourceSettings : Map<string, EnginePerResourceSetting> option
         }
 
 
@@ -67,10 +95,6 @@ module Engine =
             custom_dictionary : string
         }
 
-    type CheckerSettings =
-        {
-            mode : string
-        }
 
     type Settings =
         {
@@ -141,9 +165,9 @@ module Engine =
             //proceeding
             wait_for_async_resource_creation : bool
 
-            per_resource_settings : IDictionary<string, PerResourceSetting> option
+            per_resource_settings : Map<string, PerResourceSetting> option
 
-            checkers : IDictionary<string, CheckerSettings> option
+            checkers : Map<string, CheckerSettings> option
         }
 
         static member Default =
@@ -211,22 +235,40 @@ module Engine =
 
         static member FromEngineParameters (fuzzingMode: string option) (p : EngineParameters) =
             let tokenRefreshInterval, tokenRefreshCommand =
-                match p.refreshableTokenOptions with
+                match p.RefreshableTokenOptions with
                 | None -> None, None
                 | Some options ->
-                    (Some options.refreshInterval), (Some options.refreshCommand)
+                    (Some options.RefreshInterval), (Some options.RefreshCommand)
             {
                 Settings.Default with
-                    host = p.host
-                    target_port = p.targetPort
-                    target_ip = p.targetIp
-                    time_budget = p.maxDurationHours
-                    path_regex = p.pathRegex
-                    global_producer_timing_delay = p.producerTimingDelay
-                    no_ssl = not p.useSsl
+                    host = p.Host
+                    target_port = p.TargetPort
+                    target_ip = p.TargetIp
+                    time_budget = p.MaxDurationHours
+                    path_regex = p.PathRegex
+                    global_producer_timing_delay = p.ProducerTimingDelay
+                    no_ssl = not p.UseSsl
                     fuzzing_mode = fuzzingMode
                     token_refresh_cmd = tokenRefreshCommand
                     token_refresh_interval = tokenRefreshInterval
+                    max_request_execution_time = Option.defaultValue Settings.Default.max_request_execution_time p.MaxRequestExecutionTime 
+                    ignore_dependencies = Option.defaultValue Settings.Default.ignore_dependencies p.IgnoreDependencies
+                    ignore_feedback = Option.defaultValue Settings.Default.ignore_feedback p.IgnoreFeedback
+                    max_async_resource_creation_time = Option.defaultValue Settings.Default.max_async_resource_creation_time p.MaxAsyncResourceCreationTime
+                    max_combinations = Option.defaultValue Settings.Default.max_combinations p.MaxCombinations
+                    max_sequence_length = Option.defaultValue Settings.Default.max_sequence_length p.MaxSequenceLength
+                    wait_for_async_resource_creation = Option.defaultValue Settings.Default.wait_for_async_resource_creation p.WaitForAsyncResourceCreation
+                    per_resource_settings =
+                        p.PerResourceSettings
+                        |> Option.map(fun settings ->
+                            settings |> Map.map (fun k v ->
+                                {
+                                    producer_timing_delay = v.ProducerTimingDelay
+                                    create_once = if v.CreateOnce then 1 else 0
+                                    custom_dictionary = v.CustomDictionary
+                                } )
+                        ) 
+                    checkers = p.Checkers
             }
 
 
@@ -236,54 +278,54 @@ module Compiler =
     /// User-specified compiler configuration
     type Config =
         {
-            swaggerSpecFilePath : string list option
+            SwaggerSpecFilePath : string list option
     
             // If specified, use this as the input and generate the python grammar.
-            grammarInputFilePath : string option
+            GrammarInputFilePath : string option
     
             // If unspecified, will be set to the working directory
-            grammarOutputDirectoryPath : string option
+            GrammarOutputDirectoryPath : string option
     
-            customDictionaryFilePath : string option
+            CustomDictionaryFilePath : string option
     
             // If specified, update the engine settings with hints derived from the grammar.
-            engineSettingsFilePath : string option
+            EngineSettingsFilePath : string option
     
-            includeOptionalParameters : bool
+            IncludeOptionalParameters : bool
     
-            useQueryExamples : bool
+            UseQueryExamples : bool
     
-            useBodyExamples : bool
+            UseBodyExamples : bool
     
             /// When set to 'true', discovers examples and outputs them to a directory next to the grammar.
             /// If an existing directory exists, does not over-write it.
-            discoverExamples : bool
+            DiscoverExamples : bool
     
             /// The directory where the compiler should look for examples.
             /// If 'discoverExamples' is true, this directory will contain the
             /// example files that have been discovered.
             /// If 'discoverExamples' is false, every time an example is used in the
             /// Swagger file, RESTler will first look for it in this directory.
-            examplesDirectory : string
+            ExamplesDirectory : string
     
             /// Perform payload body fuzzing
-            dataFuzzing : bool
+            DataFuzzing : bool
     
             // When true, only fuzz the GET requests
-            readOnlyFuzz : bool
+            ReadOnlyFuzz : bool
     
-            resolveQueryDependencies: bool
+            ResolveQueryDependencies: bool
     
-            resolveBodyDependencies: bool
+            ResolveBodyDependencies: bool
     
-            useRefreshableToken : bool
+            UseRefreshableToken : bool
     
             // When true, allow GET requests to be considered.
             // This option is present for debugging, and should be
             // set to 'false' by default.
             // In limited cases when GET is a valid producer, the user
             // should add an annotation for it.
-            allowGetProducers : bool
+            AllowGetProducers : bool
         }
     
     type MutationsDictionary =

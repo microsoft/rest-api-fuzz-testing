@@ -68,13 +68,20 @@ type ReplayConfiguration =
         BugBuckets : string array option
     }
 
-type TargetEndpointConfiguration =
-    {
-        /// The IP of the endpoint being fuzzed
-        Ip: string option
 
-        /// The port of the endpoint being fuzzed
-        Port: int
+type CheckerSettings =
+    {
+        Mode : string
+    }
+
+type PerResourceSetting =
+    {
+        //seconds
+        ProducerTimingDelay : int
+        //
+        CreateOnce: bool
+        //path to custom dictionary
+        CustomDictionary : CustomDictionary
     }
 
 type RunConfiguration = 
@@ -87,9 +94,6 @@ type RunConfiguration =
         /// this share. Agent will make a copy of all needed files to it's work directory.
         /// For Replay task: path to RESTler Fuzz or Test run that contains bug buckets to replay
         InputFolderPath: string
-
-        // endpoint configuration required when running fuzz or test tasks
-        TargetEndpointConfiguration: TargetEndpointConfiguration option
 
         /// The delay in seconds after invoking an API that creates a new resource
         ProducerTimingDelay : int option
@@ -106,6 +110,25 @@ type RunConfiguration =
         // In context of Replay - do not replay bugs specified in the list
         // In context of Test or Fuzz - do not post onBugFound events if they are in the list
         IgnoreBugHashes : string array option
+
+        /// Maximum duration of request before RESTler considers it to be timed out
+        MaxRequestExecutionTime : int option
+
+        /// If not set, then preconfigured checkers are used
+        Checkers : Map<string, CheckerSettings> option
+
+        IgnoreDependencies : bool option
+
+        IgnoreFeedback : bool option
+
+        IncludeUserAgent : bool option
+
+        MaxAsyncResourceCreationTime : int option
+        MaxCombinations : int option
+        MaxSequenceLength : int option
+        WaitForAsyncResourceCreation : bool option
+        PerResourceSettings : Map<string, PerResourceSetting> option
+
     }
 
 

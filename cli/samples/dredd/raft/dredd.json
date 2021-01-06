@@ -1,0 +1,23 @@
+{
+  "webhook":{
+    "name" : "mywebhook"
+  },
+  "testTasks" :{
+    "targetConfiguration" : {
+        "apiSpecifications": [
+          "https://{defaults.deploymentName}-raft-apiservice.azurewebsites.net/swagger/v2/swagger.json"
+        ],
+        "endpoint" : "https://{defaults.deploymentName}-raft-apiservice.azurewebsites.net"
+      },
+      "tasks": [
+        {
+          "toolName" : "Dredd",
+          "outputFolder" : "dredd",
+          "keyVaultSecrets": [ "RaftServicePrincipal" ],
+          "authenticationMethod": {
+            "MSAL": "RaftServicePrincipal"
+          }
+        }
+      ]
+    }
+  }

@@ -34,10 +34,17 @@ module DTOs =
     }
 
     [<CLIMutable>]
-    type SwaggerLocation =
+    type TargetConfiguration =
         {
-            URL: string
-            FilePath: string
+            /// <summary>
+            /// Override Endpoint for each request.
+            /// </summary>
+            Endpoint : System.Uri
+
+            /// <summary>
+            /// List of OpenApi/swagger specifications locations for the job run. Can be URL or file path.
+            /// </summary>
+            ApiSpecifications : string array
         }
 
     /// <summary>
@@ -60,14 +67,9 @@ module DTOs =
             OutputFolder : string
 
             /// <summary>
-            /// Override swagger specification location
+            /// Override TargetConfiguration
             /// </summary>
-            SwaggerLocation : SwaggerLocation
-
-            /// <summary>
-            /// Override the Host for each request.
-            /// </summary>
-            Host : string
+            TargetConfiguration : TargetConfiguration
 
             /// <summary>
             /// If true - do not run the task. Idle container to allow user to connect to it.
@@ -94,8 +96,22 @@ module DTOs =
             /// </summary>
             KeyVaultSecrets : string array
 
+            /// <summary>
+            /// Tool configuration. This configuration is defined by a swagger document in
+            /// schema.json document located in the raft-tools/(folder named after the tool).
+            /// </summary>
             ToolConfiguration : Newtonsoft.Json.Linq.JObject
         }
+
+    [<CLIMutable>]
+    type TestTasks =
+        {
+            TargetConfiguration: TargetConfiguration
+
+            [<Required>]
+            Tasks : RaftTask array
+        }
+
     /// <summary>
     /// Mount file share from RAFT storage account to container running a payload.
     /// </summary>
@@ -138,17 +154,16 @@ module DTOs =
     [<CLIMutable>]
     type Command =
         {
-            Command : string
-            Arguments : string array
+            ShellArguments : string array
             ExpectedRunDuration: Nullable<TimeSpan>
         }
 
     [<CLIMutable>]
-    type TestTargetDefinition =
+    type ServiceDefinition =
         {
             [<Required>]
             Container : string
-            Port : int
+            Ports : int array
             ExpectedDurationUntilReady: TimeSpan
 
             IsIdling : Nullable<bool>
@@ -164,11 +179,12 @@ module DTOs =
         }
 
     [<CLIMutable>]
-    type TestTarget =
+    type TestTargets =
         {
             Resources : Resources
-            Targets : TestTargetDefinition array
+            Services : ServiceDefinition array
         }
+
 
     /// <summary>
     /// Webhook definition
@@ -193,11 +209,6 @@ module DTOs =
     [<CLIMutable>]
     type JobDefinition =
         {
-            /// <summary>
-            /// Swagger specification location for the job run
-            /// </summary>
-            SwaggerLocation : SwaggerLocation
-
             /// <summary> 
             /// String used as a prefix added to service generated job ID.
             /// Prefix can contain only lowercase letters, numbers, and hyphens, and must begin with a letter or a number. 
@@ -212,27 +223,22 @@ module DTOs =
             Resources : Resources
 
             /// <summary>
-            /// RAFT Task definitions
+            /// Test tasks definitions
             /// </summary>
             [<Required>]
-            Tasks : RaftTask array
+            TestTasks : TestTasks
 
             /// <summary>
             /// Deploy Services under test packaged as Docker container to the same
             /// container grop as Tasks
             /// </summary>
-            TestTargets : TestTarget
+            TestTargets : TestTargets
 
             /// <summary>
             /// Duration of the job; if not set, then job runs till completion (or forever).
             /// For RESTler jobs - time limit is only useful for Fuzz task
             /// </summary>
             Duration: Nullable<TimeSpan>
-
-            /// <summary>
-            /// Override the Host for each request.
-            /// </summary>
-            Host : string
 
             /// <summary>
             /// Webhook to trigger when running this job
@@ -319,4 +325,6 @@ module DTOs =
             AgentName : string 
 
             ResultsUrl : string
+
+            Metadata : Dictionary<string, string>
         }

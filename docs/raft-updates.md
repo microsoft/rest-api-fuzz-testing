@@ -1,12 +1,11 @@
 # RAFT updates and releases
 
-
 Two different kinds of artifacts are released when a release is made:
 
 - Container images that are available via public docker hub
 - A python CLI which can be downloaded from the project's [github](https://github.com/microsoft/restapifuzztesting/releases) releases page. 
 
-When the service is deployed, the service components are configured to run from the public container images. You can see this configuration on the “Container settings” tab for the orchestrator and apiservice azure resources.
+When the service is deployed, the service components are configured to run from the public container images. You can see this configuration on the **Container settings** tab for the orchestrator and apiservice azure resources.
 
 Container images are released using semantic versioning:
 
@@ -20,7 +19,9 @@ The image tags produced for the containers will follow this pattern.
 - v1.0.1	Bug fixes and/or feature addition
 - v1.0.2	Bug fixes and/or feature addition
 - v1.1.0	Bug fix and/or feature addition (this release includes a release of the CLI)
-- v1.latest	Points to the most current version of v1
+- v1.latest	Points to the latest version of v1
+- v2.0.0    Release not-compatible with v1.*
+- v2.latest Points to the latest version of v2
 
 Releases will be created on the github project whenever a new CLI is needed and
 when a new image is release. For the releases that only include image updates,

@@ -162,36 +162,49 @@ let validateJsonFile (filePath : string) =
 
 // Need this for TEST and FUZZ tasks
 let createRESTlerEngineParameters
-    (targetIp, targetPort) (grammarFilePath: string) (mutationsFilePath: string)
+    (workDirectory: string)
+    (grammarFilePath: string) (mutationsFilePath: string)
     (task: Raft.Job.RaftTask) (checkerOptions:(string*string) list)
     (runConfiguration: RunConfiguration) : Raft.RESTlerTypes.Engine.EngineParameters =
+    
+    let host, ip, port =
+        match task.TargetConfiguration with
+        | None -> None, None, None
+        | Some targetConfig ->
+            match targetConfig.Endpoint with
+            | None -> None, None, None
+            | Some endpoint ->
+                match endpoint.HostNameType with
+                | System.UriHostNameType.Dns ->
+                    Some(endpoint.Host), None, Some(endpoint.Port)
+                | _ -> None, Some(endpoint.Host), Some(endpoint.Port)
     {
         /// File path to the REST-ler (python) grammar.
-        grammarFilePath = grammarFilePath
+        GrammarFilePath = grammarFilePath
 
         /// File path to the custom fuzzing dictionary.
-        mutationsFilePath = mutationsFilePath
+        MutationsFilePath = mutationsFilePath
 
         /// The string to use in overriding the Host for each request
-        host = task.Host
+        Host =  host
 
         /// The IP of the endpoint being fuzzed
-        targetIp = targetIp
+        TargetIp = ip
 
         /// The port of the endpoint being fuzzed
-        targetPort = targetPort
+        TargetPort = port
 
         /// The maximum fuzzing time in hours
-        maxDurationHours = task.Duration |> Option.map(fun d -> d.TotalHours)
+        MaxDurationHours = task.Duration |> Option.map(fun d -> d.TotalHours)
 
         /// The authentication options, when tokens are required
-        refreshableTokenOptions =
+        RefreshableTokenOptions =
             match task.AuthenticationMethod with
             | Some c ->
                 let authConfig : Raft.RESTlerTypes.Engine.RefreshableTokenOptions =
                     {
-                        refreshInterval = Option.defaultValue (int <| TimeSpan.FromHours(1.0).TotalSeconds) runConfiguration.AuthenticationTokenRefreshIntervalSeconds
-                        refreshCommand =
+                        RefreshInterval = Option.defaultValue (int <| TimeSpan.FromHours(1.0).TotalSeconds) runConfiguration.AuthenticationTokenRefreshIntervalSeconds
+                        RefreshCommand =
                             match c with
                             | Raft.Job.Authentication.TokenRefresh.CommandLine cmd -> cmd
 
@@ -206,74 +219,112 @@ let createRESTlerEngineParameters
             | None -> None
 
         /// The delay in seconds after invoking an API that creates a new resource
-        producerTimingDelay = Option.defaultValue 10 runConfiguration.ProducerTimingDelay
+        ProducerTimingDelay = Option.defaultValue 10 runConfiguration.ProducerTimingDelay
 
         /// The checker options
         /// ["enable or disable", "list of specified checkers"]
-        checkerOptions = checkerOptions
+        CheckerOptions = checkerOptions
  
         /// Specifies to use SSL when connecting to the server
-        useSsl = match runConfiguration.UseSsl with None -> true | Some useSsl -> useSsl
+        UseSsl = match runConfiguration.UseSsl with None -> true | Some useSsl -> useSsl
 
         /// Path regex for filtering tested endpoints
-        pathRegex = runConfiguration.PathRegex
+        PathRegex = runConfiguration.PathRegex
+
+        /// Maximum request execution time before it is considered to be timed out
+        MaxRequestExecutionTime = runConfiguration.MaxRequestExecutionTime
+
+        Checkers =
+            runConfiguration.Checkers
+            |> Option.map(fun checkers ->
+                checkers
+                |> Map.map(fun _ v -> {Mode = v.Mode})
+            )
+
+        IgnoreDependencies = runConfiguration.IgnoreDependencies
+ 
+        IgnoreFeedback = runConfiguration.IgnoreFeedback
+
+        IncludeUserAgent = runConfiguration.IncludeUserAgent
+         
+        MaxAsyncResourceCreationTime = runConfiguration.MaxAsyncResourceCreationTime
+        MaxCombinations = runConfiguration.MaxCombinations
+        MaxSequenceLength = runConfiguration.MaxSequenceLength
+        WaitForAsyncResourceCreation = runConfiguration.WaitForAsyncResourceCreation
+
+        PerResourceSettings =
+            runConfiguration.PerResourceSettings
+            |>  Option.map (fun settings ->
+                settings
+                |> Map.toSeq
+                |> Seq.mapi(fun i (k,v) ->
+                    let p = workDirectory ++ (sprintf "customDictionary-%d.json" i)
+                    v |> Json.Compact.serializeToFile p
+                    k,
+                        ({
+                            ProducerTimingDelay = v.ProducerTimingDelay
+                            CreateOnce = v.CreateOnce
+                            CustomDictionary = p
+                        }: Raft.RESTlerTypes.Engine.EnginePerResourceSetting)
+                ) |> Map.ofSeq
+            )
     }
 
 type GrammarType =
-    | Swagger of string
+    | Swagger of string list
     | Json of string
 
 
 let createRESTlerCompilerConfiguration (workDirectory: string) (grammar: GrammarType) (customDictionary: string) (compileConfig: CompileConfiguration ) : Raft.RESTlerTypes.Compiler.Config =
     {
-        swaggerSpecFilePath = match grammar with Swagger path -> Some [path] | Json _ -> None
+        SwaggerSpecFilePath = match grammar with Swagger paths -> Some paths | Json _ -> None
     
         // If specified, use this as the input and generate the python grammar.
         // This is path to JSON grammar. And we might need to accept as the step to FUZZ task (but do not need it for COMPILE task)
-        grammarInputFilePath = match grammar with Json path -> Some path | Swagger _ -> None
+        GrammarInputFilePath = match grammar with Json path -> Some path | Swagger _ -> None
 
-        grammarOutputDirectoryPath = None
+        GrammarOutputDirectoryPath = None
 
-        customDictionaryFilePath = Some customDictionary
+        CustomDictionaryFilePath = Some customDictionary
     
         // If specified, update the engine settings with hints derived from the grammar.
-        engineSettingsFilePath = None
+        EngineSettingsFilePath = None
     
-        includeOptionalParameters = true
+        IncludeOptionalParameters = true
     
-        useQueryExamples = true
+        UseQueryExamples = true
     
-        useBodyExamples = true
+        UseBodyExamples = true
     
         /// When set to 'true', discovers examples and outputs them to a directory next to the grammar.
         /// If an existing directory exists, does not over-write it.
-        discoverExamples = true
+        DiscoverExamples = true
     
         /// The directory where the compiler should look for examples.
         /// If 'discoverExamples' is true, this directory will contain the
         /// example files that have been discovered.
         /// If 'discoverExamples' is false, every time an example is used in the
         /// Swagger file, RESTler will first look for it in this directory.
-        examplesDirectory = workDirectory ++ "Examples"
+        ExamplesDirectory = workDirectory ++ "Examples"
     
         /// Perform data fuzzing
-        dataFuzzing = true
+        DataFuzzing = true
     
         // When true, only fuzz the GET requests
-        readOnlyFuzz = compileConfig.ReadOnlyFuzz
+        ReadOnlyFuzz = compileConfig.ReadOnlyFuzz
     
-        resolveQueryDependencies = true
+        ResolveQueryDependencies = true
     
-        resolveBodyDependencies = true
+        ResolveBodyDependencies = true
     
-        useRefreshableToken = compileConfig.UseRefreshableToken
+        UseRefreshableToken = compileConfig.UseRefreshableToken
     
         // When true, allow GET requests to be considered.
         // This option is present for debugging, and should be
         // set to 'false' by default.
         // In limited cases when GET is a valid producer, the user
         // should add an annotation for it.
-        allowGetProducers = compileConfig.AllowGetProducers
+        AllowGetProducers = compileConfig.AllowGetProducers
     }
 
 let inline makeValues< 'T > (stdGen) =
@@ -517,24 +568,42 @@ let main argv =
 
         let compileSwaggerGrammar(compilerConfiguration) =
             async {
-                let! swagger =
-                    async {
-                        match task.SwaggerLocation with
-                        | Some (Raft.Job.SwaggerLocation.URL url) ->
-                            let! swagger = downloadFile workDirectory "swagger.json" url
-                            printfn "Downloaded swagger spec to :%s" swagger
-                            return swagger
-                        | Some(Raft.Job.FilePath path) -> 
-                            return path
-                        | None -> return failwith "Cannot perform compilation step, since Swagger Grammar location is not set"
-                    }
+                match task.TargetConfiguration with
+                | None -> return failwith "Cannot perform compilation step, since TargetConfiguration is not set"
+                | Some targetConfiguration ->
+                    match targetConfiguration.ApiSpecifications with
+                    | None -> return failwith "Cannot perform compilation step, since ApiSpecifications are not set in TargetConfiguration, i.e. Swagger Grammar location"
+                    | Some apiSpecifications ->
+                        let! apiSpecifications =
+                            apiSpecifications
+                            |> Array.map (fun apiSpecificationLocation ->
+                                async {
+                                    let! apiSpecification =
+                                        async {
+                                            if IO.File.Exists apiSpecificationLocation then
+                                                return apiSpecificationLocation
+                                            else 
+                                                match System.Uri.TryCreate(apiSpecificationLocation, UriKind.Absolute) with
+                                                | true, url ->
+                                                    let! apiSpecification = downloadFile workDirectory (Array.last url.Segments) apiSpecificationLocation
+                                                    printfn "Downloaded apiSpecification spec to :%s" apiSpecification
+                                                    return apiSpecification
+                                                | false, _ ->
+                                                    return failwithf "Invalid api specification location : %s" apiSpecificationLocation
 
-                match validateJsonFile swagger with
-                | Result.Ok () -> ()
-                | Result.Error (err) -> failwithf "File %s is not a valid JSON file due to %s" swagger err
+                                        }
 
-                let compilerConfig = createRESTlerCompilerConfiguration workDirectory (Swagger swagger) customDictionaryPath compilerConfiguration
-                do! Raft.RESTlerDriver.compile restlerPath workDirectory compilerConfig
+                                    match validateJsonFile apiSpecification with
+                                    | Result.Ok () -> ()
+                                    | Result.Error (err) -> failwithf "File %s is not a valid JSON file due to %s" apiSpecification err
+
+                                    return apiSpecification
+                                }
+                            )
+                            |> Async.Sequential
+
+                        let compilerConfig = createRESTlerCompilerConfiguration workDirectory (Swagger (apiSpecifications |> Array.toList)) customDictionaryPath compilerConfiguration
+                        do! Raft.RESTlerDriver.compile restlerPath workDirectory compilerConfig
             }
 
         let compileJsonGrammar (jsonGrammarPath: string) (compilerConfiguration) =
@@ -609,23 +678,10 @@ let main argv =
                 | None -> Some defaultInterval
             resultAnalyzerReportInterval
 
-        let getIpAndPort (targetEndpointConfiguration : TargetEndpointConfiguration option) =
-            match targetEndpointConfiguration with 
-            | None ->
-                None, None
-            | Some endpointConfiguration ->
-                match endpointConfiguration.Ip with
-                | Some ip ->
-                    printfn "Endpoint configuration is set, going to use it: %A" endpointConfiguration
-                    Some(ip), Some(endpointConfiguration.Port)
-                | None ->
-                    None, Some(endpointConfiguration.Port)
-
         let test (testType: string) checkerOptions (jobConfiguration: RunConfiguration) =
             async {
                 let resultAnalyzerReportInterval = getResultReportingInterval()
-                let targetIp, targetPort = getIpAndPort jobConfiguration.TargetEndpointConfiguration
-                let engineParameters = createRESTlerEngineParameters (targetIp, targetPort) grammarPy dictJson task checkerOptions jobConfiguration
+                let engineParameters = createRESTlerEngineParameters workDirectory grammarPy dictJson task checkerOptions jobConfiguration
                 printfn "Starting RESTler test task"
 
                 let ignoreBugHashes =
@@ -639,8 +695,7 @@ let main argv =
         let fuzz (fuzzType:string) checkerOptions (jobConfiguration: RunConfiguration) =
             async {
                 let resultAnalyzerReportInterval = getResultReportingInterval()
-                let targetIp, targetPort = getIpAndPort jobConfiguration.TargetEndpointConfiguration
-                let engineParameters = createRESTlerEngineParameters (targetIp, targetPort) grammarPy dictJson task checkerOptions jobConfiguration
+                let engineParameters = createRESTlerEngineParameters workDirectory grammarPy dictJson task checkerOptions jobConfiguration
                 printfn "Starting RESTler fuzz task"
 
                 let ignoreBugHashes =
@@ -654,23 +709,19 @@ let main argv =
         let replay replayLogFile (jobConfiguration: RunConfiguration) =
             async {
                 //same command line parameters as fuzzing, except for fuzzing parameter pass sprintf "--replay_log %s" replayLogFilePath
-                let task, targetIp, targetPort = 
-                    match task.Host, jobConfiguration.TargetEndpointConfiguration with
-                    | None, None ->
+                let task =
+                    match task.TargetConfiguration with
+                    | None ->
                         let taskConfigurationPath = jobConfiguration.InputFolderPath ++ ".." ++ ".." ++ ".." ++ IO.FileInfo(taskConfigurationPath).Name
                         let prevTask: Raft.Job.RaftTask = Json.Compact.deserializeFile taskConfigurationPath
-                        let prevPayload : RESTlerPayload = Json.Compact.deserialize (prevTask.ToolConfiguration.ToString())
-                        match prevPayload.RunConfiguration with
-                        | Some runConfiguration ->
-                            let targetIp, targetPort = getIpAndPort runConfiguration.TargetEndpointConfiguration
-                            {task with Host = prevTask.Host}, targetIp, targetPort
-                        | None ->
-                            failwithf "Host nor TargetEndpointConfiguration are not set. Also output of previous task does not have it set."
-                    | _, endPointConfig ->
-                        let targetIp, targetPort = getIpAndPort endPointConfig
-                        task, targetIp, targetPort
+                        {
+                            task with
+                                TargetConfiguration = prevTask.TargetConfiguration
+                        }
 
-                let engineParameters = createRESTlerEngineParameters (targetIp, targetPort) grammarPy dictJson task [] jobConfiguration
+                    | _ -> task
+
+                let engineParameters = createRESTlerEngineParameters workDirectory grammarPy dictJson task [] jobConfiguration
                 printfn "Starting RESTler replay task"
                 return! Raft.RESTlerDriver.replay restlerPath workDirectory replayLogFile engineParameters
             }

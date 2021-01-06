@@ -18,7 +18,7 @@ up and running.   It functions just the same on Windows and Linux clients.
 - [Install Python](https://www.python.org/downloads/) if
 you don't have it installed already; RAFT requires at least **version 3.6**.
 - [Install the Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli)
-if you haven't already; RAFT requires at least **version 2.12**.
+if you haven't already; RAFT requires at least **version 2.15**.
 
 ### If you are using the Cloud Shell
 
@@ -121,7 +121,7 @@ Note that only four of these are required.
 | `metricsOptIn`* | Yes | Whether you want the service to send us anonymized usage data; we use this to improve the service and respond to errors and other problems proactively (Note: to change you choice, just update the field and redeploy) Default: true|
 | `isDevelop` | No | Is this deployment for developing the RAFT service? Default: false |
 | `isPrivateRegistry` | No | When developing for the RAFT service, indicates a private registry is used to find images. Default: false |
-| `useAppInsights` | Yes | Deploy AppInsights and use it to write all service logs. Default: true |
+| `useAppInsights` | Yes | Create AppInsights resource as part of your deployment and use it to write all service logs. Default: true |
 | `registry` | Yes | Registry which stores service images. Default: mcr.microsoft.com |
 
 ### *Telemetry
@@ -217,7 +217,7 @@ There are a number of samples in the sample folder. These are setup so that you 
 the python scripts directly to exercise the service. Take some time to look at the log files and
 get familiar with the output.
 
-Two tools are deployed by default: [RESTler](https://github.com/microsoft/restler) and [ZAP](https://www.zaproxy.org/).
+Three tools are deployed by default: [RESTler](https://github.com/microsoft/restler), [ZAP](https://www.zaproxy.org/) and [Dredd](https://github.com/apiaryio/dredd).
 
 You can see how they are configured by looking at the configuration files under the `cli/raft-tools/tools` folder.
 

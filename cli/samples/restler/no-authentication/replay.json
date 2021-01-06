@@ -1,0 +1,25 @@
+{
+  "readOnlyFileShareMounts": [
+    {
+      "FileShareName": "sample-fuzz",
+      "MountPath": "/job-run"
+    }
+  ],
+  "testTasks": {
+    "targetConfiguration" : {
+      "endpoint": "https://{sample.host}"
+    },
+    "tasks": [
+      {
+        "toolName": "RESTler",
+        "toolConfiguration": {
+          "outputFolder": "RESTler-replay",
+          "task": "Replay",
+          "runConfiguration": {
+            "inputFolderPath": "/job-run/{fuzz.jobId}/fuzz"
+          }
+        }
+      }
+    ]
+  }
+}

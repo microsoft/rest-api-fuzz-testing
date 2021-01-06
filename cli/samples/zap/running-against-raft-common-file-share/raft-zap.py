@@ -22,4 +22,4 @@ def run(run_zap):
     cli.poll(zap_job['jobId'])
 
 if __name__ == "__main__":
-    run("raft.zap.json")
+    run("zap.json")

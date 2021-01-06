@@ -39,12 +39,14 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
         ]
         |> Set.ofList
 
-
     // Validation function to validate the job request
     // If something does not validate, we want to throw an exception with a a standard error type
     // that is informative for the customer.
     let validateAndPatchPayload (requestPayload: DTOs.JobDefinition) =
-        if Array.isEmpty requestPayload.Tasks then
+        let inline isNotSet (o : ^T) = isNull (box o)
+        let inline isSet (o : ^T) = o |> isNotSet |> not
+
+        if Array.isEmpty requestPayload.TestTasks.Tasks then
             raiseApiError ({ 
                 Error =
                     { 
@@ -56,47 +58,50 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                     }
                 })
 
-        let outputFolders = requestPayload.Tasks |> Array.map (fun t -> t.OutputFolder) |> Array.sort
+        let outputFolders = requestPayload.TestTasks.Tasks |> Array.map (fun t -> t.OutputFolder) |> Array.sort
 
-        let validateSwaggerLocation (swaggerLocation:DTOs.SwaggerLocation) =
+        let validateApiSpecification (apiSpecification:string) =
             // Validate the swagger URL.
-            if not <| isNull (box swaggerLocation) then
-                if not <| String.IsNullOrWhiteSpace(swaggerLocation.URL) then
-                    if not <| String.IsNullOrWhiteSpace(swaggerLocation.FilePath) then
+            if String.IsNullOrWhiteSpace(apiSpecification) then
+                    raiseApiError({
+                        Error = {
+                            Code = ApiErrorCode.ParseError
+                            Message = "Api Specification is ether null or empty"
+                            Target = "validateAndPatchPayload"
+                            Details = Array.empty
+                            InnerError = {Message = ""}
+                        }
+                    })
+
+        if isSet requestPayload.TestTasks.TargetConfiguration && isSet requestPayload.TestTasks.TargetConfiguration.ApiSpecifications then
+            requestPayload.TestTasks.TargetConfiguration.ApiSpecifications |> Array.iter validateApiSpecification
+
+        if isSet requestPayload.TestTargets && isSet requestPayload.TestTargets.Services then
+            requestPayload.TestTargets.Services
+            |> Array.iter(fun tt ->
+                if String.IsNullOrWhiteSpace tt.Shell then
+                    if isSet tt.PostRun || isSet tt.Idle || isSet tt.Run then
                         raiseApiError({
                             Error = {
                                 Code = ApiErrorCode.ParseError
-                                Message = "Only one value is allowed to be set for Swagger location (FilePath or URL)"
+                                Message = "Shell value must be set if Run, PostRun, or Idle are defined in the test target"
                                 Target = "validateAndPatchPayload"
                                 Details = Array.empty
                                 InnerError = {Message = ""}
                             }
                         })
-                    else
-                        match Uri.TryCreate(swaggerLocation.URL, UriKind.Absolute) with
-                        | true, _ -> ()
-                        | false, _ -> raiseApiError({
-                            Error = {
-                                Code = ApiErrorCode.ParseError
-                                Message = "Invalid Swagger Uri. The Uri must be a valid, absolute Uri."
-                                Target = "validateAndPatchPayload"
-                                Details = Array.empty
-                                InnerError = {Message = ""}
-                            }
-                        })
-
-        validateSwaggerLocation requestPayload.SwaggerLocation
+            )
 
         let requestPayload =
-            match isNull (box requestPayload.Resources), isNull(box requestPayload.TestTargets) with
-            | true, true ->
+            match isSet requestPayload.Resources, isSet requestPayload.TestTargets with
+            | false, false ->
                 {
                     requestPayload with
-                        Resources = { Cores = 1; MemoryGBs = 1 }}
-
-            | false, true-> requestPayload
-            | true, false ->
-                if isNull (box requestPayload.TestTargets.Resources) then
+                        Resources = { Cores = 1; MemoryGBs = 1 }
+                }
+            | true, false -> requestPayload
+            | false, true ->
+                if isNotSet requestPayload.TestTargets.Resources then
                     {
                         requestPayload with
                             Resources = {Cores = 2; MemoryGBs = 2}
@@ -116,8 +121,8 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                             InnerError = {Message = ""}
                         }
                     })
-            | false, false ->
-                if isNull (box requestPayload.TestTargets.Resources) then
+            | true, true ->
+                if isNotSet requestPayload.TestTargets.Resources then
                     raiseApiError({
                         Error = {
                             Code = ApiErrorCode.ParseError
@@ -148,7 +153,6 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                                 InnerError = {Message = ""}
                             }
                         })
-
                     requestPayload
 
         if requestPayload.Resources.Cores < 1 then
@@ -175,34 +179,33 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
 
         let requestPayload =
             {requestPayload with
-                Tasks =
-                    requestPayload.Tasks
-                    |> Array.map (fun t ->
-                        if isNull (box t.SwaggerLocation) then
-                            { t with SwaggerLocation = requestPayload.SwaggerLocation }
-                        else 
-                            t
-                    )
-                    |> Array.map(fun t ->
-                        if String.IsNullOrWhiteSpace t.Host then
-                            { t with Host = requestPayload.Host }
-                        else
-                            t
-                    )
-                    |> Array.map(fun t ->
-                        if not t.Duration.HasValue then
-                            { t with Duration = requestPayload.Duration }
-                        else
-                            t
-                    )
-            }
+                TestTasks =
+                    {requestPayload.TestTasks with
+                        Tasks =
+                            requestPayload.TestTasks.Tasks
+                            |> Array.map (fun t ->
+                                if isNotSet t.TargetConfiguration then
+                                    { t with
+                                        TargetConfiguration = requestPayload.TestTasks.TargetConfiguration
+                                    }
+                                else
+                                    t
+                            )
+                            |> Array.map(fun t ->
+                                if not t.Duration.HasValue then
+                                    { t with Duration = requestPayload.Duration }
+                                else
+                                    t
+                            )
+                    }
+                }
 
         let taskAuthentication =
-            requestPayload.Tasks
-            |> Array.filter(fun t -> not <| isNull (box t.AuthenticationMethod))
+            requestPayload.TestTasks.Tasks
+            |> Array.filter(fun t -> isSet t.AuthenticationMethod)
             |> Array.map (fun t -> t.AuthenticationMethod)
 
-        if requestPayload.Tasks.Length > requestPayload.Resources.MemoryGBs * 10 then
+        if requestPayload.TestTasks.Tasks.Length > requestPayload.Resources.MemoryGBs * 10 then
             raiseApiError ({ 
                 Error =
                     { 
@@ -213,7 +216,6 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                         InnerError = {Message = ""}
                     }
                 })
-
 
         taskAuthentication
         |> Array.iter(fun auth ->
@@ -268,7 +270,7 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                     }
             })
 
-        requestPayload.Tasks
+        requestPayload.TestTasks.Tasks
         |> Array.iter(fun t ->
             if not <| Utilities.toolsSchemas.ContainsKey t.ToolName then
                 raiseApiError({
@@ -281,11 +283,11 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                     }
                 })
 
-            if not <| isNull(box t.SwaggerLocation) then
-                validateSwaggerLocation t.SwaggerLocation
+            if isSet t.TargetConfiguration && isSet t.TargetConfiguration.ApiSpecifications then
+                t.TargetConfiguration.ApiSpecifications |> Array.iter validateApiSpecification
         )
 
-        if not <| isNull requestPayload.ReadOnlyFileShareMounts then
+        if isSet requestPayload.ReadOnlyFileShareMounts then
             requestPayload.ReadOnlyFileShareMounts
             |> Array.iter(fun fs ->
                 if String.IsNullOrWhiteSpace fs.FileShareName || String.IsNullOrWhiteSpace fs.MountPath then
@@ -300,7 +302,7 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                     })
             )
 
-        if not <| isNull requestPayload.ReadWriteFileShareMounts then
+        if isSet requestPayload.ReadWriteFileShareMounts then
             requestPayload.ReadWriteFileShareMounts
             |> Array.iter(fun fs ->
                 if String.IsNullOrWhiteSpace fs.FileShareName || String.IsNullOrWhiteSpace fs.MountPath then
@@ -314,7 +316,6 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                         }
                     })
             )
-
 
         //U+0000 to U+001F
         //U+007F to U+009F
@@ -331,7 +332,7 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                 }
             })
 
-        if not <| isNull(box requestPayload.Webhook) then
+        if isSet requestPayload.Webhook then
             if String.IsNullOrWhiteSpace requestPayload.Webhook.Name then
                 raiseApiError({
                     Error = {
@@ -651,12 +652,21 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
             let! result = Utilities.raftStorage.GetJobStatusEntities query
 
             let statuses : DTOs.JobStatus seq = result
-                                                |> Seq.map(fun (s: JobStatusEntity) -> Raft.Message.RaftEvent.deserializeEvent s.JobStatus)
+                                                |> Seq.map(fun (s: JobStatusEntity) ->
+                                                    try
+                                                        Some (Raft.Message.RaftEvent.deserializeEvent s.JobStatus)
+                                                    with
+                                                    | ex ->
+                                                        log.Error (sprintf "Failed to deserialize: %A due to %A" s.JobStatus ex) []
+                                                        None
+                                                    )
+                                                |> Seq.choose id
                                                 |> Seq.map (fun jobStatus -> jobStatus.Message)
 
             stopWatch.Stop()
             Central.Telemetry.TrackMetric (TelemetryValues.ApiRequest(method, float stopWatch.ElapsedMilliseconds), "milliseconds", this :> ControllerBase)
             return JsonResult(statuses)
+
         }
 
       

@@ -1,5 +1,4 @@
 {
-  "host": "{defaults.deploymentName}-raft-apiservice.azurewebsites.net",
   "ReadOnlyFileShareMounts": [
     {
       "FileShareName": "{compile.jobId}",
@@ -10,84 +9,95 @@
     "Cores": 4,
     "MemoryGBs": 4
   },
-  "tasks": [
-    {
-      "duration": "00:20:00",
-      "toolName": "RESTler",
-      "outputFolder": "{defaults.deploymentName}-RESTler-fuzz",
-      "keyVaultSecrets": [ "RaftServicePrincipal" ],
-      "authenticationMethod": {
-        "MSAL": "RaftServicePrincipal"
+  "testTasks" : {
+    "targetConfiguration" : {
+      "endpoint": "https://{defaults.deploymentName}-raft-apiservice.azurewebsites.net",
+      "apiSpecifications": [
+        "https://{defaults.deploymentName}-raft-apiservice.azurewebsites.net/swagger/v2/swagger.json"
+      ]
+    },
+    "tasks": [
+      {
+        "duration": "00:20:00",
+        "toolName": "RESTler",
+        "outputFolder": "{defaults.deploymentName}-RESTler-fuzz",
+        "keyVaultSecrets": [ "RaftServicePrincipal" ],
+        "authenticationMethod": {
+          "MSAL": "RaftServicePrincipal"
+        },
+        "toolConfiguration": {
+          "task": "Fuzz",
+          "runConfiguration": {
+            "inputFolderPath": "/job-compile/{defaults.deploymentName}-compile",
+            "useSsl": true,
+            "producerTimingDelay": 5
+          }
+        }
       },
-      "toolConfiguration": {
-        "task": "Fuzz",
-        "runConfiguration": {
-          "inputFolderPath": "/job-compile/{defaults.deploymentName}-compile",
-          "useSsl": true,
-          "producerTimingDelay": 5
+      {
+        "toolName": "ZAP",
+        "keyVaultSecrets": [ "RaftServicePrincipal" ],
+        "outputFolder": "{defaults.deploymentName}-ZAP-out",
+        "authenticationMethod": {
+          "MSAL": "RaftServicePrincipal"
         }
-      }
-    },
-    {
-      "toolName": "ZAP",
-      "keyVaultSecrets": [ "RaftServicePrincipal" ],
-      "outputFolder": "{defaults.deploymentName}-ZAP-out",
-      "swaggerLocation": {
-        "URL": "https://{defaults.deploymentName}-raft-apiservice.azurewebsites.net/swagger/v1/swagger.json"
       },
-
-      "authenticationMethod": {
-        "MSAL": "RaftServicePrincipal"
-      }
-    },
-    {
-      "host": "{sample.host}",
-      "toolName": "ZAP",
-      "swaggerLocation": {
-        "URL": "https://{sample.host}/swagger/v1/swagger.json"
+      {
+        "targetConfiguration" :{
+          "endpoint": "https://{sample.host}",
+          "apiSpecifications": [
+            "https://{sample.host}/swagger/v1/swagger.json"
+          ]
+        },
+        "toolName": "ZAP",
+        "outputFolder": "sample-zap-out"
       },
-      "outputFolder": "sample-zap-out"
-    },
-    {
-      "duration": "00:10:00",
-      "toolName": "RESTler",
+      {
+        "duration": "00:10:00",
+        "toolName": "RESTler",
+        "targetConfiguration" : {
+          "endpoint": "https://{sample.host}"
+        },
+        "outputFolder": "sample-RESTler-fuzz",
 
-      "host": "{sample.host}",
-      "outputFolder": "sample-RESTler-fuzz",
+        "toolConfiguration": {
+          "task": "Fuzz",
+          "runConfiguration": {
+            "inputFolderPath": "/job-compile/sample-compile"
+          }
+        }
+      },
+      {
+        "duration": "00:10:00",
+        "toolName": "RESTler",
+        "targetConfiguration" : {
+          "endpoint": "https://{sample.host}"
+        },
+        "outputFolder": "sample-RESTler-fuzz-random-walk",
 
-      "toolConfiguration": {
-        "task": "Fuzz",
-        "runConfiguration": {
-          "inputFolderPath": "/job-compile/sample-compile"
+        "toolConfiguration": {
+          "task": "FuzzRandomWalk",
+          "runConfiguration": {
+            "inputFolderPath": "/job-compile/sample-compile"
+          }
+        }
+      },
+      {
+        "duration": "00:10:00",
+        "toolName": "RESTler",
+        "targetConfiguration" : {
+          "endpoint": "https://{sample.host}"
+        },
+        "outputFolder": "sample-RESTler-fuzz-bfs-cheap",
+
+        "toolConfiguration": {
+          "task": "FuzzBfsCheap",
+          "runConfiguration": {
+            "inputFolderPath": "/job-compile/sample-compile"
+          }
         }
       }
-    },
-    {
-      "duration": "00:10:00",
-      "toolName": "RESTler",
-      "host": "{sample.host}",
-      "outputFolder": "sample-RESTler-fuzz-random-walk",
 
-      "toolConfiguration": {
-        "task": "FuzzRandomWalk",
-        "runConfiguration": {
-          "inputFolderPath": "/job-compile/sample-compile"
-        }
-      }
-    },
-    {
-      "duration": "00:10:00",
-      "toolName": "RESTler",
-      "host": "{sample.host}",
-      "outputFolder": "sample-RESTler-fuzz-bfs-cheap",
-
-      "toolConfiguration": {
-        "task": "FuzzBfsCheap",
-        "runConfiguration": {
-          "inputFolderPath": "/job-compile/sample-compile"
-        }
-      }
-    }
-
-  ]
+    ]
+  }
 }

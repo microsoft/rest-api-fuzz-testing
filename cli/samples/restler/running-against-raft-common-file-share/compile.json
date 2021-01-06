@@ -1,0 +1,22 @@
+{
+  "rootFileShare": "raft",
+  "testTasks": {
+    "targetConfiguration" : {
+      "apiSpecifications": [
+        "https://{defaults.deploymentName}-raft-apiservice.azurewebsites.net/swagger/v2/swagger.json"
+      ]
+    },
+    "tasks": [
+      {
+        "toolName": "RESTler",
+        "outputFolder": "compile",
+        "toolConfiguration": {
+          "task": "compile",
+          "compileConfiguration": {
+            "useRefreshableToken": true
+          }
+        }
+      }
+    ]
+  }
+}

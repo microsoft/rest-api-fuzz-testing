@@ -1,33 +1,36 @@
 {
-  "swaggerLocation": {
-    "URL" : "http://localhost:8080/api/swagger.json"
-  },
   "webhook": {
     "name": "petstore-compile"
   },
   "testTargets" : {
-    "targets" : [
+    "services" : [
       {
         "Container" : "swaggerapi/petstore",
-        "Port" : 8080,
+        "Ports" : [8080],
         "ExpectedDurationUntilReady" : "00:02:00",
         "Shell" : "/bin/sh",
         "OutputFolder" : "petstore",
         "PostRun" : {
-          "Command" : "/bin/sh", 
-          "Arguments" : ["-c", "cp /var/log/*-requests.log $RAFT_WORK_DIRECTORY"],
+          "ShellArguments" : ["-c", "cp /var/log/*-requests.log $RAFT_WORK_DIRECTORY"],
           "ExpectedRunDuration" : "00:00:10"
         }
       }
     ]
   },
-  "tasks": [
-    {
-      "toolName": "RESTler",
-      "outputFolder": "compile",
-      "toolConfiguration": {
-        "task": "Compile"
+  "testTasks" : {
+    "targetConfiguration" : {
+      "apiSpecifications": [
+        "http://localhost:8080/api/swagger.json"
+      ]
+    },
+    "tasks": [
+      {
+        "toolName": "RESTler",
+        "outputFolder": "compile",
+        "toolConfiguration": {
+          "task": "Compile"
+        }
       }
-    }
-  ]
+    ]
+  }
 }

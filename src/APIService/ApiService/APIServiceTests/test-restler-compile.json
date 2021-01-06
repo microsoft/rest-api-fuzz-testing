@@ -1,37 +1,40 @@
 {
-  "swaggerLocation": {
-    "URL": "https://a-test-service.azurewebsites.net/swagger/v1/swagger.json"
-  },
   "NamePrefix": "test-compile-",
-  "host": "a-test-service.azurewebsites.net",
-
   "webhook": {
-    "name" :  "test-webhook",
+    "name": "test-webhook",
     "metadata": {
       "build": "1.5",
       "owner": "me"
     }
   },
-  "tasks": [
-    {
-      "toolName": "RESTler",
-      "isIdling": false,
-      "outputFolder": "RESTler-Compile1",
-      "toolConfiguration": {
-        "task": "Compile"
-      }
+  "testTasks" : {
+    "targetConfiguration": {
+      "apiSpecifications": [
+        "https://a-test-service.azurewebsites.net/swagger/v2/swagger.json"
+      ],
+      "endpoint": "https://a-test-service.azurewebsites.net"
     },
-    {
-      "toolName": "RESTler",
-      "isIdling": false,
-      "outputFolder": "RESTler-Compile2",
+    "tasks": [
+      {
+        "toolName": "RESTler",
+        "isIdling": false,
+        "outputFolder": "RESTler-Compile1",
+        "toolConfiguration": {
+          "task": "Compile"
+        }
+      },
+      {
+        "toolName": "RESTler",
+        "isIdling": false,
+        "outputFolder": "RESTler-Compile2",
 
-      "toolConfiguration": {
-        "task": "Compile",
-        "compileConfiguration": {
-          "mutationsSeed": 34534798
+        "toolConfiguration": {
+          "task": "Compile",
+          "compileConfiguration": {
+            "mutationsSeed": 34534798
+          }
         }
       }
-    }
-  ]
+    ]
+  }
 }

@@ -1,0 +1,40 @@
+{
+  "testTasks": {
+    "targetConfiguration" : {
+      "apiSpecifications": [
+        "https://{defaults.deploymentName}-raft-apiservice.azurewebsites.net/swagger/v2/swagger.json"
+      ]
+    },
+    "tasks": [
+      {
+        "toolName": "RESTler",
+        "outputFolder": "RESTler-compile",
+
+        "toolConfiguration": {
+          "task": "compile",
+          "compileConfiguration": {
+            "useRefreshableToken": true,
+            "customDictionary": {
+              "customPayload": {
+                "ip" : ["10.10.10.10"],
+                "cores" : ["1", "2"],
+                "memoryGBs" : ["1", "2"],
+                "toolName" : ["ZAP"],
+                "duration": [ "00:10:00" ],
+                "apiSpecifications": [ "https://some.service.azurewebsites.net/swagger.json", "/swagger-folder/swagger.json" ],
+                "authenticationMethod": [ "{\"CommandLine\": \"abc\" }" ],
+                "targetUrl": [ "{replace-with-valid-webhook-URL}" ],
+                "event": [ "JobStatus" ],
+                "timeSpanFilter": [ "00:10:00" ],
+                "expectedRunDuration": [ "00:10:00" ],
+                "expectedDurationUntilReady": [ "00:10:00" ],
+                "eventName": [ "JobStatus" ],
+                "region" : ["eastus2"]
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}

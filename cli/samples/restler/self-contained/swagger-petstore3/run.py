@@ -7,7 +7,8 @@ import os
 import json
 
 cur_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.join(cur_dir, '..'))
+cli_dir = os.path.join(cur_dir, '..', '..', '..', '..')
+sys.path.append(cli_dir)
 from raft_sdk.raft_service import RaftCLI, RaftJobConfig, RaftJobError, RaftDefinitions
 
 
@@ -29,7 +30,7 @@ if __name__ == "__main__":
             build_id = sys.argv[2].replace(".", "-")
         print(f"BUILD ID : {build_id}")
 
-        with open(os.path.join(cur_dir, '..', 'defaults.json'), 'r') as defaults_json:
+        with open(os.path.join(cli_dir, 'defaults.json'), 'r') as defaults_json:
             defaults = json.load(defaults_json)
             if sys.argv[3] == '--secret':
                 defaults['secret'] = sys.argv[4]
@@ -42,10 +43,7 @@ if __name__ == "__main__":
         subs = {
             "{ci-run}" : f"{build_id}",
             "{build-url}" : os.environ['SYSTEM_COLLECTIONURI'],
-            "{build-id}" : os.environ['BUILD_BUILDID'],
-            "{raft-subscription}": defs.subscription,
-            "{raft-resource-group}" : defs.resource_group,
-            "{raft-storage-account}" : defs.storage_account
+            "{build-id}" : os.environ['BUILD_BUILDID']
         }
         for arg in sys.argv[1:]:
             if arg == 'compile':

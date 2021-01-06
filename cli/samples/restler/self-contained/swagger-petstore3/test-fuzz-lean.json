@@ -1,7 +1,6 @@
 {
   "rootFileShare" : "{ci-run}",
   "namePrefix" : "petstore3-test-fuzz-lean-",
-  "host": "localhost",
 
   "resources": {
     "Cores": 4,
@@ -27,33 +26,36 @@
       "Cores" : 2,
       "MemoryGBs" : 4
     },
-    "targets" : [
+    "services" : [
       {
         "Container" : "swaggerapi/petstore3",
-        "Port" : 8081,
+        "Ports" : [8081],
+        "OutputFolder" : "petstore3",
         "ExpectedDurationUntilReady" : "00:02:00",
+        "Shell" : "/bin/sh",
         "Run" : {
-          "Command" : "/bin/sh",
-          "Arguments" : ["-c", "java -jar /swagger-petstore/jetty-runner.jar --log $RAFT_WORK_DIRECTORY/yyyy_mm_dd-requests.log --port 8081 /swagger-petstore/server.war"]
+          "ShellArguments" : ["-c", "java -jar /swagger-petstore/jetty-runner.jar --log $RAFT_WORK_DIRECTORY/yyyy_mm_dd-requests.log --port 8081 /swagger-petstore/server.war"]
         }
       }
     ]
   },
-  "tasks": [
-    {
-      "toolName": "RESTler",
-      "outputFolder": "test-fuzz-lean",
-      "duration": "01:00:00",
-      "toolConfiguration": {
-        "task": "TestFuzzLean",
-        "runConfiguration": {
-          "targetEndpointConfiguration" : {
-            "Port" : 8081 
-          },
-          "useSsl" : false,
-          "inputFolderPath": "/ci-run/{compile.jobId}/compile"
+  "testTasks" : {
+    "tasks": [
+      {
+        "toolName": "RESTler",
+        "outputFolder": "test-fuzz-lean",
+        "duration": "01:00:00",
+        "targetConfiguration" : {
+          "endpiont": "http://localhost:8081"
+        },
+        "toolConfiguration": {
+          "task": "TestFuzzLean",
+          "runConfiguration": {
+            "useSsl" : false,
+            "inputFolderPath": "/ci-run/{compile.jobId}/compile"
+          }
         }
-      }
-    }  
-  ]
+      }  
+    ]
+  }
 }

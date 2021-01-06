@@ -86,12 +86,25 @@ module ContainerInstances =
         let (|AlreadyExists|_|) (e : exn) = 
             exnOfType<Azure.RequestFailedException> (fun ex -> ex.Status = int Net.HttpStatusCode.Conflict) e
 
+        let (|AlreadyDeleted|_|) (e: exn) =
+            let cloudException =
+                exnOfType(
+                    fun (e: Microsoft.Rest.Azure.CloudException) ->
+                        e.Body.Code = "ResourceNotFound" || e.Body.Code = "ContainerGroupNotFound"
+                    ) e
+
+            let errorResponse =
+                exnOfType(
+                    fun (e: Microsoft.Azure.Management.Monitor.Fluent.Models.ErrorResponseException) ->
+                        e.Response.StatusCode = System.Net.HttpStatusCode.NotFound
+                ) e
+
+            Option.orElse (cloudException |> Option.map(fun _ -> e)) (errorResponse |> Option.map (fun _ -> e))
 
     type AgentConfig =
         {
             ResourceGroup: string
-            StorageAccount: string
-            StorageAccountKey: string
+
             KeyVault: string
             AppInsightsKey: string
             OutputSas: string
@@ -157,11 +170,11 @@ module ContainerInstances =
             ()
         }
 
-    type ToolConfiguration =
+    type ContainerConfiguration =
         {
             Tool: string
             Container: string
-            Port : int option
+            Ports : int array option
             
             IsIdling : bool
 
@@ -179,19 +192,7 @@ module ContainerInstances =
             ContainerName : string
             RunDirectory : string option
             WorkDirectory : string option
-            ToolConfiguration: ToolConfiguration
-        }
-
-    type GpuConfig =
-        {
-            Sku : string //available SKUs v100, k80, P100
-            Cores : int
-        }
-    type ContainerConfig =
-        {
-            CPUs : int option
-            MemorySizeInGB : float option
-            GPUs : GpuConfig option
+            ContainerConfiguration: ContainerConfiguration
         }
 
     type ToolConfig =
@@ -305,7 +306,7 @@ module ContainerInstances =
                     return runDirectory,
                         {
                             Tool = task.ToolName
-                            Port = None
+                            Ports = None
                             Container = container
 
                             Secrets = task.KeyVaultSecrets
@@ -313,16 +314,14 @@ module ContainerInstances =
 
                             Run = Some {
                                 ExpectedRunDuration = None
-                                Command = c.Run.Command
-                                Arguments = c.Run.Arguments
+                                ShellArguments = c.Run.ShellArguments
                             }
 
                             Idle = Some {
                                 ExpectedRunDuration = None
-                                Command = c.Idle.Command
-                                Arguments = c.Idle.Arguments
+                                ShellArguments = c.Idle.ShellArguments
                             }
-                            Shell = Some(match c.Shell with Some sh -> sh | None -> c.Idle.Command)
+                            Shell = c.Shell
                             PostRun = None
 
                             UserDefinedEnvironmentVariables = c.EnvironmentVariables
@@ -385,7 +384,7 @@ module ContainerInstances =
 
             do! saveString (sprintf "%sjob-config.json" subDirectory) (Microsoft.FSharpLu.Json.Compact.Strict.serialize jobCreateRequest)
 
-            for task in jobCreateRequest.JobDefinition.Tasks do
+            for task in jobCreateRequest.JobDefinition.TestTasks.Tasks do
                 let taskDirectory = sprintf "%s%s" subDirectory task.OutputFolder
                 let directoryClient = shareClient.GetDirectoryClient(taskDirectory)
                 let! _  = directoryClient.CreateIfNotExistsAsync().ToAsync
@@ -393,7 +392,7 @@ module ContainerInstances =
 
             match jobCreateRequest.JobDefinition.TestTargets with
             | Some tt ->
-                for target in tt.Targets do
+                for target in tt.Services do
                     match target.OutputFolder with
                     | Some outputFolder ->
                         let taskDirectory = sprintf "%s%s" subDirectory outputFolder
@@ -463,14 +462,14 @@ module ContainerInstances =
                                 b.DefineContainerInstance toolContainerRun.ContainerName
 
                         let b1 = 
-                            b.WithImage(toolContainerRun.ToolConfiguration.Container)
+                            b.WithImage(toolContainerRun.ContainerConfiguration.Container)
 
                         let b2 =
-                            match toolContainerRun.ToolConfiguration.Port with
+                            match toolContainerRun.ContainerConfiguration.Ports with
                             | None ->
                                 b1.WithoutPorts().WithCpuCoreCount(cpu)
                             | Some p ->
-                                (b1.WithInternalTcpPort p).WithCpuCoreCount(cpu)
+                                (b1.WithInternalTcpPorts p).WithCpuCoreCount(cpu)
                         b2
                             .WithMemorySizeInGB(ram)
                             .WithVolumeMountSetting(workVolume, workDirectory)
@@ -497,21 +496,34 @@ module ContainerInstances =
                     let g = f.WithEnvironmentVariables environmentVariables
 
                     let command =
-                        if toolContainerRun.ToolConfiguration.IsIdling then
-                            match toolContainerRun.ToolConfiguration.Idle with
-                            | Some c -> Some(c.Command, match c.Arguments with Some args -> args | None -> Array.empty)
-                            | None -> failwith "No idle command is set"
-                        else
-                            match toolContainerRun.ToolConfiguration.Run with
-                            | Some r -> Some(r.Command, match r.Arguments with Some args -> args | None -> Array.empty)
-                            | None -> None
+                        match toolContainerRun.ContainerConfiguration.Shell with
+                        | Some sh ->
+                            if toolContainerRun.ContainerConfiguration.IsIdling then
+                                match toolContainerRun.ContainerConfiguration.Idle with
+                                | Some c -> Some(sh, match c.ShellArguments with Some args -> args | None -> Array.empty)
+                                | None -> failwith "No idle command is set"
+                            else
+                                match toolContainerRun.ContainerConfiguration.Run with
+                                | Some r -> Some(sh, match r.ShellArguments with Some args -> args | None -> Array.empty)
+                                | None -> None
+                        | None ->
+                            if toolContainerRun.ContainerConfiguration.IsIdling then
+                                match toolContainerRun.ContainerConfiguration.Idle with
+                                | Some _ -> failwith "Cannot exectue Idle command since shell is not set"
+                                | None -> ()
+                            else
+                                match toolContainerRun.ContainerConfiguration.Run with
+                                | Some _ -> failwith "Cannot execute Run command since shell is not set"
+                                | None -> ()
+                            None
+
                     let cg =
                         match command with
-                        | Some(cmd, args) ->
-                            Choice2Of2(g.WithStartingCommandLine(cmd, args).Attach())
+                        | Some(shell, args) ->
+                            Choice2Of2(g.WithStartingCommandLine(shell, args).Attach())
                         | None ->
                             Choice2Of2(g.Attach())
-                    cg,(isIdling || toolContainerRun.ToolConfiguration.IsIdling), (remainingCpu - cpu, remainingRam - ram)
+                    cg,(isIdling || toolContainerRun.ContainerConfiguration.IsIdling), (remainingCpu - cpu, remainingRam - ram)
                 )
             r, isIdling
 
@@ -540,14 +552,14 @@ module ContainerInstances =
 
             let! shareName = createJobShareAndFolders logger containerGroupName sasUrl jobCreateRequest
 
-            jobCreateRequest.JobDefinition.Tasks
+            jobCreateRequest.JobDefinition.TestTasks.Tasks
             |> Array.countBy(fun task -> task.ToolName)
             |> (fun tasks ->
-                Central.Telemetry.TrackMetric(TelemetryValues.Tasks(tasks, jobCreateRequest.JobDefinition.Tasks.Length), "N")
+                Central.Telemetry.TrackMetric(TelemetryValues.Tasks(tasks, jobCreateRequest.JobDefinition.TestTasks.Tasks.Length), "N")
             )
 
             let! containerToolRuns = 
-                jobCreateRequest.JobDefinition.Tasks 
+                jobCreateRequest.JobDefinition.TestTasks.Tasks 
                 |> Array.mapi (fun i task ->
                                 async {
                                     let! (runDirectory, toolConfig) = makeToolConfig task
@@ -556,7 +568,7 @@ module ContainerInstances =
                                             RunDirectory = Some runDirectory
                                             WorkDirectory = Some(getTaskWorkDirectoryPath containerGroupName jobCreateRequest.JobDefinition.RootFileShare workDirectory task.OutputFolder)
                                             ContainerName = (sprintf "%d-%s" i task.OutputFolder).ToLowerInvariant()
-                                            ToolConfiguration = toolConfig
+                                            ContainerConfiguration = toolConfig
                                         }
                                 }
                               )
@@ -638,19 +650,17 @@ module ContainerInstances =
                 let! containerToolRunsConfigurations, _, _, _ = getContainerGroupInstanceConfiguration existingContainerGroup.Name logger agentConfig dockerConfigs toolsConfigs jobCreateRequest
                 let! _ =
                     containerToolRunsConfigurations
-                    |> Array.filter (fun toolRunConfig -> toolRunConfig.ToolConfiguration.IsIdling)
+                    |> Array.filter (fun toolRunConfig -> toolRunConfig.ContainerConfiguration.IsIdling)
                     |> Array.map (fun toolRunConfig ->
                         async {
-                            match toolRunConfig.ToolConfiguration.Run with
-                            | Some r ->
-                                let cmd = getContainerRunCommandString r.Command r.Arguments
+                            match toolRunConfig.ContainerConfiguration.Shell, toolRunConfig.ContainerConfiguration.Run with
+                            | Some sh, Some r ->
+                                let cmd = getContainerRunCommandString sh r.ShellArguments
                                 logInfo "Since isIdling is set: on %s in %s running %s" toolRunConfig.ContainerName existingContainerGroup.Name cmd
-                                match toolRunConfig.ToolConfiguration.Shell with
-                                | Some sh ->
-                                    let! _ = runWebsocketCmd logger (existingContainerGroup, toolRunConfig.ContainerName) (sh, cmd)
-                                    return ()
-                                | None -> return failwithf "Cannot execute websocket command, since shell is not set."
-                            | None -> return failwithf "Cannot execute websocket command, since run command is not set"
+                                let! _ = runWebsocketCmd logger (existingContainerGroup, toolRunConfig.ContainerName) (sh, cmd)
+                                return ()
+                            | Some _, None | None, None -> return failwithf "Cannot execute websocket command, since run command is not set"
+                            | None, Some _ -> return failwithf "Cannot execute websocket command, since shell is not set."
                     }
                     ) |> Async.Sequential
                 ()
@@ -670,7 +680,7 @@ module ContainerInstances =
         async {
             let logInfo format = Printf.kprintf logger.LogInformation format
             try
-                if Array.isEmpty jobCreateRequest.JobDefinition.Tasks then
+                if Array.isEmpty jobCreateRequest.JobDefinition.TestTasks.Tasks then
                     return failwithf "No tasks defined for the job: %A" jobCreateRequest.JobId
                 else
                     logInfo "Creating container group for job: %A" jobCreateRequest.JobId
@@ -737,14 +747,14 @@ module ContainerInstances =
                         match jobCreateRequest.JobDefinition.TestTargets with
                         | None -> TimeSpan.Zero
                         | Some ts ->
-                            if Array.isEmpty ts.Targets then
+                            if Array.isEmpty ts.Services then
                                 TimeSpan.Zero
                             else
-                                (ts.Targets |> Array.maxBy (fun t -> t.ExpectedDurationUntilReady)).ExpectedDurationUntilReady
+                                (ts.Services |> Array.maxBy (fun t -> t.ExpectedDurationUntilReady)).ExpectedDurationUntilReady
 
                     let setupContainerEnvironment (i : int) (config: ContainerToolRun) =
                         let secrets =
-                            match config.ToolConfiguration.Secrets with
+                            match config.ContainerConfiguration.Secrets with
                             | Some toolSecrets ->
                                 toolSecrets
                                 |> Array.map(fun secretName ->
@@ -754,6 +764,11 @@ module ContainerInstances =
                                     sprintf "RAFT_%s" secretName, secret
                                 )
                             | None -> [||]
+
+                        let getShell() =
+                            match config.ContainerConfiguration.Shell with
+                            | Some sh -> sh
+                            | None -> failwith "Shell is not set"
     
                         let predefinedEnvironmentVariablesDict =
                             dict ([
@@ -765,12 +780,12 @@ module ContainerInstances =
                                 "RAFT_APP_INSIGHTS_KEY", agentConfig.AppInsightsKey
                                 "RAFT_SITE_HASH", agentConfig.SiteHash
                             ]
-                            @ (match config.ToolConfiguration.Run with Some r -> ["RAFT_RUN_CMD", getContainerRunCommandString r.Command r.Arguments ] | None -> [])
+                            @ (match config.ContainerConfiguration.Run with Some r -> ["RAFT_RUN_CMD", getContainerRunCommandString (getShell()) r.ShellArguments ] | None -> [])
                             @ (match config.WorkDirectory with Some wd -> ["RAFT_WORK_DIRECTORY", wd] | None -> [])
                             @ (match config.RunDirectory with Some rd -> ["RAFT_TOOL_RUN_DIRECTORY", rd] | None -> [])
-                            @ (match config.ToolConfiguration.PostRun with Some pr -> ["RAFT_POST_RUN_COMMAND", getContainerRunCommandString pr.Command pr.Arguments] | None -> [])
-                            @ (match config.ToolConfiguration.Shell with Some pr -> ["RAFT_CONTAINER_SHELL", pr] | None -> [])
-                            @ (Map.toList (Option.defaultValue Map.empty config.ToolConfiguration.UserDefinedEnvironmentVariables)))
+                            @ (match config.ContainerConfiguration.PostRun with Some pr -> ["RAFT_POST_RUN_COMMAND", getContainerRunCommandString (getShell()) pr.ShellArguments] | None -> [])
+                            @ (match config.ContainerConfiguration.Shell with Some pr -> ["RAFT_CONTAINER_SHELL", pr] | None -> [])
+                            @ (Map.toList (Option.defaultValue Map.empty config.ContainerConfiguration.UserDefinedEnvironmentVariables)))
 
                         let secretsDict = dict (Array.append secrets [|"RAFT_SB_OUT_SAS", agentConfig.OutputSas|])
                         config, secretsDict, predefinedEnvironmentVariablesDict
@@ -811,20 +826,20 @@ module ContainerInstances =
                             match jobCreateRequest.JobDefinition.TestTargets with
                             | Some t ->
                                 let targetRuns =
-                                    t.Targets
+                                    t.Services
                                     |> Array.mapi (fun i target ->
                                         {
-                                            ContainerName = sprintf "%s-%d" TestTarget target.Port
+                                            ContainerName = sprintf "%s-%d" TestTarget i
                                             RunDirectory = None
                                             WorkDirectory =
                                                 match target.OutputFolder with
                                                 | Some x -> Some(getTaskWorkDirectoryPath containerGroupName jobCreateRequest.JobDefinition.RootFileShare workDirectory x)
                                                 | None -> None
 
-                                            ToolConfiguration = {
+                                            ContainerConfiguration = {
                                                 Tool = target.Container
                                                 Container = target.Container
-                                                Port = Some target.Port
+                                                Ports = target.Ports
 
                                                 IsIdling = match target.IsIdling with None -> false | Some v -> v
 
@@ -853,7 +868,7 @@ module ContainerInstances =
                             | None -> None
                             | Some tt ->
                                 let timeOut =
-                                    tt.Targets
+                                    tt.Services
                                     |> Array.map (fun t ->
                                         match t.PostRun with
                                         | None -> None
@@ -1035,7 +1050,7 @@ module ContainerInstances =
                         logInfo "Time took to deploy job: %s total seconds %f. State: %s; Provisioning State : %s" 
                             containerGroupName stopWatch.Elapsed.TotalSeconds state existingContainerGroup.ProvisioningState
 
-                        let resultsUrl = jobResultsUrl azure.SubscriptionId agentConfig.ResourceGroup agentConfig.StorageAccount containerGroupName decodedMessage.Message.JobDefinition.RootFileShare
+                        let resultsUrl = jobResultsUrl azure.SubscriptionId agentConfig.ResourceGroup agentConfig.ResultsStorageAccount containerGroupName decodedMessage.Message.JobDefinition.RootFileShare
                         do! postStatus JobState.Created (Some resultsUrl) None
 
                         if decodedMessage.Message.IsIdlingRun then
@@ -1252,7 +1267,10 @@ module ContainerInstances =
             try
                 do! azure.ContainerGroups.DeleteByResourceGroupAsync(agentConfig.ResourceGroup, containerGroupName).ToAsync
                 return Result.Ok ()
-            with ex ->
+            with 
+            | Exceptions.AlreadyDeleted _ -> 
+                return Result.Ok()
+            | ex ->
                 Central.Telemetry.TrackError (TelemetryValues.Exception ex)
                 return Result.Error("Failed to delete Container Instance", ex.Message)
         }
@@ -1445,7 +1463,10 @@ module ContainerInstances =
                             ] |> Async.Sequential
                         return Some metricsList 
                     with
-                    | ex -> 
+                    | Exceptions.AlreadyDeleted _ -> 
+                        logInfo "[Metrics] Skipping container group: %s, since it is not found" containerGroup.Name
+                        return None
+                    | ex ->
                         Central.Telemetry.TrackError (TelemetryValues.Exception ex)
                         logError "[Metrics] Failed to get metric %s due to %A" containerGroup.Name ex
                         return None
@@ -1743,6 +1764,8 @@ module ContainerInstances =
                                         logError "[GC] for container group %s failed to delete: %A" g.Name errors
                                         incr failedDeletionsCount
                             with
+                            | Exceptions.AlreadyDeleted _ -> 
+                                logInfo "[GC] Skipping container group: %s, since it is not found" g.Name
                             | ex ->
                                 logError "[GC] for container group: %s due to %A" g.Name ex
                                 Central.Telemetry.TrackError (TelemetryValues.Exception ex)
