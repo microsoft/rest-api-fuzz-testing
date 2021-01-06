@@ -14,6 +14,7 @@ from .raft_common import RaftApiException, RestApiClient, RaftDefinitions
 script_dir = os.path.dirname(os.path.abspath(__file__))
 dos2unix_file_types = [".sh", ".bash"]
 
+
 class RaftJobConfig():
     def __init__(self,
                  *,
@@ -27,10 +28,10 @@ class RaftJobConfig():
                     c = c.replace(src, substitutions[src])
 
                 ext = Path(file_path).suffix
-                if ext == '.json': 
+                if ext == '.json':
                     config = json.loads(c)
                 elif ext == '.yml' or ext == '.yaml':
-                    config= yaml.load(c, Loader= yaml.FullLoader)
+                    config = yaml.load(c, Loader=yaml.FullLoader)
                 else:
                     raise Exception('Unsupported config file type')
 
@@ -323,7 +324,6 @@ class RaftCLI():
                     return True, RaftJobError(s['state'], s['details'])
                 else:
                     return False, None
-
 
     def poll(self, job_id, poll_interval=10, print_status=True):
         '''

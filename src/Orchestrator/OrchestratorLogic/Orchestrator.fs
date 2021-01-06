@@ -104,8 +104,7 @@ module ContainerInstances =
     type AgentConfig =
         {
             ResourceGroup: string
-            StorageAccount: string
-            StorageAccountKey: string
+
             KeyVault: string
             AppInsightsKey: string
             OutputSas: string
@@ -1051,7 +1050,7 @@ module ContainerInstances =
                         logInfo "Time took to deploy job: %s total seconds %f. State: %s; Provisioning State : %s" 
                             containerGroupName stopWatch.Elapsed.TotalSeconds state existingContainerGroup.ProvisioningState
 
-                        let resultsUrl = jobResultsUrl azure.SubscriptionId agentConfig.ResourceGroup agentConfig.StorageAccount containerGroupName decodedMessage.Message.JobDefinition.RootFileShare
+                        let resultsUrl = jobResultsUrl azure.SubscriptionId agentConfig.ResourceGroup agentConfig.ResultsStorageAccount containerGroupName decodedMessage.Message.JobDefinition.RootFileShare
                         do! postStatus JobState.Created (Some resultsUrl) None
 
                         if decodedMessage.Message.IsIdlingRun then
