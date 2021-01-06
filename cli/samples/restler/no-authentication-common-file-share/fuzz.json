@@ -1,5 +1,6 @@
 {
   "duration": "00:10:00",
+  "namePrefix": "fuzz-",
   "rootFileshare": "sample",
   "webhook": {
     "name": "sample-fuzz"
@@ -12,7 +13,7 @@
   ],
   "testTasks": {
     "targetConfiguration" : {
-      "endpoint": "https://{sample.host}"
+      "endpoint": "https://petstore.swagger.io/"
     },
     "tasks": [
       {

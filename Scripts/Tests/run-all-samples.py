@@ -105,14 +105,8 @@ def fuzz_and_zap(cli, configs):
     wait(configs, zap_count, 'zap', 'zap_job_id')
 
 if __name__ == "__main__":
-    if len(sys.argv) == 1:
-        print('Please provide a host on command line that does not require authentication. Something like: test-host.com')
-
-    sample_host = sys.argv[1]
-
     cli = RaftCLI()
     subs = {
-       '{sample.host}' : sample_host,
        '{defaults.deploymentName}' : cli.definitions.deployment,
        '{ci-run}': 'all-samples'
     }

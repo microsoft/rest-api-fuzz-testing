@@ -54,7 +54,7 @@ def bvt(cli, definitions, bvt_host):
         t_pre_compile = time.time()
 
         print('Compile')
-        compile_config_path = os.path.abspath(os.path.join(cli_path, 'samples', 'restler', 'no-authentication', 'sample.restler.compile.json'))
+        compile_config_path = os.path.abspath(os.path.join(cli_path, 'samples', 'restler', 'no-authentication', 'compile.json'))
         subs = {
             '{sample.host}' : bvt_host
         }

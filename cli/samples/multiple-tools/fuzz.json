@@ -44,9 +44,9 @@
       },
       {
         "targetConfiguration" :{
-          "endpoint": "https://{sample.host}",
+          "endpoint": "https://petstore.swagger.io",
           "apiSpecifications": [
-            "https://{sample.host}/swagger/v1/swagger.json"
+            "https://petstore.swagger.io/v2/swagger.json"
           ]
         },
         "toolName": "ZAP",
@@ -56,7 +56,7 @@
         "duration": "00:10:00",
         "toolName": "RESTler",
         "targetConfiguration" : {
-          "endpoint": "https://{sample.host}"
+          "endpoint": "https://petstore.swagger.io"
         },
         "outputFolder": "sample-RESTler-fuzz",
 
@@ -71,7 +71,7 @@
         "duration": "00:10:00",
         "toolName": "RESTler",
         "targetConfiguration" : {
-          "endpoint": "https://{sample.host}"
+          "endpoint": "https://petstore.swagger.io"
         },
         "outputFolder": "sample-RESTler-fuzz-random-walk",
 
@@ -86,7 +86,7 @@
         "duration": "00:10:00",
         "toolName": "RESTler",
         "targetConfiguration" : {
-          "endpoint": "https://{sample.host}"
+          "endpoint": "https://petstore.swagger.io"
         },
         "outputFolder": "sample-RESTler-fuzz-bfs-cheap",
 

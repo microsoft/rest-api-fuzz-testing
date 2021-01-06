@@ -3,11 +3,14 @@
 ## A self hosted REST API Fuzzing-As-A-Service platform 
 RAFT enables painless fuzzing of REST API's using multiple fuzzers in parallel. Using a single command line
 baked into your CI/CD pipeline developers can launch fuzz jobs against their services.
-  
-RAFT has first class integration with Microsoft's Research's [RESTler](https://github.com/microsoft/restler-fuzzer), the first stateful, 
-fuzzing tool designed to automatically test your REST API's driven by your swagger specification.
 
-RAFT also supports [ZAP](https://www.zaproxy.org/) from OWASP out of the box.
+Following Swagger/OpenAPI tools are currently supported by RAFT
+
+| Tool     | Description |
+|----------|----------|
+| [RESTler](https://github.com/microsoft/restler-fuzzer) | RAFT has first class integration with this Microsoft Research tool - the first stateful, fuzzing tool designed to automatically test your REST API's driven by your swagger/OpenApi specification. |
+| [ZAP](https://www.zaproxy.org/) | RAFT supports Swagger/OpenAPI scanning functionality provided by ZAP|
+| [Dredd](https://github.com/apiaryio/dredd) | RAFT supports Swagger/OpenAPI scanning functionality provided by Dredd|
 
 As a platform, RAFT is designed to host any API fuzzers that are packaged into a docker container. 
 These can be configured and used in the system via configuration files and require no code changes to integrate.

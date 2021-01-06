@@ -61,7 +61,7 @@ of the repository name, the user name, and the password as follows:
 
 ```json
 {
-  "repository" : "myprivateRegistry.azurecr.io",
+  "registry" : "myprivateRegistry.azurecr.io",
   "user" : "myUsername",
   "password" : "myPassword"
 }
