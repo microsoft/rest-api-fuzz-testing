@@ -10,7 +10,7 @@
       "apiSpecifications": [
         "https://{sample.host}/swagger/v1/swagger.json"
       ],
-      "host": "{sample.host}"
+      "endpoint": "https://{sample.host}"
     },
     "tasks": [
       {

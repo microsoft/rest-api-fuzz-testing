@@ -166,6 +166,18 @@ let createRESTlerEngineParameters
     (grammarFilePath: string) (mutationsFilePath: string)
     (task: Raft.Job.RaftTask) (checkerOptions:(string*string) list)
     (runConfiguration: RunConfiguration) : Raft.RESTlerTypes.Engine.EngineParameters =
+    
+    let host, ip, port =
+        match task.TargetConfiguration with
+        | None -> None, None, None
+        | Some targetConfig ->
+            match targetConfig.Endpoint with
+            | None -> None, None, None
+            | Some endpoint ->
+                match endpoint.HostNameType with
+                | System.UriHostNameType.Dns ->
+                    Some(endpoint.Host), None, Some(endpoint.Port)
+                | _ -> None, Some(endpoint.Host), Some(endpoint.Port)
     {
         /// File path to the REST-ler (python) grammar.
         GrammarFilePath = grammarFilePath
@@ -174,13 +186,13 @@ let createRESTlerEngineParameters
         MutationsFilePath = mutationsFilePath
 
         /// The string to use in overriding the Host for each request
-        Host =  match task.TargetConfiguration with Some tt -> tt.Host | None -> None
+        Host =  host
 
         /// The IP of the endpoint being fuzzed
-        TargetIp = match task.TargetConfiguration with Some tt -> tt.IP | None -> None
+        TargetIp = ip
 
         /// The port of the endpoint being fuzzed
-        TargetPort = match task.TargetConfiguration with Some tt -> tt.Port | None -> None
+        TargetPort = port
 
         /// The maximum fuzzing time in hours
         MaxDurationHours = task.Duration |> Option.map(fun d -> d.TotalHours)

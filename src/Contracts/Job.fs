@@ -60,9 +60,7 @@ type TestTarget =
 
 type TargetConfiguration =
     {
-        Host : string option
-        Port : int option
-        IP : string option
+        Endpoint: System.Uri option
 
         /// where to get service under test API specifications definition from
         /// Could be file path or url
@@ -128,9 +126,6 @@ type JobDefinition =
 
         /// Duration of the job; if not set, then job runs till completion
         Duration: System.TimeSpan option
-
-        /// The string to use in overriding the Host for each request
-        Host : string option
 
         /// Name of the webhook
         Webhook : Webhook option

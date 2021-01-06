@@ -147,7 +147,7 @@ def run_zap(target_index, targets_total, host, target, token):
         r = 0
         
     if target_index + 1 == targets_total:
-        utils.report_status_completed()
+        utils.report_status_completed(details)
     utils.sb_client.close()
     return r
 

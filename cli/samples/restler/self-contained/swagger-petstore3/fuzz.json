@@ -56,8 +56,7 @@
         "outputFolder": "fuzz",
         "duration": "00:10:00",
         "targetConfiguration" : {
-          "host": "localhost",
-          "Port" : 8081
+          "endpoint": "http://localhost:8081"
         },
         "toolConfiguration": {
           "task": "Fuzz",
@@ -73,7 +72,8 @@
         "targetConfiguration" : {
           "apiSpecifications": [
             "http://localhost:8082/api/v3/openapi.json"
-          ]
+          ],
+          "endpoint" : "http://localhost:8082"
         }
       }
     ]

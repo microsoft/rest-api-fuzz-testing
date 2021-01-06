@@ -12,7 +12,7 @@
 
   "testTasks": {
     "targetConfiguration" : {
-      "host": "{host}"
+      "endpoint": "https://{host}"
     },
     "tasks": [
       {

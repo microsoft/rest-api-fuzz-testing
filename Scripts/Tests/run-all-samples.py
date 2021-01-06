@@ -15,7 +15,7 @@ from raft_sdk.raft_service import RaftCLI, RaftJobConfig
 
 def find_files():
     configs = {}
-    fs = ['zap', 'compile', 'test', 'fuzz']
+    fs = ['dredd', 'zap', 'compile', 'test', 'fuzz']
     for root, _, files in os.walk(cli_dir):
         for f in fs:
             j = f + '.json'
@@ -49,16 +49,25 @@ def wait(configs, count, task_name, job_id_key):
         print('.')
 
 
-def compile(cli, configs):
+def compile_and_dredd(cli, configs):
     compile_count = 0
+    dredd_count = 0
     for c in configs:
         if configs[c].get('compile'):
             compile_job_config = RaftJobConfig(file_path=configs[c]['compile'], substitutions=subs)
             compile_job = cli.new_job(compile_job_config)
             configs[c]['compile_job_id'] = compile_job['jobId'] 
             compile_count = compile_count + 1
-    print('Compiling all ' + str(compile_count) + ' samples ...')
+
+        if configs[c].get('dredd'):
+            dredd_job_config = RaftJobConfig(file_path=configs[c]['dredd'], substitutions=subs)
+            dredd_job = cli.new_job(dredd_job_config)
+            configs[c]['dredd_job_id'] = dredd_job['jobId'] 
+            dredd_count = dredd_count + 1
+
+    print('Compiling all ' + str(compile_count) + ' and running Dredd on ' + str(dredd_count) +  ' samples ...')
     wait(configs, compile_count, 'compile', 'compile_job_id')
+    wait(configs, dredd_count, 'dredd', 'dredd_job_id')
 
 
 def test(cli, configs):
@@ -108,6 +117,6 @@ if __name__ == "__main__":
        '{ci-run}': 'all-samples'
     }
     configs = find_files()
-    compile(cli, configs)
+    compile_and_dredd(cli, configs)
     test(cli, configs)
     fuzz_and_zap(cli, configs)
