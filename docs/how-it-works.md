@@ -77,7 +77,7 @@ Submitting the job and its JSON description causes a message to be queued onto t
 service bus, where it is picked up and processed by the back-end orchestrator.
 
 To observe how this works in Azure, browse to your deployment's resource group and
-view the Service Bus named **[Deployment]-raft-servicebus**.  Note that any particular
+view the Service Bus named **[Deployment]-raft-[secondSubscriptionOctet]-servicebus**.  Note that any particular
 message may only reside on the queue for a short time, but you're able to see the
 cumulative counts of incoming and outgoing messages, along with counts of server and
 user errors, and trending over time.
@@ -92,7 +92,7 @@ is a file share -- there is one created per job, and each task in the job has a 
 folder that it will use.
 
 To see this in Azure, browse to your deployment's resource group and view the Storage
-Account named **[Deployment]-raft-[secondSubscriptionOctet]** to see all your deployment's
+Account named **[Deployment][secondSubscriptionOctet]raftrslt** to see all your deployment's
 file shares, and then browse to the one named for the Job ID (that was given to you 
 by the CLI or API call when you created it).  Open that up to see each task folder.
 
