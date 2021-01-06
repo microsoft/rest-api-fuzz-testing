@@ -1,0 +1,31 @@
+{
+  "rootFileShare": "raft",
+  "readOnlyFileShareMounts": [
+    {
+      "FileShareName": "raft",
+      "MountPath": "/job-run"
+    }
+  ],
+  "testTasks": {
+    "targetConfiguration" : {
+      "endpoint": "https://{defaults.deploymentName}-raft-apiservice.azurewebsites.net"
+    },
+    "tasks": [
+      {
+        "toolName": "RESTler",
+        "outputFolder": "RESTLer-replay",
+        "keyVaultSecrets": [ "RaftServicePrincipal" ],
+        "authenticationMethod": {
+          "MSAL": "RaftServicePrincipal"
+        },
+
+        "toolConfiguration": {
+          "task": "Replay",
+          "runConfiguration": {
+            "inputFolderPath": "/job-run/{jobRunId}/fuzz-1"
+          }
+        }
+      }
+    ]
+  }
+}

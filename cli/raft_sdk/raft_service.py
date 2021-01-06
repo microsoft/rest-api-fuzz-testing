@@ -14,6 +14,7 @@ from .raft_common import RaftApiException, RestApiClient, RaftDefinitions
 script_dir = os.path.dirname(os.path.abspath(__file__))
 dos2unix_file_types = [".sh", ".bash"]
 
+
 class RaftJobConfig():
     def __init__(self,
                  *,
@@ -27,10 +28,10 @@ class RaftJobConfig():
                     c = c.replace(src, substitutions[src])
 
                 ext = Path(file_path).suffix
-                if ext == '.json': 
+                if ext == '.json':
                     config = json.loads(c)
                 elif ext == '.yml' or ext == '.yaml':
-                    config= yaml.load(c, Loader= yaml.FullLoader)
+                    config = yaml.load(c, Loader=yaml.FullLoader)
                 else:
                     raise Exception('Unsupported config file type')
 
@@ -232,9 +233,9 @@ class RaftCLI():
                 List of webhook definitions
         '''
         if event:
-            url = f'/webhooks?name={name}&event={event}'
+            url = f'/webhooks?webhookName={name}&event={event}'
         else:
-            url = f'/webhooks?name={name}'
+            url = f'/webhooks?webhookName={name}'
 
         response = self.raft_api.get(url)
         if response.ok:
@@ -309,7 +310,22 @@ class RaftCLI():
 
                 print('======================')
 
-    def poll(self, job_id, poll_interval=10):
+    def is_completed(self, status):
+        for s in status:
+            # overall job status information
+            if s['agentName'] == s['jobId']:
+                completed = s['state'] == 'Completed'
+                stopped = s['state'] == 'ManuallyStopped'
+                error = s['state'] == 'Error'
+                timed_out = s['state'] == 'TimedOut'
+                if completed or stopped:
+                    return True, None
+                elif error or timed_out:
+                    return True, RaftJobError(s['state'], s['details'])
+                else:
+                    return False, None
+
+    def poll(self, job_id, poll_interval=10, print_status=True):
         '''
             Polls and prints job status updates until job terminates.
 
@@ -325,24 +341,19 @@ class RaftCLI():
                 sys.stdout.write('.')
                 sys.stdout.flush()
                 i += 1
-
             try:
                 status = self.job_status(job_id)
                 if og_status != status:
                     og_status = status
-                    print()
-                    self.print_status(status)
-                    for s in status:
-                        # overall job status information
-                        if s['agentName'] == s['jobId']:
-                            completed = s['state'] == 'Completed'
-                            stopped = s['state'] == 'ManuallyStopped'
-                            error = s['state'] == 'Error'
-                            timed_out = s['state'] == 'TimedOut'
-                            if completed or stopped:
-                                return
-                            elif error or timed_out:
-                                raise RaftJobError(s['state'], s['details'])
+                    if print_status:
+                        print()
+                        self.print_status(status)
+                completed, error = self.is_completed(status)
+                if completed:
+                    if error:
+                        raise error
+                    else:
+                        return
             except RaftApiException as ex:
                 if ex.status_code != 404:
                     print(f"{ex.message}")

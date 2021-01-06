@@ -9,39 +9,44 @@ module Authentication =
         | MSAL of string
         | TxtToken of string
 
-type SwaggerLocation =
-    // URL to a swagger definition
-    | URL of string
-    // This can be a path to a file from a mounted file share
-    | FilePath of string
+type ApiSpecification = string
+
+type GpuConfig =
+    {
+        Sku : string //available SKUs v100, k80, P100
+        Cores : int
+    }
 
 
 type Resources =
     {
         Cores : int
         MemoryGBs : int
+
+        GPU : GpuConfig option
     }
 
 type Command =
     {
-        Command : string
-        Arguments : string array option
+        ShellArguments : string array option
         ExpectedRunDuration: System.TimeSpan option
     }
 
-type TestTargetDefinition =
+type ServiceDefinition =
     //accessible within conatiner group at localhost:port
     {
         Container : string
         ExpectedDurationUntilReady: System.TimeSpan
-        Port : int
+        Ports : int array option
 
         IsIdling : bool option
+        
+        Shell : string option
         Run : Command option
         Idle : Command option
         PostRun : Command option
+        
         OutputFolder : string option
-        Shell : string option
 
         EnvironmentVariables : Map<string, string> option
         KeyVaultSecrets : string array option
@@ -50,22 +55,27 @@ type TestTargetDefinition =
 type TestTarget =
     {
         Resources : Resources
-        Targets : TestTargetDefinition array
+        Services : ServiceDefinition array
+    }
+
+type TargetConfiguration =
+    {
+        Endpoint: System.Uri option
+
+        /// where to get service under test API specifications definition from
+        /// Could be file path or url
+        ApiSpecifications : (ApiSpecification array) option
     }
 
 type RaftTask =
     {
         ToolName: string
 
+        TargetConfiguration: TargetConfiguration option
+
         IsIdling: bool
         /// Output folder name to store agent generated output
         OutputFolder : string
-
-        /// overwrite where to get swagger definition from
-        SwaggerLocation : SwaggerLocation option
-
-        /// The string to use in overriding the Host for each request
-        Host : string option
 
         /// Duration of the job; if not set, then job runs till completion
         Duration: System.TimeSpan option
@@ -76,6 +86,12 @@ type RaftTask =
         AuthenticationMethod : Authentication.TokenRefresh option
 
         ToolConfiguration : Newtonsoft.Json.Linq.JObject
+    }
+
+type TestTasks =
+    {
+        TargetConfiguration : TargetConfiguration option
+        Tasks : RaftTask array
     }
 
 type FileShareMount =
@@ -93,9 +109,6 @@ type Webhook =
 
 type JobDefinition =
     {
-        /// where to get swagger definition from
-        SwaggerLocation : SwaggerLocation option
-
         /// prefix for jobId
         NamePrefix : string option
 
@@ -109,13 +122,10 @@ type JobDefinition =
         // !!NOTE!!: according to Azure Container spec, we can have up to 60 elements
         // of TestTargets and Tasks combined
         TestTargets : TestTarget option
-        Tasks : RaftTask array
+        TestTasks : TestTasks
 
         /// Duration of the job; if not set, then job runs till completion
         Duration: System.TimeSpan option
-
-        /// The string to use in overriding the Host for each request
-        Host : string option
 
         /// Name of the webhook
         Webhook : Webhook option

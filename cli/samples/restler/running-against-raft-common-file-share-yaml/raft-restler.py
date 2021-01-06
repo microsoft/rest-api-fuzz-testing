@@ -37,6 +37,6 @@ def run(compile, test, fuzz):
     cli.poll(fuzz_job['jobId'])
 
 if __name__ == "__main__":
-    run(os.path.join(cur_dir, "raft.restler.compile.yaml"),
-        os.path.join(cur_dir, "raft.restler.test.yaml"),
-        os.path.join(cur_dir, "raft.restler.fuzz.yaml"))
+    run(os.path.join(cur_dir, "compile.yaml"),
+        os.path.join(cur_dir, "test.yaml"),
+        os.path.join(cur_dir, "fuzz.yaml"))

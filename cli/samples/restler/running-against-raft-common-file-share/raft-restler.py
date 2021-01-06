@@ -37,6 +37,6 @@ def run(compile, test, fuzz):
     cli.poll(fuzz_job['jobId'])
 
 if __name__ == "__main__":
-    run(os.path.join(cur_dir, "raft.restler.compile.json"),
-        os.path.join(cur_dir, "raft.restler.test.json"),
-        os.path.join(cur_dir, "raft.restler.fuzz.json"))
+    run(os.path.join(cur_dir, "compile.json"),
+        os.path.join(cur_dir, "test.json"),
+        os.path.join(cur_dir, "fuzz.json"))

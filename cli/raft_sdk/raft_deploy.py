@@ -504,7 +504,9 @@ class RaftServiceCLI():
         az('storage account create'
            f' --name {storage_account}'
            f' --resource-group {self.definitions.resource_group}'
-           ' --sku Premium_ZRS --kind FileStorage'
+           # Uncomment to add more performant storage account.
+           # Useful if RAFT runs lots of jobs in parallel
+           # ' --sku Premium_ZRS --kind FileStorage'
            f' --https-only true --location {self.context["region"]}')
 
     def init_service_principal(
@@ -718,7 +720,7 @@ class RaftServiceCLI():
         print('Creating')
         print(f'    function resource {self.definitions.orchestrator}')
         rg = self.definitions.resource_group
-        storage_account = self.definitions.storage_account
+        storage_account = self.definitions.storage_utils
 
         if self.context['useAppInsights']:
             ai = f' --app-insights {self.definitions.app_insights}'
@@ -796,11 +798,6 @@ class RaftServiceCLI():
                     'value': self.definitions.resource_group
                 },
                 {
-                    'name': "RAFT_ORCHESTRATOR_STORAGE",
-                    'slotSetting': False,
-                    'value': self.definitions.storage_account
-                },
-                {
                     'name': "RAFT_UTILS_STORAGE",
                     'slotSetting': False,
                     'value': self.definitions.storage_utils
@@ -808,8 +805,7 @@ class RaftServiceCLI():
                 {
                     'name': "RAFT_RESULTS_STORAGE",
                     'slotSetting': False,
-                    # 'value': self.definitions.storage_results
-                    'value': self.definitions.storage_account
+                    'value': self.definitions.storage_results
                 },
                 {
                     'name': "RAFT_UTILS_FILESHARE",
@@ -927,7 +923,7 @@ class RaftServiceCLI():
             json.dump(defaults, d, indent=4)
 
     def test_az_version(self):
-        supported_versions = ['2.10.1', '2.12.0', '2.12.1', '2.13.0', '2.15.0']
+        supported_versions = ['2.15.0', '2.16.0', '2.17.1']
         # az sometimes reports the version with an asterisk.
         # Perhaps when a new version of the CLI is available.
         tested_az_cli_versions = (
@@ -1094,15 +1090,14 @@ class RaftServiceCLI():
             container_registry_username = None
             container_registry_password = None
 
-        self.init_storage_account(self.definitions.storage_account)
         sb_connection_strings = self.init_service_bus()
         app_insights = self.init_app_insights()
-        storage_connection_string_with_sas = (
-            self.create_storage_connection_string_with_sas(
-                self.definitions.storage_account))
 
         self.init_storage_account(self.definitions.storage_utils)
-        # self.init_file_storage(self.definitions.storage_results)
+        storage_connection_string_with_sas = (
+            self.create_storage_connection_string_with_sas(
+                self.definitions.storage_utils))
+        self.init_file_storage(self.definitions.storage_results)
 
         self.init_event_grid_domain()
 

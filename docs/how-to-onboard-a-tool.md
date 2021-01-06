@@ -1,4 +1,4 @@
-# How to Onboard a Tool, Step by Step
+﻿# How to Onboard a Tool, Step by Step
 
 REST API Fuzz Testing (RAFT) is a platform designed to automate the execution
 of security tools against REST APIs, typically from a CI/CD pipeline.  But it
@@ -55,7 +55,7 @@ or in a private repository.
 
 To enable RAFT to retrieve a container from a private repository, you'll need
 to create a secret in your Deployment's key vault, which is named
-**[Deployment]-raft-kv[thirdSubscriptionOctet]**.  The secret name must start
+**[Deployment]-raft-[secondSubscriptionOctet]-kv**.  The secret name must start
 with the string `PrivateRegistry` and its value must be a JSON blob consisting
 of the repository name, the user name, and the password as follows: 
 
@@ -97,14 +97,13 @@ Here's a simple example:
 ```json
 {
   "container" : "demoTool/demoTool-stable:v.1.0",
+  "shell" : "/bin/bash",
   "run" : {
-    "command" : "bash", 
-    "arguments" : ["-c", 
+    "shellArguments" : ["-c", 
       "cd $RAFT_TOOL_RUN_DIRECTORY; ln -s $RAFT_WORK_DIRECTORY /demoTool; python3 run.py install; python3 run.py --run-faster $RUN_FASTER" ]
   },
   "idle" : {
-    "command" : "bash",
-    "arguments" : ["-c", "echo DebugMode; while true; do sleep 100000; done;"]
+    "shellArguments" : ["-c", "echo DebugMode; while true; do sleep 100000; done;"]
   },
   "environmentVariables" : {
     "RUN_FASTER" : "1"
@@ -126,15 +125,15 @@ for secrets that begin with `PrivateRegistry` and enable container deployment fr
 
 ## Step Five: Define Run and Idle Sections
 
+Every command execution on the container is done by invoking specified `shell`, such as `/bin/sh`, `/bin/bash`, etc.
+
 The `run` and `idle` sections define how RAFT will start the specified container under normal
 or debug use, respectively.  When tool execution completes in the former
 scenario, the parent container is marked for deletion and garbage collected; in the latter scenario,
 the container is not deleted and must be removed manually, providing operators the ability
 to connect to it to investigate issues.
 
-Each section requires a `command` and an `arguments` parameter.  `command` is the relative
-or absolute path to an executable image on the container image that will be run.  The 
-`arguments` string is passed to STDIN as the command line argument string.
+Each section requires `shellArguments`. This is an argument array that is going to be passed to the specified shell to execute the command.
 
 Whether the `run` or `idle` sections are executed upon the `create job` command is
 determined by the `isIdle` setting in the submitted job definition JSON blob.  If the
@@ -157,9 +156,10 @@ been populated for you by the orchestration:
 | RAFT_WORK_DIRECTORY | The absolute path to the file share mounted to the container (contains the **task-config.json** file) |
 | RAFT_TOOL_RUN_DIRECTORY | The absolute path to the tool folder created in Step Two that gets mounted as read-only to the container as well* |
 | RAFT_RUN_CMD | The command text provided in the `command` parameter |
-| RAFT_TASK_INDEX | Array index of the task defined in job definition JSON blob
-| RAFT_SITE_HASH | RAFT deployment hash
-| RAFT_STARTUP_DELAY | How many seconds the tool should wait before starting
+| RAFT_TASK_INDEX | Array index of the task defined in job definition JSON blob |
+| RAFT_SITE_HASH | RAFT deployment hash |
+| RAFT_STARTUP_DELAY | How many seconds the tool should wait before starting |
+| RAFT_SB_OUT_SAS | Azure Service bus connection string for posting task progress updates |
 
 *When the tool is uploaded to the file share via the cli command `python raft.py service upload-tools` a unique file share is created and mounted to the container as read-only. The path to the tool folder running the task within the file share is set in **RAFT_TOOL_RUN_DIRECTORY** environment variable.
 

@@ -1,0 +1,21 @@
+{
+  "rootFileshare": "raft",
+  "testTasks" : {
+    "targetConfiguration" : {
+      "apiSpecifications": [
+        "https://{defaults.deploymentName}-raft-apiservice.azurewebsites.net/swagger/v2/swagger.json"
+      ],
+      "endpoint": "https://{defaults.deploymentName}-raft-apiservice.azurewebsites.net"
+    },
+    "tasks": [
+      {
+        "toolName": "ZAP",
+        "outputFolder": "zap-out",
+        "keyVaultSecrets": [ "RaftServicePrincipal" ],
+        "authenticationMethod": {
+          "MSAL": "RaftServicePrincipal"
+        }
+      }
+    ]
+  }
+}

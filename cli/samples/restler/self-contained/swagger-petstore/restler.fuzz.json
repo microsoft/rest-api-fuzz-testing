@@ -1,5 +1,4 @@
 {
-  "host": "localhost",
   "webhook": {
     "name": "petstore-fuzz"
   },
@@ -12,40 +11,41 @@
   ],
 
  "testTargets" : { 
-    "targets" : [
+    "services" : [
       {
         "Container" : "swaggerapi/petstore",
-        "Port" : 8080,
+        "Ports" : [8080],
         "ExpectedDurationUntilReady" : "00:02:00",
         "Shell" : "/bin/sh",
         "OutputFolder" : "petstore",
         "PostRun" : {
-          "Command" : "/bin/sh", 
-          "Arguments" : ["-c", "cp /var/log/*-requests.log $RAFT_WORK_DIRECTORY"],
+          "ShellArguments" : ["-c", "cp /var/log/*-requests.log $RAFT_WORK_DIRECTORY"],
           "ExpectedRunDuration" : "00:00:10"
         }
       }
     ]
   },
-  "tasks": [
-    {
-      "toolName": "RESTler",
-      "outputFolder": "{outputFolder}",
-      "duration": "00:10:00",
-      "toolConfiguration": {
-        "task": "Fuzz",
-        "runConfiguration": {
-          "targetEndpointConfiguration" : {
-            "Port" : 8080 
-          },
-          "useSsl" : false,
-          "inputFolderPath": "/job-compile/compile",
-          "IgnoreBugHashes" : [
-            "PayloadBodyChecker_500_3d6e2d1e897967f3bc14cd8f08252a98b25c4d48",
-            "PayloadBodyChecker_500_6a4f4fb484d57121a271a4c65948ba8149e92dee"
-          ]
+  "testTasks" : {
+    "targetConfiguration" : {
+      "endpoint": "http://localhost:8080"
+    },
+    "tasks": [
+      {
+        "toolName": "RESTler",
+        "outputFolder": "{outputFolder}",
+        "duration": "00:10:00",
+        "toolConfiguration": {
+          "task": "Fuzz",
+          "runConfiguration": {
+            "useSsl" : false,
+            "inputFolderPath": "/job-compile/compile",
+            "IgnoreBugHashes" : [
+              "PayloadBodyChecker_500_3d6e2d1e897967f3bc14cd8f08252a98b25c4d48",
+              "PayloadBodyChecker_500_6a4f4fb484d57121a271a4c65948ba8149e92dee"
+            ]
+          }
         }
       }
-    }
-  ]
+    ]
+  }
 }

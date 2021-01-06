@@ -1,14 +1,14 @@
 variables:
   - name: version.major
-    value: 1
+    value: 2
   - name: version.minor
-    value: 3
+    value: 0
   - name: version.revision
     value: 0
   - name: imageTag
-    value: 'v1.3.0'
+    value: 'v2.0.0'
   - name: imageTagLatest
-    value: 'v1.latest'
+    value: 'v2.latest'
   - name: devRevision
     value: 0
   - name: imageTagWithBuildDate

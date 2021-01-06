@@ -41,7 +41,7 @@ def run(replay, fuzz_job_id, replay_job_id=None):
 
 
 if __name__ == "__main__":
-    run(replay = "raft.restler.replay.json",
+    run(replay = "replay.json",
         #job ID that produced bugs and those bugs going to be replayed
         fuzz_job_id = "d29c7a2a-1815-4edb-91c1-56dd4faea0ce",
         replay_job_id=None)

@@ -15,69 +15,67 @@ Most fields in the job definition are optional, only a few are required.
 Here is an example job definition to fuzz a service with RESTler.
 ```
 {
-  "swagger": { 
-	"$type": "URL",
-	"value" : "https://my-appservice.azurewebsites.net/swagger/v1/swagger.json" 
-  },
   "duration": "00:10:00",
-  "host": "my-appservice.azurewebsites.net",
   "rootFileshare" : "myshare-fuzz",
   "webhook" : "myservice-fuzz",
-  "tasks": [
-    {
-      "toolName" : "RESTler",
-      "nameSuffix" : "-RESTler-fuzz",
-      "taskConfiguration" : {
-        "task": "Fuzz",
-        "agentConfiguration": {
-          "resultsAnalyzerReportTimeSpanInterval": "00:01:00"
-        },
-
-        "runConfiguration": {
-          "previousStepOutputFolderPath": "/job-compile/0-RESTler-Compile",
-          "useSsl": true,
-          "producerTimingDelay": 5
-        }
-      }
+  "testTasks": {
+    "targetEndpointConfiguration" : {
+      "apiSpecifications" : [
+        "https://my-appservice.azurewebsites.net/swagger/v1/swagger.json" 
+      ],
+      "endpoint": "https://my-appservice.azurewebsites.net"
     },
-    {
-      "toolName" : "RESTler",
-      "taskConfiguration" : {
-        "task": "Fuzz",
-        "agentConfiguration": {
-          "resultsAnalyzerReportTimeSpanInterval": "00:01:00"
-        },
-
-        "runConfiguration": {
-          "previousStepOutputFolderPath": "/job-compile/0-RESTler-Compile",
-          "useSsl": true,
-          "producerTimingDelay": 2
+    "tasks": [
+      {
+        "toolName" : "RESTler",
+        "outputFolder" : "RESTler-fuzz-1",
+        "toolConfiguration" : {
+          "task": "Fuzz",
+          "runConfiguration": {
+            "inputFolder": "/job-compile/0-RESTler-Compile",
+            "useSsl": true,
+            "producerTimingDelay": 5
+          }
+        }
+      },
+      {
+        "toolName" : "RESTler",
+        "outputFolder" : "RESTLer-fuzz-2",
+        "toolConfiguration" : {
+          "task": "Fuzz",
+          "runConfiguration": {
+            "inputFolder": "/job-compile/0-RESTler-Compile",
+            "useSsl": true,
+            "producerTimingDelay": 2
+          }
         }
       }
-    }
-  ]
+    ]
+  }
 }
 ```
 
-## Swagger (required object)
+## TargetEndpointConfiguration (optional object)
+
+### ApiSpecifications
 
 Defines where to find the swagger file. This can be a Uri, or a file path which must reference
 a file that is mounted on the container. 
 
 ```
-  "swagger": { 
-	  "$type" : "URL",
-	  "value": "https://someurl/swagger.json" 
-  }
+  "apiSpecifications": [ 
+	  "https://someurl/swagger.json",
+    "/folderA/folderB/swagger.json" 
+  ]
 ```
 
-or
+### Endpoint (optional)
+
+If specified, overwrites host defined in swagger specifications,
+and sets port for the tool to send requests
 
 ```
-"swagger": { 
-	  "$type" : "FilePath",
-	  "value": "/folderA/folderB/swagger.json" 
-  }
+"endpoint" : "https://my-web-service.net:8888"
 ```
 
 ## Tasks (required object)
@@ -85,19 +83,31 @@ or
 The task definition defines the tool that will run.  This is an array of definitions. Up to 60 task
 definitions can be defined in a single job. 
 
+### TargetEndpointConfiguration (optional object)
+
+#### ApiSpecifications
+
+Defines where to find the swagger file. This can be a Uri, or a file path which must reference
+a file that is mounted on the container. 
+
+```
+  "apiSpecifications": [ 
+	  "https://someurl/swagger.json",
+    "/folderA/folderB/swagger.json" 
+  ]
+```
+#### Endpoint (optional)
+
+If specified, overwrites host defined in swagger specifications,
+and sets port for the tool to send requests
+
+```
+"endpoint" : "https://my-web-service.net:8888"
+```
+
 ### ToolName (required string)
 
 Name of the tool. The two tools that are supported by default are `RESTler` and `ZAP`
-
-### Swagger (optional object)
-
-This swagger definition is the same definition as at the job level. This gives you the option
-of specifying an alternate swagger file for this tool.
-
-### Host (optional string)
-
-Overwrite the host in every request by ZAP or RESTler instead of using the host value 
-in the swagger specification.
 
 ### IsIdling (optional bool)
 
@@ -147,12 +157,6 @@ to U+001F including tab (\t), linefeed (\n), and carriage return (\r),
 and control character from U+007F to U+009F.
 
 `"namePrefix" : "someUniquePrefix"`
-
-## Host (optional string)
-
-Overrides the host value defined in the swagger file.
-
-`"host": "myservice.azurewebsites.net"`
 
 ## Webhook (optional string)
 

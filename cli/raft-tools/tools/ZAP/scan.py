@@ -1,90 +1,24 @@
-import os
 import sys
-import json
-import shutil
-import time
-import io
+import os
 import logging
 from logging import StreamHandler
+import shutil
 
-from applicationinsights import TelemetryClient
-from azure.servicebus import TopicClient, Message
-from contextlib import redirect_stdout
-
-class RaftUtils():
-    def __init__(self):
-        work_directory = os.environ['RAFT_WORK_DIRECTORY']
-        with open(os.path.join(work_directory, 'task-config.json'), 'r') as task_config:
-            self.config = json.load(task_config)
-
-        connection_str = os.environ['RAFT_SB_OUT_SAS']
-        self.topic_client = TopicClient.from_connection_string(connection_str)
-
-        self.telemetry_client = TelemetryClient(instrumentation_key=os.environ['RAFT_APP_INSIGHTS_KEY'])
-
-        self.job_id = os.environ['RAFT_JOB_ID']
-        self.container_name = os.environ['RAFT_CONTAINER_NAME']
-
-        self.telemetry_properties = {
-            "jobId" : self.job_id,
-            "taskIndex" : os.environ['RAFT_TASK_INDEX'],
-            "containerName" : self.container_name
-        }
-
-    def report_status(self, state, details):
-        m = {
-            'eventType' : 'JobStatus',
-            'message': {
-                'tool' : 'ZAP',
-                'jobId' : self.job_id,
-                'agentName': self.container_name,
-                'details': details,
-                'utcEventTime' : time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime()),
-                'state' : state
-            }
-        }
-        msg = Message(str.encode(json.dumps(m)))
-        self.topic_client.send(msg)
-
-    def report_status_created(self, details=None):
-        self.report_status('Created', details)
-
-    def report_status_running(self, details=None):
-        self.report_status('Running', details)
-
-    def report_status_error(self, details=None):
-        self.report_status('Error', details)
-
-    def report_status_completed(self, details=None):
-        self.report_status('Completed', details)
-
-    def log_trace(self, trace):
-        self.telemetry_client.track_trace(trace, properties=self.telemetry_properties)
-
-    def log_exception(self):
-        self.telemetry_client.track_exception(properties=self.telemetry_properties)
-
-    def flush(self):
-        self.telemetry_client.flush()
-
-    def get_swagger_target(self):
-        swagger = self.config.get("swaggerLocation")
-        if swagger and swagger.get("url"):
-            return swagger["url"]
-        elif swagger.get("filePath"):
-            return swagger["filePath"]
-
+run_directory = os.environ['RAFT_TOOL_RUN_DIRECTORY']
+raft_libs_dir = os.path.join(run_directory, '..', '..', 'libs', 'python3')
+sys.path.append(raft_libs_dir)
+import raft
 
 zap_dir = '/zap'
 sys.path.append(zap_dir)
-zap = __import__("zap-api-scan")
 
-utils = RaftUtils()
+raftUtils = raft.RaftUtils("ZAP")
 
 class StatusReporter(StreamHandler):
-    def __init__(self):
+    def __init__(self, details):
         StreamHandler.__init__(self)
         self.last_txt = None
+        self.details = details
 
     def emit(self, record):
         txt = self.format(record)
@@ -93,12 +27,14 @@ class StatusReporter(StreamHandler):
             progress='Active Scan progress %:'
             i = txt.find(progress)
             if i != -1:
-                utils.report_status_running({"Scan progress" : txt[i :]})
+                self.details["Scan progress"] = txt[i :]
+                raftUtils.report_status_running(self.details)
 
-def run_zap(token):
-    target = utils.get_swagger_target()
+zap = __import__("zap-api-scan")
+
+def run_zap(target_index, targets_total, host, target, token):
     if token:
-        utils.log_trace('Authentication token is set')
+        raftUtils.log_trace('Authentication token is set')
         auth = ('-config replacer.full_list(0).description=auth1'
                 ' -config replacer.full_list(0).enabled=true'
                 ' -config replacer.full_list(0).matchtype=REQ_HEADER'
@@ -107,9 +43,14 @@ def run_zap(token):
                 f' -config replacer.full_list(0).replacement="{token}"')
         zap_auth_config = ['-z', auth]
     else:
-        utils.log_trace('Authentication token is not set')
+        raftUtils.log_trace('Authentication token is not set')
         zap_auth_config = []
 
+    if host:
+        host_config = ['-O', host]
+        raftUtils.log_trace(f'OpenAPI host override is set to {host}')
+    else:
+        host_config = []
     os.chdir(zap_dir)
     r = 0
     try:
@@ -119,41 +60,67 @@ def run_zap(token):
         pass
 
     try:
-        utils.log_trace("Starting ZAP")
-        utils.report_status_running()
-
-        status_reporter = StatusReporter()
+        raftUtils.log_trace("Starting ZAP")
+        details = {"targetIndex": target_index, "numberOfTargets" : targets_total, "target": target}
+        raftUtils.report_status_running(details)
+        status_reporter = StatusReporter(details)
         logger = logging.getLogger()
         logger.addHandler(status_reporter)
-        zap.main(['-t', target, '-f', 'openapi', '-J', 'report.json', '-r', 'report.html', '-w', 'report.md', '-x', 'report.xml', '-d'] + zap_auth_config)
+        zap.main([ '-t', target,
+                   '-f', 'openapi',
+                   '-J', f'{target_index}-report.json',
+                   '-r', f'{target_index}-report.html',
+                   '-w', f'{target_index}-report.md',
+                   '-x', f'{target_index}-report.xml',
+                   '-d'] + zap_auth_config + host_config)
+        details["Scan progress"] = "Active scan progress %: 100"
+        raftUtils.report_status_running(details)
 
     except SystemExit as e:
         r = e.code
 
-    utils.log_trace(f"ZAP exited with exit code: {r}")
-    shutil.copy('/zap/zap.out', '/zap/wrk/zap.out')
+    raftUtils.log_trace(f"ZAP exited with exit code: {r}")
+    shutil.copy('/zap/zap.out', f'/zap/wrk/{target_index}-zap.out')
 
-    utils.report_status_completed()
     if r <= 2:
-        return 0
-    else:
-        return r
+        r = 0
+        
+    if target_index + 1 == targets_total:
+        raftUtils.report_status_completed(details)
+    raftUtils.sb_client.close()
+    return r
 
-def run(token):
+def run(target_index, targets_total, host, target, token):
     try:
-        utils.report_status_created()
-        return run_zap(token)
+        raftUtils.report_status_created()
+        return run_zap(target_index, targets_total, host, target, token)
     except Exception as ex:
-        utils.log_exception()
-        utils.report_status_error({"Error" : f"{ex}"})
+        raftUtils.log_exception()
+        raftUtils.report_status_error({"Error" : f"{ex}"})
         raise
     finally:
-        utils.flush() 
+        raftUtils.flush() 
 
 
 if __name__ == "__main__":
-    if len(sys.argv) == 2:
-        run(sys.argv[1])
-    else:
-        run(None)
+    target_index = int(sys.argv[1])
+    targets_total = int(sys.argv[2])
 
+    host = None
+    target = None
+    token = None
+
+    args = sys.argv
+    i = 1
+    for arg in args[i:]:
+        if arg == '--target':
+            target = args[i+1]
+
+        if arg == '--token':
+            token = args[i+1]
+
+        if arg == '--host':
+            host = args[i+1]
+        i=i+1
+
+    run(target_index, targets_total, host, target, token)

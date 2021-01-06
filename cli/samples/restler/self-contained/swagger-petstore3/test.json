@@ -1,7 +1,6 @@
 {
   "rootFileShare" : "{ci-run}",
   "namePrefix" : "petstore3-test-",
-  "host": "localhost",
 
   "resources": {
     "Cores": 4,
@@ -27,35 +26,36 @@
       "Cores" : 2,
       "MemoryGBs" : 4
     },
-    "targets" : [
+    "services" : [
       {
         "Container" : "swaggerapi/petstore3",
-        "Port" : 8080,
+        "Ports" : [8080],
         "ExpectedDurationUntilReady" : "00:00:30",
+        "Shell" : "/bin/sh",
         "PostRun" : {
-          "Command" : "/bin/sh", 
-          "Arguments" : ["-c", "cp /var/log/*-requests.log $RAFT_WORK_DIRECTORY"],
+          "ShellArguments" : ["-c", "cp /var/log/*-requests.log $RAFT_WORK_DIRECTORY"],
           "ExpectedRunDuration" : "00:00:10"
         },
-        "Shell" : "/bin/sh",
         "OutputFolder" : "petstore3"
       }
     ]
   },
-  "tasks": [
-    {
-      "toolName": "RESTler",
-      "outputFolder": "test",
-      "toolConfiguration": {
-        "task": "test",
-        "runConfiguration": {
-          "targetEndpointConfiguration" : {
-            "Port" : 8080 
-          },
-          "useSsl" : false,
-          "inputFolderPath": "/ci-run/{compile.jobId}/compile"
+  "testTasks" : {
+    "tasks": [
+      {
+        "toolName": "RESTler",
+        "targetConfiguration" : {
+          "endpoint": "http://localhost:8080"
+        },
+        "outputFolder": "test",
+        "toolConfiguration": {
+          "task": "test",
+          "runConfiguration": {
+            "useSsl" : false,
+            "inputFolderPath": "/ci-run/{compile.jobId}/compile"
+          }
         }
       }
-    }
-  ]
+    ]
+  }
 }

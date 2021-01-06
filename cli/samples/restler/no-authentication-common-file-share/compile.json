@@ -1,0 +1,36 @@
+{
+  "namePrefix": "sample-compile-",
+  "rootFileshare": "sample",
+  "webhook": {
+    "name": "sample-compile"
+  },
+
+  "testTasks": {
+    "targetConfiguration" : {
+      "apiSpecifications": [
+        "https://{sample.host}/swagger/v1/swagger.json"
+      ],
+      "endpoint": "https://{sample.host}"
+    },
+    "tasks": [
+      {
+        "toolName": "RESTler",
+        "outputFolder": "RESTler-compile-1",
+        "toolConfiguration": {
+          "task": "Compile"
+        }
+      },
+      {
+        "toolName": "RESTler",
+        "outputFolder": "RESTler-compile-2",
+        "toolConfiguration": {
+          "task": "Compile",
+          "compileConfiguration": {
+            "mutationsSeed": 34534798
+          }
+        }
+      }
+
+    ]
+  }
+}

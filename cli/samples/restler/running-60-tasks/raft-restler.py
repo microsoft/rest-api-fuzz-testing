@@ -69,6 +69,6 @@ if __name__ == "__main__":
 substitute {sample.host} in compile.json and fuzz.json config files')
     else:
         host = sys.argv[1]
-    run(os.path.join(cur_dir, "raft.restler.compile.json"),
-        os.path.join(cur_dir, "raft.restler.test.json"),
+    run(os.path.join(cur_dir, "compile-60.json"),
+        os.path.join(cur_dir, "test-60.json"),
         host)

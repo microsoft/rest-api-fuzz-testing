@@ -1,0 +1,50 @@
+{
+  "resources": {
+    "Cores": 4,
+    "MemoryGBs": 12
+  },
+  "ReadOnlyFileShareMounts": [
+    {
+      "fileShareName": "60-compile",
+      "mountPath": "/job-compile"
+    }
+  ],
+
+  "testTasks": {
+    "targetConfiguration" : {
+      "endpoint": "https://{host}"
+    },
+    "tasks": [
+      {
+        "toolName": "RESTler",
+        "outputFolder": "RESTLer-test-fuzz-lean",
+        "keyVaultSecrets": [ "RaftServicePrincipal" ],
+        "authenticationMethod": {
+          "MSAL": "RaftServicePrincipal"
+        },
+
+        "toolConfiguration": {
+          "task": "TestFuzzLean",
+          "runConfiguration": {
+            "inputFolderPath": "/job-compile/{compile.jobId}",
+            "authenticationTokenRefreshIntervalSeconds": 300
+          }
+        }
+      },
+      {
+        "toolName": "RESTler",
+        "outputFolder": "RESTler-test",
+        "keyVaultSecrets": [ "RaftServicePrincipal" ],
+        "authenticationMethod": {
+          "MSAL": "RaftServicePrincipal"
+        },
+        "toolConfiguration": {
+          "task": "Test",
+          "runConfiguration": {
+            "inputFolderPath": "/job-compile/{compile.jobId}"
+          }
+        }
+      }
+    ]
+  }
+}

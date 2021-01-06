@@ -89,9 +89,6 @@ namespace OrchestratorFunc
                 azure = Authenticate();
 
                 var resourceGroup = GetSetting("RAFT_CONTAINER_RUN_RESOURCE_GROUP");
-                var storageAccount = GetSetting("RAFT_ORCHESTRATOR_STORAGE");
-                var storageAccountKey = OrchestratorLogic.ContainerInstances.getStorageKeyTask(azure, resourceGroup, storageAccount);
-                storageAccountKey.Wait();
 
                 var utilsStorageAccount = GetSetting("RAFT_UTILS_STORAGE");
                 var utilsStorageAccountKey = OrchestratorLogic.ContainerInstances.getStorageKeyTask(azure, resourceGroup, utilsStorageAccount);
@@ -107,8 +104,6 @@ namespace OrchestratorFunc
 
                 agentConfig = new OrchestratorLogic.ContainerInstances.AgentConfig(
                         resourceGroup: resourceGroup,
-                        storageAccount: storageAccount,
-                        storageAccountKey: storageAccountKey.Result,
                         keyVault: GetSetting("RAFT_KEY_VAULT"),
                         appInsightsKey: aiKey,
                         outputSas: GetSetting("RAFT_SERVICEBUS_AGENT_SEND_EVENTS_CONNECTION_STRING"),

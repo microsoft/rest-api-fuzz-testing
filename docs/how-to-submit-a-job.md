@@ -24,6 +24,7 @@ RAFT comes with two registered tools:
 - [RESTler](https://github.com/microsoft/restler-fuzzer), a stateful REST API fuzzer from [NSV at Microsoft Research](https://www.microsoft.com/en-us/research/group/new-security-ventures/)
 - [ZAP](https://www.zaproxy.org/), a web scanner from the [OWASP Foundation](https://owasp.org/) that is
 configured to test REST API's.
+- [Dredd](https://github.com/apiaryio/dredd), is a language-agnostic command-line tool for validating API description document against backend implementation of the API.
 
 To register additional tools, please see please see the
 [Onboarding a Tool](how-to-onboard-a-tool.md) page.
@@ -75,7 +76,7 @@ Now that you've settled on the options you'll set and their respective values, i
 to create the job definition JSON file you'll use to submit the job and put RAFT to work.
 
 All Job Definition JSON files must define at least 1 entry in the `tasks` array.
-The `swaggerLocation`, `host`, and `duration` fields can be defined globally
+The `apiSpecifications`, `host`, and `duration` fields can be defined globally
 or locally, depending on whether you want these values to apply to all tasks or
 to individual tasks.
 
@@ -84,21 +85,24 @@ swagger location and host settings, along with two tasks:
 
 ```json
 {
-  "swaggerLocation": {
-    "URL" : "https://{sample.host}/swagger/v1/swagger.json"
-  },
-  "host": "{sample.host}",
-  "tasks": [
-    {
-      "toolName": "MyFirstTool",
-      "outputFolder" : "my-tool-output-folder"
-    },
-    {
-      "toolName": "MySecondTool",
-      "duration": "02:10:00",
-      "outputFolder" : "my-tool-output-folder"
+  "testTasks" : {
+      "targetEndpointConfiguration": {
+        "apiSpecification": [{
+            "https://{sample.host}/swagger/v1/swagger.json"
+        }],
+        "endpoint" : "https://{sample.host}"
+      },
+      "tasks": [
+        {
+          "toolName": "ZAP",
+          "outputFolder" : "zap-results-output-folder"
+        },
+        {
+          "toolName": "Dredd",
+          "outputFolder" : "dredd-results-output-folder"
+        }
+      ]
     }
-  ]
 }
 ```
 
@@ -107,18 +111,16 @@ occur:
 
 - A container group would be created and be named using the JOBID
 
-- A container associated with "MyFirstTool" would be created, taking the `swaggerLocation` and `host`
-  parameters from the global position, and `toolName` and `outputFolder` parameters
-  from the task definition.  Since there is no `duration` field, it will run until it
-  completes. 
+- A container associated with "ZAP" would be created, taking the `apiSpecifications` and `endpoint`
+  parameters from the `targetEndpointConfiguration`, and `toolName` and `outputFolder` parameters
+  from the task definition.
 
-- A container named "MySecondTool" would be created, taking the `swaggerLocation` and `host`
-  parameters from the global position, and `toolName`, `duration`, and `outputFolder`
-  parameters from the task definition.  It will run until it completes, or until 2 hours 
-  ten minutes have passed, whichever occurs first.
+- A container named "Dredd" would be created, taking the `apiSpecifications` and `endpoint`
+  parameters from the `targetEndpointConfiguration`, and `toolName`, `duration`, and `outputFolder`
+  parameters from the task definition.
 
 Note that containers (tasks) are launched in parallel within the container group,
-and that the overall job is considered complete once all tasks complete or fail.
+and that the overall job is considered complete once all tasks complete, fail or terminated. Tasks may be terminated by user or due to timeout defined by global `duration` parameter in job definition.
 
 For more information on:
 
