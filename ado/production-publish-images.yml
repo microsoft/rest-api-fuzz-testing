@@ -4,14 +4,11 @@ trigger:
     include:
       - 'main'
 
-variables:
-  - template: 'variables/version-variables.yml'
-  - name: versionNumber
-    value: $(version.major).$(version.minor).$(version.revision)
-  - name: imageTagWithBuildDate
-    value: $(imageTag)-$(Build.BuildNumber)
-
 parameters:
+  - name: variable_group
+    displayName: Variable Group
+    default: production
+
   - name: BuildArtifactsLocation
     displayName: Build Artifacts Location?
     default: production
@@ -19,7 +16,13 @@ parameters:
     - current
     - production
 
+variables:
+  - template: 'variables/version-variables.yml'
+  - group: ${{ parameters.variable_group }}
+  - name: versionNumber
+    value: $(version.major).$(version.minor).$(version.revision)
+
 stages:
-  - template: stages/build/build.yml
+  - template: stages/publish/publish.yml
     parameters: 
       BuildArtifactsLocation: ${{ parameters.BuildArtifactsLocation }}

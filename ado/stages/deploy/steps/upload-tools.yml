@@ -8,9 +8,25 @@ steps:
     displayName: Install CLI Python requirements
 
   - task: DownloadPipelineArtifact@2
+    displayName: 'Download Local pipeline artifact'
+    condition: and(succeeded(), eq(variables.buildArtifactsLocation, 'current')) 
     inputs:
       artifact: AzureAuth
-      path: cli/raft-tools/auth/dotnet-core-3.1
+      path: $(Build.SourcesDirectory)/artifacts/cli/raft-tools/auth/dotnet-core-3.1
+    
+  - task: DownloadPipelineArtifact@2
+    displayName: 'Download Production pipeline artifact'
+    condition: and(always(), eq(variables.buildArtifactsLocation, 'production')) 
+    inputs:
+      source: 'specific'
+      project: 'raft'
+      # The pipeline value is the pipeline definition id.
+      # You can find it by looking at the url for the status badge.
+      # In this case it's the pipeline named 'build-production'
+      pipeline: 2925
+      artifact: AzureAuth
+      path: $(Build.SourcesDirectory)/artifacts/cli/raft-tools/auth/dotnet-core-3.1
+      runVersion: 'latest'
 
   - task: AzureCLI@2
     continueOnError: false

@@ -13,3 +13,5 @@ variables:
     value: 0
   - name: imageTagWithBuildDate
     value : $(imageTag)-$(Build.BuildNumber)
+  - name: build-production-pipeline-id
+    value : 2925

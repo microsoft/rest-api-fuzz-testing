@@ -1,12 +1,34 @@
-  steps: 
-  - task: Docker@2
-    displayName: 'Publish Orchestrator imageTag'
+parameters:
+  - name: BuildArtifactsLocation
+    type: string
+
+steps: 
+- ${{ if or(eq(parameters.BuildArtifactsLocation, 'current'), eq(parameters.BuildArtifactsLocation, '')) }}:
+  - task: DownloadPipelineArtifact@2
+    displayName: 'Download Local pipeline artifact'
     inputs:
-      buildContext: $(Pipeline.Workspace)/Orchestrator/
-      command: buildAndPush
-      containerRegistry: $(raft-containerRegistryServiceConnection)
-      repository: restapifuzztesting/orchestrator
-      Dockerfile: $(Pipeline.Workspace)/Orchestrator/Dockerfile
-      tags: |
-        $(imageTag)
-        $(imageTagLatest)
+      artifact: Orchestrator
+      path: $(Build.SourcesDirectory)/artifacts/orchestrator
+  
+- ${{ if eq(parameters.BuildArtifactsLocation, 'production') }}:
+  - task: DownloadPipelineArtifact@2
+    displayName: 'Download Production pipeline artifact'
+    inputs:
+      source: 'specific'
+      project: 'raft'
+      pipeline: $(build-production-pipeline-id)
+      artifact: Orchestrator
+      path: $(Build.SourcesDirectory)/artifacts/orchestrator
+      runVersion: 'latest'
+
+- task: Docker@2
+  displayName: 'Publish Orchestrator imageTag'
+  inputs:
+    buildContext: $(Build.SourcesDirectory)/artifacts/orchestrator/
+    command: buildAndPush
+    containerRegistry: $(raft-containerRegistryServiceConnection)
+    repository: $(repositoryNamePrefix)/orchestrator
+    Dockerfile: artifacts/orchestrator/Dockerfile
+    tags: |
+      $(imageTag)
+      $(imageTagLatest)

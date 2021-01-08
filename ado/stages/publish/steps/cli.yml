@@ -1,0 +1,27 @@
+steps:  
+  - task: DownloadPipelineArtifact@2
+    displayName: 'Download Production pipeline artifact'
+    inputs:
+      source: 'specific'
+      project: 'raft'
+      pipeline: $(build-production-pipeline-id)
+      artifact: cli
+      path: $(Build.SourcesDirectory)/artifacts/cli
+      runVersion: 'latest'
+
+  - task: ArchiveFiles@2
+    displayName: Archive CLI
+    inputs:
+      rootFolderOrFile: $(Build.SourcesDirectory)/artifacts/cli/
+      includeRootFolder: false
+      archiveFile: $(System.DefaultWorkingDirectory)/raft-cli.zip
+
+  - task: UniversalPackages@0
+    displayName: Publish CLI
+    inputs:
+      command: publish
+      publishDirectory: $(System.DefaultWorkingDirectory)/raft-cli.zip
+      vstsFeedPublish: Raft/Raft
+      vstsFeedPackagePublish: raft-cli
+      versionOption: minor
+      packagePublishDescription: 'RAFT CLI'

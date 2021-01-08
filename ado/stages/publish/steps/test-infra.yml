@@ -1,18 +1,35 @@
+parameters:
+  - name: BuildArtifactsLocation
+    type: string
+
 steps: 
+- ${{ if or(eq(parameters.BuildArtifactsLocation, 'current'), eq(parameters.BuildArtifactsLocation, '')) }}:
   - task: DownloadPipelineArtifact@2
+    displayName: 'Download Local pipeline artifact'
     inputs:
       artifact: TestInfraFunc
       path: $(Build.SourcesDirectory)/artifacts/TestInfraFunc
-    
-  - task: Docker@2
-    displayName: 'Publish Test Infra imageTag'
+
+- ${{ if eq(parameters.BuildArtifactsLocation, 'production') }}:
+  - task: DownloadPipelineArtifact@2
+    displayName: 'Download Production pipeline artifact'
     inputs:
-      buildContext: $(Build.SourcesDirectory)/artifacts/TestInfraFunc/
-      command: buildAndPush
-      containerRegistry: $(raft-containerRegistryServiceConnection)
-      repository: restapifuzztesting/test-infra
-      Dockerfile: $(Build.SourcesDirectory)/artifacts/TestInfraFunc/Dockerfile
-      tags: |
-        $(imageTag)
-        $(imageTagLatest)
-        
+      source: 'specific'
+      project: 'raft'
+      pipeline: $(build-production-pipeline-id)
+      artifact: TestInfraFunc
+      path: $(Build.SourcesDirectory)/artifacts/TestInfraFunc
+      runVersion: 'latest'
+    
+- task: Docker@2
+  displayName: 'Publish Test Infra imageTag'
+  inputs:
+    buildContext: $(Build.SourcesDirectory)/artifacts/TestInfraFunc/
+    command: buildAndPush
+    containerRegistry: $(raft-containerRegistryServiceConnection)
+    repository: $(repositoryNamePrefix)/test-infra
+    Dockerfile: $(Build.SourcesDirectory)/artifacts/TestInfraFunc/Dockerfile
+    tags: |
+      $(imageTag)
+      $(imageTagLatest)
+      

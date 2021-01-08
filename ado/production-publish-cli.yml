@@ -1,0 +1,13 @@
+trigger:
+  batch : true
+  branches:
+    include:
+      - 'main'
+
+variables:
+  - template: 'variables/version-variables.yml'
+  - name: versionNumber
+    value: $(version.major).$(version.minor).$(version.revision)
+
+stages:
+  - template: stages/publish/publish-cli.yml
