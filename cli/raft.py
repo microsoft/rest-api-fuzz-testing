@@ -119,7 +119,7 @@ def run(args):
             raise Exception(f'Unhandled service argument: {service_action}')
 
     elif job_action:
-        cli = RaftCLI()
+        cli = RaftCLI(defaults)
         if job_action == 'create':
             json_config_path = args.get('file')
             if json_config_path is None:
@@ -206,7 +206,7 @@ def run(args):
             print(job_delete)
 
     elif webhook_action:
-        cli = RaftCLI()
+        cli = RaftCLI(defaults)
         if webhook_action == 'events':
             webhook_events = cli.list_available_webhooks_events()
             print(webhook_events)
