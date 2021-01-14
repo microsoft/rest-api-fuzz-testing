@@ -27,8 +27,6 @@ variables:
 stages:
   - template: stages/build/build.yml
   - template: stages/publish/publish.yml
-    parameters:
-      variable_group: ${{ parameters.variable_group }}
   - template: stages/deploy/deploy-infrastructure.yml  
   - template: stages/deploy/deploy.yml  
   - template: stages/test/test.yml

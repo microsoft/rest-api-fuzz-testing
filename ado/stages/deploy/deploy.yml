@@ -1,4 +1,4 @@
- stages:
+stages:
   - stage: Deploy
     jobs:
       - job: UploadServiceUtilites_Restart

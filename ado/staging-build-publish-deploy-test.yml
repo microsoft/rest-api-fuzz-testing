@@ -7,7 +7,7 @@ trigger:
 parameters:
   - name: variable_group
     displayName: Variable Group
-    default: ""
+    default: staging
 
   - name: RunBvt
     displayName: Run BVT?
@@ -16,17 +16,27 @@ parameters:
     - Yes
     - No
 
+  - name: BuildArtifactsLocation
+    displayName: Build Artifacts Location?
+    default: production
+    values:
+    - current
+    - production
+
 variables:
   - template: 'variables/version-variables.yml'
   - group: ${{ parameters.variable_group }}
-  - name: version.revision
-    value: $[counter(variables['devRevision'], 1)]
   - name: versionNumber
     value: $(version.major).$(version.minor).$(version.revision)
 
 stages:
   - template: stages/build/build.yml
+    parameters: 
+      BuildArtifactsLocation: ${{ parameters.BuildArtifactsLocation }}
   - template: stages/publish/publish.yml
+    parameters: 
+      BuildArtifactsLocation: ${{ parameters.BuildArtifactsLocation }}
+  - template: stages/deploy/deploy-infrastructure.yml  
   - template: stages/deploy/deploy.yml  
   - template: stages/test/test.yml
     parameters: 

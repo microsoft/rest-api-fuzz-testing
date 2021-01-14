@@ -1,0 +1,8 @@
+stages:
+  - stage: Publish
+    jobs:
+      - job: CLI
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - template: steps/cli.yml

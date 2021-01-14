@@ -1,32 +1,61 @@
- steps: 
+parameters:
+  - name: BuildArtifactsLocation
+    type: string
+
+steps: 
+- ${{ if or(eq(parameters.BuildArtifactsLocation, 'current'), eq(parameters.BuildArtifactsLocation, '')) }}:
   - task: DownloadPipelineArtifact@2
+    displayName: 'Download Local pipeline artifact RestlerAgent'
     inputs:
       artifact: RestlerAgent
       path: $(Build.SourcesDirectory)/artifacts/RestlerAgent
 
   - task: DownloadPipelineArtifact@2
+    displayName: 'Download Local pipeline artifact RaftResultAnalyzer'
     inputs:
       artifact: RaftResultAnalyzer
       path: $(Build.SourcesDirectory)/artifacts/RaftResultAnalyzer
 
-    # This authenticates against the service connection which is needed to pull the restler image
-    # from the repository.
-  - task: Docker@2
-    displayName: Login to ACR
+- ${{ if eq(parameters.BuildArtifactsLocation, 'production') }}:   
+  - task: DownloadPipelineArtifact@2
+    displayName: 'Download Production pipeline artifact RestlerAgent'
     inputs:
-      command: login
-      containerRegistry: acrrestler
-
-  - task: Docker@2
-    displayName: 'Publish Restler Agent imageTag'
+      source: 'specific'
+      project: 'raft'
+      # The pipeline value is the pipeline definition id.
+      # You can find it by looking at the url for the status badge.
+      # In this case it's the pipeline named 'build-production'
+      pipeline: 2925
+      artifact: RestlerAgent
+      path: $(Build.SourcesDirectory)/artifacts/RestlerAgent
+      runVersion: 'latest'
+    
+  - task: DownloadPipelineArtifact@2
+    displayName: 'Download Production pipeline artifact RaftResultAnalyzer'
     inputs:
-      command: buildAndPush
-      buildContext: $(Build.SourcesDirectory)/artifacts/
-      containerRegistry: $(raft-containerRegistryServiceConnection)
-      repository: restapifuzztesting/restler-agent
-      Dockerfile: src/Agent/Dockerfile
-      tags: |
-        $(imageTag)
-        $(imageTagLatest)
+      source: 'specific'
+      project: 'raft'
+      pipeline: $(build-production-pipeline-id)
+      artifact: RaftResultAnalyzer
+      path: $(Build.SourcesDirectory)/artifacts/RaftResultAnalyzer
+      runVersion: 'latest'
 
+# This authenticates against the service connection which is needed to pull the restler image
+# from the repository.
+- task: Docker@2
+  displayName: Login to ACR
+  inputs:
+    command: login
+    containerRegistry: acrrestler
 
+- task: Docker@2
+  displayName: 'Publish Restler Agent imageTag'
+  inputs:
+    command: buildAndPush
+    buildContext: $(Build.SourcesDirectory)/artifacts/
+    containerRegistry: $(raft-containerRegistryServiceConnection)
+    repository: $(repositoryNamePrefix)/restler-agent
+    Dockerfile: $(Build.SourcesDirectory)/artifacts/RestlerAgent/Dockerfile
+    tags: |
+      $(imageTag)
+      $(imageTagLatest)

@@ -5,16 +5,19 @@ trigger:
       - '*'
 
 variables:
-  - name: devRevision
-    value: 1
-  - name: version.major
-    value: 0
-  - name: version.minor
-    value: 7
-  - name: version.revision
-    value: $[counter(variables['devRevision'], 1)]
+  - template: 'variables/version-variables.yml'
   - name: versionNumber
     value: $(version.major).$(version.minor).$(version.revision)
 
+parameters:
+  - name: BuildArtifactsLocation
+    displayName: Build Artifacts Location?
+    default: current
+    values:
+    - current
+    - production
+
 stages:
   - template: stages/build/build.yml
+    parameters: 
+      BuildArtifactsLocation: ${{ parameters.BuildArtifactsLocation }}

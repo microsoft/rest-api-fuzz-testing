@@ -1,7 +1,7 @@
 parameters:
-  - name: variable_group
+  - name: BuildArtifactsLocation
     type: string
-
+    
 stages:
   - stage: Publish
     jobs:
@@ -10,31 +10,29 @@ stages:
           vmImage: 'ubuntu-latest'
         steps:
           - template: steps/apiservice.yml
+            parameters: 
+              BuildArtifactsLocation: ${{ parameters.BuildArtifactsLocation }}
 
-      # It's a requirement to use a deployment job to specify the environment
-      # We only need one deployment, as referencing this job via the environment will show
-      # everything from the whole pipeline. 
-      - deployment: Orchestrator
+      - job: Orchestrator
         pool:
           vmImage: 'ubuntu-latest'
-        environment: ${{ parameters.variable_group }}
-        strategy:
-          runOnce:
-            deploy:
-              steps:
-                - template: steps/orchestrator.yml
+        steps:
+          - template: steps/orchestrator.yml
+            parameters: 
+              BuildArtifactsLocation: ${{ parameters.BuildArtifactsLocation }}
 
       - job: RESTleragent
         pool:
           vmImage: 'ubuntu-latest'
         steps:
           - template: steps/restleragent.yml
+            parameters: 
+              BuildArtifactsLocation: ${{ parameters.BuildArtifactsLocation }}
 
       - job: TestInfra
         pool:
           vmImage: 'ubuntu-latest'
         steps:
           - template: steps/test-infra.yml
-
-
-
+            parameters: 
+              BuildArtifactsLocation: ${{ parameters.BuildArtifactsLocation }}

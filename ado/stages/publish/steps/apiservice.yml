@@ -1,17 +1,34 @@
-steps: 
+parameters:
+  - name: BuildArtifactsLocation
+    type: string
+
+steps:
+- ${{ if or(eq(parameters.BuildArtifactsLocation, 'current'), eq(parameters.BuildArtifactsLocation, '')) }}:
   - task: DownloadPipelineArtifact@2
+    displayName: 'Download Local pipeline artifact'
     inputs:
       artifact: apiservice
       path: $(Build.SourcesDirectory)/artifacts/apiservice
-    
-  - task: Docker@2
-    displayName: 'Publish APIService imageTag'
+  
+- ${{ if eq(parameters.BuildArtifactsLocation, 'production') }}:
+  - task: DownloadPipelineArtifact@2
+    displayName: 'Download Production pipeline artifact'
     inputs:
-      buildContext: $(Build.SourcesDirectory)/artifacts/apiservice/
-      command: buildAndPush
-      containerRegistry: $(raft-containerRegistryServiceConnection)
-      repository: restapifuzztesting/apiservice
-      Dockerfile: artifacts/apiservice/Dockerfile
-      tags: |
-        $(imageTag)
-        $(imageTagLatest)
+      source: 'specific'
+      project: 'raft'
+      pipeline: $(build-production-pipeline-id)
+      artifact: apiservice
+      path: $(Build.SourcesDirectory)/artifacts/apiservice
+      runVersion: 'latest'
+
+- task: Docker@2
+  displayName: 'Publish APIService imageTag'
+  inputs:
+    buildContext: $(Build.SourcesDirectory)/artifacts/apiservice/
+    command: buildAndPush
+    containerRegistry: $(raft-containerRegistryServiceConnection)
+    repository: $(repositoryNamePrefix)/apiservice
+    Dockerfile: artifacts/apiservice/Dockerfile
+    tags: |
+      $(imageTag)
+      $(imageTagLatest)
