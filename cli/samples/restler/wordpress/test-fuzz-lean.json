@@ -1,0 +1,52 @@
+{
+  "rootFileShare" : "wordpress",
+  "namePrefix" : "fuzz-lean-",
+
+  "resources": {
+    "Cores": 4,
+    "MemoryGBs": 8
+  },
+
+  "readonlyFileShareMounts": [
+    {
+      "FileShareName": "{ci-run}",
+      "MountPath": "/ci-run"
+    }
+  ],
+
+ "testTargets" : { 
+    "resources" : {
+      "Cores" : 2,
+      "MemoryGBs" : 4
+    },
+    "targets" : [
+      {
+        "Container" : "swaggerapi/petstore3",
+        "Port" : 8081,
+        "OutputFolder" : "petstore3",
+        "ExpectedDurationUntilReady" : "00:02:00",
+        "Run" : {
+          "Command" : "/bin/sh",
+          "Arguments" : ["-c", "java -jar /swagger-petstore/jetty-runner.jar --log $RAFT_WORK_DIRECTORY/yyyy_mm_dd-requests.log --port 8081 /swagger-petstore/server.war"]
+        }
+      }
+    ]
+  },
+  "tasks": [
+    {
+      "toolName": "RESTler",
+      "outputFolder": "test-fuzz-lean",
+      "duration": "01:00:00",
+      "toolConfiguration": {
+        "task": "TestFuzzLean",
+        "runConfiguration": {
+          "targetEndpointConfiguration" : {
+            "Port" : 8081 
+          },
+          "useSsl" : false,
+          "inputFolderPath": "/ci-run/{compile.jobId}/compile"
+        }
+      }
+    }  
+  ]
+}

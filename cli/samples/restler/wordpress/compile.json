@@ -1,0 +1,52 @@
+{ 
+  "rootFileShare" : "wordpress",
+  "namePrefix" : "compile-",
+
+  "testTargets" : {
+    "services" : [
+      {
+        "Container" : "wordpress:cli-php7.4",
+        "Ports" : [8080],
+        "ExpectedDurationUntilReady" : "00:03:00",
+
+        "Shell" : "/bin/bash",
+	"Run": {
+		"ShellArguments": ["-c", "sleep 90; wp core download; wp config create --dbname=exampledb --dbuser=exampleuser --dbpass=examplepass --dbhost='127.0.0.1:3306' --locale=en_US; wp core install --url=localhost --title='test' --admin_user='test' --admin_email='test@test.com' --skip-email; wp plugin install $RAFT_WORK_DIRECTORY/../../swagger-plugin/wp-api-swaggerui.1.1.1.zip --activate; cd /var/www/html; wp rewrite structure '/%year%/%monthnum%/%postname%/'; wp server --debug --host=127.0.0.1"]
+	},
+	"Idle" : {
+		"ShellArguments" : ["-c", "echo DebugMode; while true; do sleep 100000; done;"]	
+	},
+        "OutputFolder" : "wordpress"
+      },
+      {
+     	"Container" : "mysql:5.7",
+	"Ports" : [3306, 33060],
+	"EnvironmentVariables": {
+	
+	      "MYSQL_DATABASE": "exampledb",
+	      "MYSQL_USER": "exampleuser",
+	      "MYSQL_PASSWORD": "examplepass",
+	      "MYSQL_RANDOM_ROOT_PASSWORD": "1"
+	}
+      }
+    ]
+  },
+  "testTasks" : {
+    "targetConfiguration" :{
+       "apiSpecifications" : [ "http://localhost:8080/rest-api/schema" ],
+       "endpoint" : "http://localhost:8080"
+    },
+    "tasks": [
+      {
+        "toolName": "RESTler",
+        "outputFolder": "compile",
+        "toolConfiguration": {
+          "task": "Compile"
+        }
+      }
+    ]
+  }
+}
+
+
+

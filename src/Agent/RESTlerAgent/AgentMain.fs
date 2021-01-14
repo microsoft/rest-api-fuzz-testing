@@ -585,7 +585,14 @@ let main argv =
                                             else 
                                                 match System.Uri.TryCreate(apiSpecificationLocation, UriKind.Absolute) with
                                                 | true, url ->
-                                                    let! apiSpecification = downloadFile workDirectory (Array.last url.Segments) apiSpecificationLocation
+                                                    let fileName = 
+                                                        let fn = Array.last url.Segments
+                                                        if List.contains (IO.FileInfo(fn).Extension.ToLower()) [".json"; ".yml"; ".yaml"] then
+                                                            fn
+                                                        else
+                                                            fn + ".json"
+
+                                                    let! apiSpecification = downloadFile workDirectory fileName apiSpecificationLocation
                                                     printfn "Downloaded apiSpecification spec to :%s" apiSpecification
                                                     return apiSpecification
                                                 | false, _ ->
