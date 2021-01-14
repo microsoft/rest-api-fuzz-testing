@@ -16,6 +16,13 @@ parameters:
     - Yes
     - No
 
+  - name: BuildArtifactsLocation
+    displayName: Build Artifacts Location?
+    default: current
+    values:
+    - current
+    - production
+
 variables:
   - template: 'variables/version-variables.yml'
   - group: ${{ parameters.variable_group }}
@@ -26,7 +33,11 @@ variables:
 
 stages:
   - template: stages/build/build.yml
+    parameters: 
+      BuildArtifactsLocation: ${{ parameters.BuildArtifactsLocation }}
   - template: stages/publish/publish.yml
+    parameters: 
+      BuildArtifactsLocation: ${{ parameters.BuildArtifactsLocation }}
   - template: stages/deploy/deploy-infrastructure.yml  
   - template: stages/deploy/deploy.yml  
   - template: stages/test/test.yml
