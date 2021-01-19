@@ -327,14 +327,25 @@ let createRESTlerCompilerConfiguration (workDirectory: string) (grammar: Grammar
         AllowGetProducers = compileConfig.AllowGetProducers
     }
 
+
 let inline makeValues< 'T > (stdGen) =
     FsCheck.Gen.eval 100 stdGen (FsCheck.Gen.arrayOfLength 10 FsCheck.Arb.generate< 'T >)
+
 
 let genMutationsDictionary(rnd: int64) : Raft.RESTlerTypes.Compiler.MutationsDictionary=
     let stdGen = FsCheck.Random.mkStdGen(rnd)
 
+    let blns = "/raft-tools/libs/blns/blns.json"
+    let strings =
+        if IO.File.Exists blns then
+            let allStrings = Json.Default.deserializeFile<string array> blns
+            let indices = FsCheck.Gen.eval 100 stdGen (FsCheck.Gen.arrayOfLength 10 (FsCheck.Gen.choose(0, allStrings.Length - 1)))
+            indices |> Array.map (fun i -> allStrings.[i])
+        else
+            makeValues<FsCheck.NonEmptyString>(stdGen) |> Array.map (fun s -> s.Get)
+
     {
-        restler_fuzzable_string = makeValues<FsCheck.NonEmptyString>(stdGen) |> Array.map (fun s -> s.Get)
+        restler_fuzzable_string = strings
         restler_fuzzable_int = makeValues<int>(stdGen) |> Array.map(fun n -> sprintf "%d" n)
         restler_fuzzable_number = makeValues<float>(stdGen) |> Array.map(fun n -> sprintf "%f" n)
         restler_fuzzable_bool = [|"true"; "false"|]
