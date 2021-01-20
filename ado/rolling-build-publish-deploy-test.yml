@@ -40,6 +40,8 @@ stages:
       BuildArtifactsLocation: ${{ parameters.BuildArtifactsLocation }}
   - template: stages/deploy/deploy-infrastructure.yml  
   - template: stages/deploy/deploy.yml  
+    parameters: 
+      BuildArtifactsLocation: ${{ parameters.BuildArtifactsLocation }}
   - template: stages/test/test.yml
     parameters: 
       RunBvt: ${{ parameters.RunBvt }}

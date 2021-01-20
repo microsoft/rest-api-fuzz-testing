@@ -1,3 +1,7 @@
+parameters:
+  - name: BuildArtifactsLocation
+    type: string
+    
 steps:
   - task: UsePythonVersion@0
     inputs:
@@ -9,14 +13,14 @@ steps:
 
   - task: DownloadPipelineArtifact@2
     displayName: 'Download Local pipeline artifact'
-    condition: and(succeeded(), eq(variables.buildArtifactsLocation, 'current')) 
+    condition: and(succeeded(), eq('${{parameters.BuildArtifactsLocation}}', 'current')) 
     inputs:
       artifact: AzureAuth
       path: $(Build.SourcesDirectory)/artifacts/cli/raft-tools/auth/dotnet-core-3.1
     
   - task: DownloadPipelineArtifact@2
     displayName: 'Download Production pipeline artifact'
-    condition: and(always(), eq(variables.buildArtifactsLocation, 'production')) 
+    condition: and(always(), eq('${{parameters.BuildArtifactsLocation}}', 'production')) 
     inputs:
       source: 'specific'
       project: 'raft'
