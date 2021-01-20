@@ -9,14 +9,13 @@ cur_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(cur_dir, '..', '..', '..'))
 from raft_sdk.raft_service import RaftCLI, RaftJobConfig
 
-def run(compile, fuzz, host):
+def run(compile, fuzz):
     # instantiate RAFT CLI
     cli = RaftCLI()
 
     # will replace {sample.host} with the value of host variable
     # see sample.restler.compile.json and sample.restler.fuzz.json
     subs = {
-        '{sample.host}' : host
     }
     # Create compilation job configuration
     compile_job_config = RaftJobConfig(file_path=compile, substitutions=subs)
@@ -46,12 +45,5 @@ def run(compile, fuzz, host):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print('Please provide host under test as an argument that will be used to \
-substitute {sample.host} in compile.json and fuzz.json config files')
-    else:
-        host = sys.argv[1]
-
     run(os.path.join(cur_dir, "compile.json"),
-        os.path.join(cur_dir, "fuzz.json"), 
-        host)
+        os.path.join(cur_dir, "fuzz.json"))

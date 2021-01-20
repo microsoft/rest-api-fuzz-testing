@@ -7,7 +7,7 @@
   "testTasks": {
     "targetConfiguration" : {
       "apiSpecifications": [
-        "https://{host}/swagger/v2/swagger.json"
+        "https://petstore.swagger.io/v2/swagger.json"
       ]
     },
     "tasks": [
@@ -16,22 +16,7 @@
         "outputFolder": "RESTler-compile",
 
         "toolConfiguration": {
-          "task": "compile",
-          "compileConfiguration": {
-            "useRefreshableToken": true,
-            "customDictionary": {
-              "customPayload": {
-                "duration": [ "00:10:00" ],
-                "apiSpecifications": [ "[\"https://some.service.azurewebsites.net/swagger.json\"]" ],
-                "authenticationMethod": [ "{\"CommandLine\": \"abc\" }" ],
-                "targetUrl": [ "{replace-with-valid-webhook-URL}" ],
-                "event": [ "JobStatus" ],
-                "timeSpanFilter": [ "00:10:00" ],
-                "eventName": [ "JobStatus" ]
-              }
-            }
-          }
-        }
+          "task": "compile"            }
       }
     ]
   }

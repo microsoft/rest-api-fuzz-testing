@@ -1,5 +1,5 @@
 {
-  "namePrefix": "sample-compile-",
+  "namePrefix": "compile-",
   "rootFileshare": "sample",
   "webhook": {
     "name": "sample-compile"
@@ -8,9 +8,8 @@
   "testTasks": {
     "targetConfiguration" : {
       "apiSpecifications": [
-        "https://{sample.host}/swagger/v1/swagger.json"
-      ],
-      "endpoint": "https://{sample.host}"
+        "https://petstore.swagger.io/v2/swagger.json"
+      ]
     },
     "tasks": [
       {

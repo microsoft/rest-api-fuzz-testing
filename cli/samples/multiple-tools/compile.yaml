@@ -2,7 +2,17 @@ testTasks:
   targetConfiguration:
     apiSpecifications:
     - "https://{defaults.deploymentName}-raft-apiservice.azurewebsites.net/swagger/v2/swagger.json"
+    endpoint:
+      "https://{defaults.deploymentName}-raft-apiservice.azurewebsites.net"
+
   tasks:
+  - toolName: "Dredd"
+    outputFolder: "{defaults.deploymentName}-dredd"
+    keyVaultSecrets: 
+      - RaftServicePrincipal
+    authenticationMethod:
+        MSAL : RaftServicePrincipal
+
   - toolName: "RESTler"
     outputFolder: "{defaults.deploymentName}-compile"
     toolConfiguration:
@@ -14,7 +24,7 @@ testTasks:
     outputFolder: "sample-compile"
     targetConfiguration:
       apiSpecifications:
-      - "https://{sample.host}/swagger/v1/swagger.json"
+      - "https://petstore.swagger.io/v2/swagger.json"
     toolConfiguration:
       task : Compile
       compileConfiguration:
