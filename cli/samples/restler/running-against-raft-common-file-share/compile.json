@@ -13,7 +13,8 @@
         "toolConfiguration": {
           "task": "compile",
           "compileConfiguration": {
-            "useRefreshableToken": true
+            "useRefreshableToken": true,
+            "mutationsSeed" : 88788
           }
         }
       }
