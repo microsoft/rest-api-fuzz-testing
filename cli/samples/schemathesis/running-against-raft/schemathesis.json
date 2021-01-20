@@ -1,0 +1,20 @@
+{
+  "testTasks" : {
+    "targetConfiguration" : {
+      "endpoint": "https://{defaults.deploymentName}-raft-apiservice.azurewebsites.net",
+      "apiSpecifications": [
+        "https://{defaults.deploymentName}-raft-apiservice.azurewebsites.net/swagger/v2/swagger.json"
+      ]
+    },
+    "tasks": [
+      {
+        "toolName" : "Schemathesis",
+        "outputFolder" : "schemathesis",
+        "keyVaultSecrets": [ "RaftServicePrincipal" ],
+        "authenticationMethod": {
+          "MSAL": "RaftServicePrincipal"
+        }
+      }
+    ]
+  }
+}

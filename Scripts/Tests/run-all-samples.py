@@ -15,7 +15,7 @@ from raft_sdk.raft_service import RaftCLI, RaftJobConfig
 
 def find_files():
     configs = {}
-    fs = ['dredd', 'zap', 'compile', 'test', 'fuzz']
+    fs = ['dredd', 'zap', 'compile', 'test', 'fuzz', 'schemathesis']
     for root, _, files in os.walk(cli_dir):
         for f in fs:
             j = f + '.json'
@@ -49,9 +49,10 @@ def wait(configs, count, task_name, job_id_key):
         print('.')
 
 
-def compile_and_dredd(cli, configs):
+def compile_and_dredd_and_schemathesis(cli, configs):
     compile_count = 0
     dredd_count = 0
+    schemathesis_count = 0
     for c in configs:
         if configs[c].get('compile'):
             compile_job_config = RaftJobConfig(file_path=configs[c]['compile'], substitutions=subs)
@@ -65,9 +66,16 @@ def compile_and_dredd(cli, configs):
             configs[c]['dredd_job_id'] = dredd_job['jobId'] 
             dredd_count = dredd_count + 1
 
-    print('Compiling all ' + str(compile_count) + ' and running Dredd on ' + str(dredd_count) +  ' samples ...')
+        if configs[c].get('schemathesis'):
+            schemathesis_job_config = RaftJobConfig(file_path=configs[c]['schemathesis'], substitutions=subs)
+            schemathesis_job = cli.new_job(schemathesis_job_config)
+            configs[c]['schemathesis_job_id'] = schemathesis_job['jobId'] 
+            schemathesis_count = schemathesis_count + 1
+
+    print('Compiling all ' + str(compile_count) + ' and running Dredd on ' + str(dredd_count) + ' and running Schemathesis on ' +  str(schemathesis_count) + ' samples ...')
     wait(configs, compile_count, 'compile', 'compile_job_id')
     wait(configs, dredd_count, 'dredd', 'dredd_job_id')
+    wait(configs, schemathesis_count, 'schemathesis', 'schemathesis_job_id')
 
 
 def test(cli, configs):
@@ -111,6 +119,6 @@ if __name__ == "__main__":
        '{ci-run}': 'all-samples'
     }
     configs = find_files()
-    compile_and_dredd(cli, configs)
+    compile_and_dredd_and_schemathesis(cli, configs)
     test(cli, configs)
     fuzz_and_zap(cli, configs)

@@ -87,7 +87,6 @@ def run_zap(target_index, targets_total, host, target, token):
         
     if target_index + 1 == targets_total:
         raftUtils.report_status_completed(details)
-    raftUtils.sb_client.close()
     return r
 
 def run(target_index, targets_total, host, target, token):

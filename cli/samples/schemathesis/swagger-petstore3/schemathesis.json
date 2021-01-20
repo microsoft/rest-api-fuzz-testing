@@ -1,0 +1,32 @@
+{
+  "testTargets" : {
+    "services":
+      [
+        {
+          "Container" : "swaggerapi/petstore3",
+          "Ports" : [8080],
+          "ExpectedDurationUntilReady" : "00:00:30",
+          "Shell" : "/bin/sh",
+          "PostRun" : {
+            "ShellArguments" : ["-c", "cp /var/log/*-requests.log $RAFT_WORK_DIRECTORY"],
+            "ExpectedRunDuration" : "00:00:10"
+          },
+          "OutputFolder" : "zap_petstore3"
+      }
+    ]
+  },
+  "testTasks" : {
+    "tasks": [
+      {
+        "toolName" : "Schemathesis",
+        "outputFolder" : "schemathesis",
+        "targetConfiguration" : {
+          "endpoint" : "http://localhost:8080",
+          "apiSpecifications": [
+            "http://localhost:8080/api/v3/openapi.json"
+          ]
+        }
+      }
+    ]
+  }
+}

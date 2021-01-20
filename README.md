@@ -8,9 +8,10 @@ Following Swagger/OpenAPI tools are currently supported by RAFT
 
 | Tool     | Description |
 |----------|----------|
-| [RESTler](https://github.com/microsoft/restler-fuzzer) | RAFT has first class integration with this Microsoft Research tool - the first stateful, fuzzing tool designed to automatically test your REST API's driven by your swagger/OpenApi specification. |
+| [RESTler](https://github.com/microsoft/restler-fuzzer) | RAFT has first class integration with this Microsoft Research tool - the first stateful fuzzing tool designed to automatically test your REST API's driven by your swagger/OpenApi specification. |
 | [ZAP](https://www.zaproxy.org/) | RAFT supports Swagger/OpenAPI scanning functionality provided by ZAP|
 | [Dredd](https://github.com/apiaryio/dredd) | RAFT supports Swagger/OpenAPI scanning functionality provided by Dredd|
+| [Schemathesis](https://github.com/schemathesis/schemathesis) | RAFT supports Swagger/OpenAPI scanning functionality provided by Schemathesis|
 
 As a platform, RAFT is designed to host any API fuzzers that are packaged into a docker container. 
 These can be configured and used in the system via configuration files and require no code changes to integrate.
