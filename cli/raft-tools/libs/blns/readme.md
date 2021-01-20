@@ -1,0 +1,2 @@
+## blns.json
+RAFT-RESTler integration uses [Big-List-Of-Naughty-Strings](https://github.com/minimaxir/big-list-of-naughty-strings) for fuzzing string values when the user specifies a `mutationsSeed` value. 
