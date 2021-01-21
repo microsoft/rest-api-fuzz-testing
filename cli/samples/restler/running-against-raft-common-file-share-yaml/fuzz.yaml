@@ -5,7 +5,7 @@ readOnlyFileShareMounts:
   MountPath: /job-compile
 testTasks:
   targetConfiguration:
-    host: {defaults.deploymentName}-raft-apiservice.azurewebsites.net
+    endpoint: https://{defaults.deploymentName}-raft-apiservice.azurewebsites.net
   tasks:
   - toolName: RESTler
     outputFolder: fuzz-1

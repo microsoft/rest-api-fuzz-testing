@@ -79,6 +79,19 @@ class RaftUtils():
 
         self.newSbMessage = ServiceBusMessage
 
+    def report_bug(self, bugDetails):
+        m = {
+            'eventType' : 'BugFound',
+            'message' : {
+                'tool' : self.tool_name,
+                'jobId' : self.job_id,
+                'agentName' : self.container_name,
+                'bugDetails' : bugDetails
+            }
+        }
+        msg = self.newSbMessage(str.encode(json.dumps(m)))
+        self.topic_client.send_messages([msg])
+
     def report_status(self, state, details):
         m = {
             'eventType' : 'JobStatus',
@@ -114,3 +127,4 @@ class RaftUtils():
 
     def flush(self):
         self.telemetry_client.flush()
+        self.sb_client.close()

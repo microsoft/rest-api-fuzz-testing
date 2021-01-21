@@ -18,6 +18,7 @@ if __name__ == "__main__":
 
         work_directory = os.environ['RAFT_WORK_DIRECTORY']
         config = raft.task_config()
+        raft = raft.RaftUtils('schemathesis')
 
         i = 0
         test_target_config = config['targetConfiguration']
@@ -25,14 +26,24 @@ if __name__ == "__main__":
 
         n_targets = len(test_target_config.get("apiSpecifications"))
         for t in test_target_config.get("apiSpecifications"):
-            print(f'Starting zap for target {t}')
-            args = [sys.executable, "scan.py", f"{i}", f"{n_targets}", '--target', t]
+            print(f'Starting schemathesis for target {t}')
+            args = ["schemathesis", "run", "--stateful", "links", "--checks", "all"]
             if token:
-                args.extend(['--token', token])
+                args.extend(["-H", f"Authorization: {token}"])
 
             if endpoint:
-                url = urlparse(endpoint)
-                args.extend(['--host', url.netloc])
+                args.extend(['--base-url', endpoint])
 
-            subprocess.check_call(args)
-            i = i + 1
+            cassette = f'cassette-{i}.yaml'
+
+            args.extend(["--store-network-log", f'{work_directory}/{cassette}', t])
+            print(f'Running with args: {args}')
+            raft.report_status_running({"endpoint" : endpoint})
+            result = subprocess.run(args)
+            if (result.returncode == 1):
+                raft.report_bug({"cassette": f'config.outputFolder/cassette'})
+            print(f'Finished run on API specification: {t}')
+            i = i + 1 
+
+        raft.report_status_completed()
+        raft.flush()

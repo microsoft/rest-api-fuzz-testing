@@ -10,3 +10,4 @@ testTasks:
       task: compile
       compileConfiguration:
         useRefreshableToken: true
+        mutationsSeed: 789456
