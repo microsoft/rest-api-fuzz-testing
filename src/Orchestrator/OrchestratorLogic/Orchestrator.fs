@@ -137,10 +137,10 @@ module ContainerInstances =
 
     let containerGroupName (jobId: string) = jobId
 
-    let createJobStatus (jobId: string) (state: JobState) (resultsUrl : string option) (details: Map<string, string> option) =
+    let createStatus (jobId: string, agentName: string) (state: JobState) (resultsUrl : string option) (details: Map<string, string> option) =
         let message: JobStatus =
             {
-                AgentName = jobId.ToString()
+                AgentName = agentName
                 Tool = ""
                 JobId = jobId
                 State = state
@@ -152,13 +152,25 @@ module ContainerInstances =
             }
         Raft.Message.RaftEvent.createJobEvent message
 
+
+    let createJobStatus (jobId: string) =
+        createStatus (jobId, jobId)
+
+    let doPostStatus (jobStatusSender: ServiceBus.Core.MessageSender) (status: RaftEvent.RaftJobEvent<JobStatus>) =
+        jobStatusSender.SendAsync( 
+            ServiceBus.Message ( RaftEvent.serializeToBytes status )
+        ).ToAsync
+
+
     let postStatus (jobStatusSender: ServiceBus.Core.MessageSender) (jobId: string) (state: JobState) (resultsUrl : string option) (details: Map<string, string> option) =
-        async {
-            let jobStatus = createJobStatus jobId state resultsUrl details
-            do! jobStatusSender.SendAsync( 
-                    ServiceBus.Message ( RaftEvent.serializeToBytes jobStatus )
-                ).ToAsync
-        }
+        let jobStatus = createJobStatus jobId state resultsUrl details
+        doPostStatus jobStatusSender jobStatus
+
+
+    let postAgentStatus (jobStatusSender: ServiceBus.Core.MessageSender) (jobId: string, agentName: string) (state: JobState) (resultsUrl : string option) (details: Map<string, string> option) =
+        let agentStatus = createStatus (jobId, agentName) state resultsUrl details
+        doPostStatus jobStatusSender agentStatus
+
 
     let rePostJobCreate (jobCreateSender: ServiceBus.Core.MessageSender) (jobCreateMessage : RaftCommand.RaftCommand<Raft.Job.CreateJobRequest>) =
         async {
@@ -648,7 +660,7 @@ module ContainerInstances =
             async {
                 let logInfo format = Printf.kprintf logger.LogInformation format
                 let! containerToolRunsConfigurations, _, _, _ = getContainerGroupInstanceConfiguration existingContainerGroup.Name logger agentConfig dockerConfigs toolsConfigs jobCreateRequest
-                let! _ =
+                let! reRun =
                     containerToolRunsConfigurations
                     |> Array.filter (fun toolRunConfig -> toolRunConfig.ContainerConfiguration.IsIdling)
                     |> Array.map (fun toolRunConfig ->
@@ -658,12 +670,12 @@ module ContainerInstances =
                                 let cmd = getContainerRunCommandString sh r.ShellArguments
                                 logInfo "Since isIdling is set: on %s in %s running %s" toolRunConfig.ContainerName existingContainerGroup.Name cmd
                                 let! _ = runWebsocketCmd logger (existingContainerGroup, toolRunConfig.ContainerName) (sh, cmd)
-                                return ()
-                            | Some _, None | None, None -> return failwithf "Cannot execute websocket command, since run command is not set"
-                            | None, Some _ -> return failwithf "Cannot execute websocket command, since shell is not set."
+                                return Result.Ok(toolRunConfig.ContainerName)
+                            | Some _, None | None, None -> return Result.Error(toolRunConfig.ContainerName, "Cannot execute websocket command, since run command is not set")
+                            | None, Some _ -> return Result.Error(toolRunConfig.ContainerName, "Cannot execute websocket command, since shell is not set.")
                     }
                     ) |> Async.Sequential
-                ()
+                return reRun
             }
 
 
@@ -743,14 +755,17 @@ module ContainerInstances =
                         | false, _ -> 
                             failwithf "Secret with name %s does not exist" name
                     
-                    let startupDelay = 
-                        match jobCreateRequest.JobDefinition.TestTargets with
-                        | None -> TimeSpan.Zero
-                        | Some ts ->
-                            if Array.isEmpty ts.Services then
-                                TimeSpan.Zero
-                            else
-                                (ts.Services |> Array.maxBy (fun t -> t.ExpectedDurationUntilReady)).ExpectedDurationUntilReady
+                    let startupDelay =
+                        if jobCreateRequest.IsIdlingRun then
+                            TimeSpan.Zero
+                        else
+                            match jobCreateRequest.JobDefinition.TestTargets with
+                            | None -> TimeSpan.Zero
+                            | Some ts ->
+                                if Array.isEmpty ts.Services then
+                                    TimeSpan.Zero
+                                else
+                                    (ts.Services |> Array.maxBy (fun t -> t.ExpectedDurationUntilReady)).ExpectedDurationUntilReady
 
                     let setupContainerEnvironment (i : int) (config: ContainerToolRun) =
                         let secrets =
@@ -1051,12 +1066,27 @@ module ContainerInstances =
                             containerGroupName stopWatch.Elapsed.TotalSeconds state existingContainerGroup.ProvisioningState
 
                         let resultsUrl = jobResultsUrl azure.SubscriptionId agentConfig.ResourceGroup agentConfig.ResultsStorageAccount containerGroupName decodedMessage.Message.JobDefinition.RootFileShare
-                        do! postStatus JobState.Created (Some resultsUrl) None
-
                         if decodedMessage.Message.IsIdlingRun then
-                            do! runDebugContainers existingContainerGroup logger agentConfig dockerConfigs toolsConfigs decodedMessage.Message
+                            do! postStatus JobState.ReStarted (Some resultsUrl) None
+                            logInfo "This is Idling debug run"
+                            try
+                                let postAgentStatus agentName =
+                                    postAgentStatus communicationClients.JobEventsSender (decodedMessage.Message.JobId, agentName)
+
+                                let! reRun = runDebugContainers existingContainerGroup logger agentConfig dockerConfigs toolsConfigs decodedMessage.Message
+                                for r in reRun do
+                                    match r with
+                                    | Result.Ok agentName ->
+                                        do! postAgentStatus agentName JobState.ReStarted (Some resultsUrl) None
+                                    | Result.Error (agentName, err) ->
+                                        logError "Idling debug run failed due to %A" err
+                                        do! postAgentStatus agentName JobState.Error None (Some (Map.empty.Add("Error", err)))
+                            with
+                            | ex ->
+                                logError "Idling debug run failed due to %A" ex
+                                do! postStatus JobState.Error None (Some (Map.empty.Add("Error", ex.Message)))
                         else
-                            ()
+                            do! postStatus JobState.Created (Some resultsUrl) None
 
                     | ContainerGroupStates.Pending | ContainerGroupStates.Repairing | null ->
                         do! rePostJobCreate communicationClients.JobCreationSender decodedMessage
@@ -1254,7 +1284,7 @@ module ContainerInstances =
                             | JobState.ManuallyStopped ->
                                 Central.Telemetry.TrackMetric(TelemetryValues.Deleted(name, decodedMessage.Message.UtcEventTime), units)
                                 collectToolMetrics()
-                            | JobState.Creating | JobState.Running | JobState.Completing -> ()
+                            | JobState.ReStarted | JobState.Creating | JobState.Running | JobState.Completing -> ()
 
                 else
                     logInfo "Unhandled message type %s in message %s" eventType message

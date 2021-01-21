@@ -508,7 +508,7 @@ type jobsController(telemetryClient : TelemetryClient, logger : ILogger<jobsCont
                 | Some (r, _) ->
                     let status : Message.RaftEvent.RaftJobEvent<DTOs.JobStatus> = Raft.Message.RaftEvent.deserializeEvent r.JobStatus
                     match status.Message.State with
-                    | DTOs.JobState.Created | DTOs.JobState.Running -> ()
+                    | DTOs.JobState.Created | DTOs.JobState.ReStarted | DTOs.JobState.Running | DTOs.JobState.Error -> ()
                     | _ ->
                         raiseApiError ({ 
                                         Error =
