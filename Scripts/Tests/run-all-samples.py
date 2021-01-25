@@ -37,7 +37,11 @@ def wait(configs, count, task_name, job_id_key):
     while completed_count < count:
         for c in configs:
             if configs[c].get(task_name):
-                status = cli.job_status(configs[c][job_id_key])
+                try:
+                    status = cli.job_status(configs[c][job_id_key])
+                except RaftApiException as ex:
+                    if ex.status_code != 404:
+                        raise ex
                 completed, _ = cli.is_completed(status)
                 if completed:
                     completed_count += 1

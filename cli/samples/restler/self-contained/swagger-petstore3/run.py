@@ -32,7 +32,7 @@ if __name__ == "__main__":
 
         with open(os.path.join(cli_dir, 'defaults.json'), 'r') as defaults_json:
             defaults = json.load(defaults_json)
-            if sys.argv[3] == '--secret':
+            if len(sys.argv) > 3 and sys.argv[3] == '--secret':
                 defaults['secret'] = sys.argv[4]
 
         # instantiate RAFT CLI
@@ -42,8 +42,8 @@ if __name__ == "__main__":
         compile_job_id = None
         subs = {
             "{ci-run}" : f"{build_id}",
-            "{build-url}" : os.environ['SYSTEM_COLLECTIONURI'],
-            "{build-id}" : os.environ['BUILD_BUILDID']
+            "{build-url}" : os.environ['SYSTEM_COLLECTIONURI'] if os.environ.get('SYSTEM_COLLECTIONURI') else "",
+            "{build-id}" : os.environ['BUILD_BUILDID'] if os.environ.get('BUILD_BUILDID') else ""
         }
         for arg in sys.argv[1:]:
             if arg == 'compile':

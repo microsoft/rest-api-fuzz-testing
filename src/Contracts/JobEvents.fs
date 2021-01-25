@@ -14,15 +14,19 @@ type JobState =
     | ManuallyStopped
     | Error
     | TimedOut
+    | ReStarted
 
 /// Returns True if s1 state has higher precedence than s2
 /// False otherwise
 let ( ??> ) (s1: JobState) (s2: JobState) =
     match s1, s2 with
     | JobState.Creating, _ -> false
-    
+
     | JobState.Created, JobState.Creating -> true
     | JobState.Created, _ -> false
+
+    | JobState.ReStarted, _ -> false
+    | _, JobState.ReStarted -> false
     
     | JobState.Running, (JobState.Creating | JobState.Created) -> true
     | JobState.Running, _ -> false
@@ -34,6 +38,7 @@ let ( ??> ) (s1: JobState) (s2: JobState) =
     | JobState.Completed , (JobState.Error | JobState.Completed) -> false
 
     | (JobState.Completing | JobState.Completed | JobState.TimedOut | JobState.Error), _ -> true
+
 
 type RunSummary =
     {
