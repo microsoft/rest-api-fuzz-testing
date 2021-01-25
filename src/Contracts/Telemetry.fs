@@ -36,7 +36,7 @@ type TelemetryValues =
     | AverageNetworkBytesReceivedPerSecond of float * DateTime             // per job
     | ApiRequest of MethodName * float
     | Exception of exn
-    | GCRun of float * int * int                                // time took to run GC in seconds
+    | GCRun of float                                           // time took to run GC in seconds
     
     | Created of string * DateTime //tool name *  eventTimeStamp
     | Deleted of string * DateTime //tool name * eventTimeStamp
@@ -108,15 +108,9 @@ module Central =
                     let m = telemetry.GetMetric(MetricIdentifier(Namespaces.Containers, "AverageNetworkBytesReceivedPerSecond", Labels.Units, Labels.SiteHash, Labels.TimeStamp, Labels.Version))
                     m.TrackValue(bytes, units, site, timeStamp.ToString(), version.ToString()) |> ignore
 
-                | GCRun(duration, successfulDeletions, failedDeletions) ->
+                | GCRun(duration) ->
                     let m = telemetry.GetMetric(MetricIdentifier(Namespaces.GarbageCollection, "GCRun", Labels.Units, Labels.SiteHash, Labels.Version))
                     m.TrackValue(duration, units, site, version.ToString()) |> ignore
-
-                    let m1 = telemetry.GetMetric(MetricIdentifier(Namespaces.GarbageCollection, "SuccessfulDeletions", Labels.Units, Labels.SiteHash, Labels.Version))
-                    m1.TrackValue(float successfulDeletions, units, site, version.ToString()) |> ignore
-
-                    let m2 = telemetry.GetMetric(MetricIdentifier(Namespaces.GarbageCollection, "FailedDeletions", Labels.Units, Labels.SiteHash, Labels.Version))
-                    m2.TrackValue(float failedDeletions, units, site, version.ToString()) |> ignore
 
                 | Created (name, timeStamp) ->
                     let m = telemetry.GetMetric(MetricIdentifier(Namespaces.Jobs, "Created", Labels.Units, Labels.Name, Labels.TimeStamp, Labels.SiteHash,  Labels.Version))

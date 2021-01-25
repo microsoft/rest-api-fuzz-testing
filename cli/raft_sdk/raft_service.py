@@ -324,6 +324,7 @@ class RaftCLI():
                     return True, RaftJobError(s['state'], s['details'])
                 else:
                     return False, None
+        return False, None
 
     def poll(self, job_id, poll_interval=10, print_status=True):
         '''

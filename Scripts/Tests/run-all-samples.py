@@ -11,7 +11,7 @@ import time
 cur_dir = os.path.dirname(os.path.abspath(__file__))
 cli_dir = os.path.join(cur_dir, '..', '..', 'cli')
 sys.path.append(cli_dir)
-from raft_sdk.raft_service import RaftCLI, RaftJobConfig
+from raft_sdk.raft_service import RaftCLI, RaftJobConfig, RaftApiException
 
 def find_files():
     configs = {}
@@ -34,6 +34,7 @@ def find_files():
 
 def wait(configs, count, task_name, job_id_key):
     completed_count = 0
+    completed_counted = {}
     while completed_count < count:
         for c in configs:
             if configs[c].get(task_name):
@@ -43,8 +44,10 @@ def wait(configs, count, task_name, job_id_key):
                     if ex.status_code != 404:
                         raise ex
                 completed, _ = cli.is_completed(status)
-                if completed:
+                if completed and not completed_counted.get(configs[c][job_id_key]):
+                    completed_counted[configs[c][job_id_key]] = True
                     completed_count += 1
+                    print('Jobs completed: ' + configs[c][job_id_key] + " job index : " + str(completed_count) + ' out of ' + str(count))
                 cli.print_status(status)
         for _ in range(1,9) :
             sys.stdout.write('.')
