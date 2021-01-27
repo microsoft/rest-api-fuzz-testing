@@ -7,10 +7,31 @@ import atexit
 import string
 from pathlib import Path
 import time
+import json
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 cache_dir = os.path.join(str(Path.home()), '.cache', 'raft')
 cache_path = os.path.join(cache_dir, 'token_cache.bin')
+
+class RaftJsonDict(dict):
+    def __init__(self):
+        pass
+
+    def __getitem__(self, key):
+        return super(RaftJsonDict, self).__getitem__(key.lower())
+
+    def get(self, key):
+    	return super(RaftJsonDict, self).get(key.lower())
+
+    def __setitem__(self, key, value):
+        return super(RaftJsonDict, self).__setitem__(key.lower(), value)
+
+    @staticmethod
+    def raft_json_object_hook(x):
+        r = RaftJsonDict()
+        for k in x:
+            r[k] = x[k]
+        return r
 
 
 def delete_token_cache():

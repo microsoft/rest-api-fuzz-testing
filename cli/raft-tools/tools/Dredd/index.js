@@ -39,7 +39,7 @@ raft.installCertificates((error, result) => {
 
                 let configuration = {
                     init: false,
-                    endpoint: raft.config.targetConfiguration.endpoint, // your URL to API endpoint the tests will run against
+                    endpoint: raft.jsonGet(raft.config, ['targetConfiguration', 'endpoint']), // your URL to API endpoint the tests will run against
                     path: [],         // Required Array if Strings; filepaths to API description documents, can use glob wildcards
                     'dry-run': false, // Boolean, do not run any real HTTP transaction
                     names: false,     // Boolean, Print Transaction names and finish, similar to dry-run
@@ -54,12 +54,12 @@ raft.installCertificates((error, result) => {
                     require: null,    // String, When using nodejs hooks, require the given module before executing hooks
                     color: true,
                     emitter: eventEmitter, // listen to test progress, your own instance of EventEmitter
-                    path: raft.config.targetConfiguration.apiSpecifications,
+                    path: raft.jsonGet(raft.config, ['targetConfiguration', 'apiSpecifications']),
                     sorted : false
                 }
 
-                if (raft.config.toolConfiguration) {
-                    const toolConfig = raft.config.toolConfiguration;
+                const toolConfig = raft.jsonGet(raft.config, ['toolConfiguration']);
+                if (toolConfig) {
                     if (toolConfig.header) {
                         console.log("Adding extra headers to configuration");
                         configuration.header = configuration.header.concat(toolConfig.header);

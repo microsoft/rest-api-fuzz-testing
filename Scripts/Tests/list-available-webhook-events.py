@@ -6,6 +6,7 @@ import sys
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)),'..', '..', 'cli'))
 import raft
 from raft_sdk.raft_service import RaftCLI
+from raft_sdk.raft_common import RaftJsonDict
 
 
 def compare_lists(cli):
@@ -27,10 +28,10 @@ if __name__ == "__main__":
 
     if args.defaults_context_json:
         print(f"Loading defaults from command line: {args.defaults_context_json}")
-        defaults = json.loads(args.defaults_context_json)
+        defaults = json.loads(args.defaults_context_json, object_hook=RaftJsonDict.raft_json_object_hook)
     else:
         with open(args.defaults_context_path, 'r') as defaults_json:
-            defaults = json.load(defaults_json)
+            defaults = json.load(defaults_json, object_hook=RaftJsonDict.raft_json_object_hook)
 
     defaults['secret'] = args.secret
     cli = RaftCLI(defaults)

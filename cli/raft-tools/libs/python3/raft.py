@@ -11,11 +11,31 @@ import glob
 from urllib.parse import urlparse
 from contextlib import redirect_stdout
 
+class RaftJsonDict(dict):
+    def __init__(self):
+        pass
+
+    def __getitem__(self, key):
+        return super(RaftJsonDict, self).__getitem__(key.lower())
+
+    def get(self, key):
+    	return super(RaftJsonDict, self).get(key.lower())
+
+    def __setitem__(self, key, value):
+        return super(RaftJsonDict, self).__setitem__(key.lower(), value)
+
+    @staticmethod
+    def raft_json_object_hook(x):
+        r = RaftJsonDict()
+        for k in x:
+            r[k] = x[k]
+        return r
+
 def install_certificates():
     work_directory = os.environ['RAFT_WORK_DIRECTORY']
     run_directory = os.environ['RAFT_TOOL_RUN_DIRECTORY']
     with open(os.path.join(work_directory, "task-config.json"), 'r') as task_config:
-        config = json.load(task_config)
+        config = json.load(task_config, object_hook=RaftJsonDict.raft_json_object_hook)
         if config.get("targetConfiguration") and config.get("targetConfiguration").get("certificates"):
             certificates = config["targetConfiguration"]["certificates"]
             files = glob.iglob(os.path.join(certificates, "*.crt"))
@@ -30,9 +50,12 @@ def auth_token(init, pip_root_dir=None):
     work_directory = os.environ['RAFT_WORK_DIRECTORY']
     run_directory = os.environ['RAFT_TOOL_RUN_DIRECTORY']
     with open(os.path.join(work_directory, "task-config.json"), 'r') as task_config:
-        config = json.load(task_config)
+        config = json.load(task_config, object_hook=RaftJsonDict.raft_json_object_hook)
+
         auth_config = config.get("authenticationMethod")
         if auth_config:
+            msal_auth_config = auth_config.get("MSAL")
+            
             if auth_config.get("txtToken"): 
                 if init:
                     return None
@@ -44,7 +67,7 @@ def auth_token(init, pip_root_dir=None):
                     return None
                 else:
                     subprocess.getoutput(auth_config.get("commandLine"))
-            elif auth_config.get("msal"):
+            elif msal_auth_config:
                 msal_dir = os.path.join(run_directory, "..", "..", "auth", "python3", "msal")
 
                 if init:
@@ -59,7 +82,7 @@ def auth_token(init, pip_root_dir=None):
                 else:
                     print("Retrieving MSAL token")
                     sys.path.append(msal_dir)
-                    authentication_environment_variable = auth_config["msal"]
+                    authentication_environment_variable = msal_auth_config
                     import msal_token
                     token = msal_token.token_from_env_variable( authentication_environment_variable )
                     if token:
@@ -75,7 +98,7 @@ def auth_token(init, pip_root_dir=None):
 def task_config():
     work_directory = os.environ['RAFT_WORK_DIRECTORY']
     with open(os.path.join(work_directory, 'task-config.json'), 'r') as task_config:
-        return json.load(task_config)
+        return json.load(task_config, object_hook=RaftJsonDict.raft_json_object_hook)
 
 class RaftUtils():
     def __init__(self, tool_name):
@@ -83,10 +106,15 @@ class RaftUtils():
         from azure.servicebus import ServiceBusClient, ServiceBusMessage
         self.config = task_config()
 
-        connection_str = os.environ['RAFT_SB_OUT_SAS']
+        self.is_local_run = os.environ.get('RAFT_LOCAL')
 
-        self.sb_client = ServiceBusClient.from_connection_string(connection_str)
-        self.topic_client = self.sb_client.get_topic_sender(self.sb_client._entity_name)
+        if self.is_local_run:
+            self.sb_client = None
+            self.topic_client = None
+        else:
+            connection_str = os.environ['RAFT_SB_OUT_SAS']
+            self.sb_client = ServiceBusClient.from_connection_string(connection_str)
+            self.topic_client = self.sb_client.get_topic_sender(self.sb_client._entity_name)
         
         self.telemetry_client = TelemetryClient(instrumentation_key=os.environ['RAFT_APP_INSIGHTS_KEY'])
 
@@ -103,32 +131,34 @@ class RaftUtils():
         self.newSbMessage = ServiceBusMessage
 
     def report_bug(self, bugDetails):
-        m = {
-            'eventType' : 'BugFound',
-            'message' : {
-                'tool' : self.tool_name,
-                'jobId' : self.job_id,
-                'agentName' : self.container_name,
-                'bugDetails' : bugDetails
+        if not self.is_local_run:
+            m = {
+                'eventType' : 'BugFound',
+                'message' : {
+                    'tool' : self.tool_name,
+                    'jobId' : self.job_id,
+                    'agentName' : self.container_name,
+                    'bugDetails' : bugDetails
+                }
             }
-        }
-        msg = self.newSbMessage(str.encode(json.dumps(m)))
-        self.topic_client.send_messages([msg])
+            msg = self.newSbMessage(str.encode(json.dumps(m)))
+            self.topic_client.send_messages([msg])
 
     def report_status(self, state, details):
-        m = {
-            'eventType' : 'JobStatus',
-            'message': {
-                'tool' : self.tool_name,
-                'jobId' : self.job_id,
-                'agentName': self.container_name,
-                'details': details,
-                'utcEventTime' : time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime()),
-                'state' : state
+        if not self.is_local_run:
+            m = {
+                'eventType' : 'JobStatus',
+                'message': {
+                    'tool' : self.tool_name,
+                    'jobId' : self.job_id,
+                    'agentName': self.container_name,
+                    'details': details,
+                    'utcEventTime' : time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime()),
+                    'state' : state
+                }
             }
-        }
-        msg = self.newSbMessage(str.encode(json.dumps(m)))
-        self.topic_client.send_messages([msg])
+            msg = self.newSbMessage(str.encode(json.dumps(m)))
+            self.topic_client.send_messages([msg])
 
     def report_status_created(self, details=None):
         self.report_status('Created', details)
@@ -143,11 +173,14 @@ class RaftUtils():
         self.report_status('Completed', details)
 
     def log_trace(self, trace):
-        self.telemetry_client.track_trace(trace, properties=self.telemetry_properties)
+        if not self.is_local_run:
+            self.telemetry_client.track_trace(trace, properties=self.telemetry_properties)
 
     def log_exception(self):
-        self.telemetry_client.track_exception(properties=self.telemetry_properties)
+        if not self.is_local_run:
+            self.telemetry_client.track_exception(properties=self.telemetry_properties)
 
     def flush(self):
-        self.telemetry_client.flush()
-        self.sb_client.close()
+        if not self.is_local_run:
+            self.telemetry_client.flush()
+            self.sb_client.close()

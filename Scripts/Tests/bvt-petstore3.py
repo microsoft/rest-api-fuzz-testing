@@ -13,7 +13,7 @@ cli_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),'..', '..', '
 sys.path.append(cli_path)
 import raft
 from raft_sdk.raft_service import RaftCLI
-from raft_sdk.raft_common import RaftDefinitions, RaftApiException
+from raft_sdk.raft_common import RaftDefinitions, RaftApiException, RaftJsonDict
 from raft_sdk.raft_deploy import azure_function_keys
 
 def webhooks_test_url(subscription_id, resource_group, function):
@@ -23,9 +23,9 @@ def webhooks_test_url(subscription_id, resource_group, function):
 def webhook_triggers_results(job_id, test_url):
     webhook_triggers_response = requests.get(test_url + "&jobId=" + job_id)
     if webhook_triggers_response.ok:
-        triggers = json.loads(webhook_triggers_response.text)
+        triggers = json.loads(webhook_triggers_response.text, object_hook=RaftJsonDict.raft_json_object_hook)
         for t in triggers:
-            j = json.loads(t)
+            j = json.loads(t, object_hook=RaftJsonDict.raft_json_object_hook)
             yield j[0]
     else:
         raise Exception(webhook_triggers_response.text)
@@ -183,10 +183,10 @@ if __name__ == "__main__":
 
     if args.defaults_context_json:
         print(f"Loading defaults from command line: {args.defaults_context_json}")
-        defaults = json.loads(args.defaults_context_json)
+        defaults = json.loads(args.defaults_context_json, object_hook=RaftJsonDict.raft_json_object_hook)
     else:
         with open(args.defaults_context_path, 'r') as defaults_json:
-            defaults = json.load(defaults_json)
+            defaults = json.load(defaults_json, object_hook=RaftJsonDict.raft_json_object_hook)
 
     definitions = RaftDefinitions(defaults)
     defaults['secret'] = args.secret

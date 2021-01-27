@@ -14,10 +14,32 @@ const workDirectory = process.env.RAFT_WORK_DIRECTORY;
 const rawdata = fs.readFileSync(workDirectory + '/task-config.json');
 const config = JSON.parse(rawdata);
 
+function jsonGet(jo, keys) {
+    var d = jo;
+    for (const k of keys) {
+        d = d[Object.keys(d).find(key => k.toLowerCase() === key.toLowerCase())];
+        if (d == null) {
+            break;
+        }
+    }
+    return d;
+}
+
 class RaftUtils {
     constructor(toolName) {
-        this.telemetryClient = new appInsights.TelemetryClient(process.env['RAFT_APP_INSIGHTS_KEY']);
-        this.serviceBus = new serviceBus.ServiceBusClient(process.env.RAFT_SB_OUT_SAS);
+
+        this.running_local = process.env['RAFT_LOCAL'];
+
+        if (this.running_local) {
+            this.serviceBus = null;
+            this.sbSender = null;
+            this.telemetryClient = null;
+        } else {
+            this.telemetryClient = new appInsights.TelemetryClient(process.env['RAFT_APP_INSIGHTS_KEY']);
+            this.serviceBus = new serviceBus.ServiceBusClient(process.env.RAFT_SB_OUT_SAS);
+            this.sbSender = this.serviceBus.createSender(this.serviceBus._connectionContext.config.entityPath);
+        }
+
         this.jobId = process.env['RAFT_JOB_ID'];
         this.agentName = process.env['RAFT_CONTAINER_NAME'];
         this.traceProperties =
@@ -26,45 +48,52 @@ class RaftUtils {
                 taskIndex : process.env['RAFT_TAKS_INDEX'],
                 containerName : this.agentName
             };
-        this.sbSender = this.serviceBus.createSender(this.serviceBus._connectionContext.config.entityPath);
         this.toolName = toolName;
     }
 
     reportBug(bugDetails) {
-        console.log('Sending bug found event: ' + bugDetails.name);
-        this.sbSender.sendMessages(
-            {
-                body: {
-                    eventType : 'BugFound',
-                    message : {
-                        tool : this.toolName,
-                        jobId : this.jobId,
-                        agentName : this.agentName,
-                        bugDetails : bugDetails
-                    }
-                },
-                sessionId : this.jobId 
-            }
-        );
+        if (this.running_local) {
+            return new Promise(function(resolve, reject) {resolve();});
+        } else {
+            console.log('Sending bug found event: ' + bugDetails.name);
+            this.sbSender.sendMessages(
+                {
+                    body: {
+                        eventType : 'BugFound',
+                        message : {
+                            tool : this.toolName,
+                            jobId : this.jobId,
+                            agentName : this.agentName,
+                            bugDetails : bugDetails
+                        }
+                    },
+                    sessionId : this.jobId 
+                }
+            );
+        }
     }
 
     reportStatus(state, details) {
-        console.log('Sending job status event: ' + state);
-        return this.sbSender.sendMessages(
-            {
-                body: {
-                    eventType: 'JobStatus', 
-                    message : {
-                        tool: this.toolName,
-                        jobId : this.jobId,
-                        agentName : this.agentName,
-                        details : details,
-                        utcEventTime : (new Date()).toUTCString(),
-                        state : state
-                    }
-                }, 
-                sessionId : this.jobId 
-            }); 
+        if (this.running_local) {
+            return new Promise(function(resolve, reject) {resolve();});
+        } else {
+            console.log('Sending job status event: ' + state);
+            return this.sbSender.sendMessages(
+                {
+                    body: {
+                        eventType: 'JobStatus', 
+                        message : {
+                            tool: this.toolName,
+                            jobId : this.jobId,
+                            agentName : this.agentName,
+                            details : details,
+                            utcEventTime : (new Date()).toUTCString(),
+                            state : state
+                        }
+                    }, 
+                    sessionId : this.jobId 
+                }); 
+        }
     }
 
     reportStatusCreated(details){
@@ -84,27 +113,34 @@ class RaftUtils {
     }
 
     logTrace(traceMessage) {
-        this.telemetryClient.trackTrace({message: traceMessage, properties: this.traceProperties});
+        if (!this.running_local) {
+            this.telemetryClient.trackTrace({message: traceMessage, properties: this.traceProperties});
+        }
     }
 
     logException(exception) {
-        this.telemetryClient.trackException({exception: exception, properties: this.traceProperties});
+        if (!this.running_local) {
+            this.telemetryClient.trackException({exception: exception, properties: this.traceProperties});
+        }
     }
 
     flush(){
-        this.telemetryClient.flush();
-        this.serviceBus.close();
+        if (!this.running_local) {
+            this.telemetryClient.flush();
+            this.serviceBus.close();
+        }
     }
 }
 function getAuthHeader(callback) {
-    if (!config.authenticationMethod) {
+    const authenticationMethod = jsonGet(config, ['authenticationMethod']);
+    if (!authenticationMethod)  {
         callback(null, null);
     } else {
-        const authMethods = Object.keys(config.authenticationMethod)
+        const authMethods = Object.keys(authenticationMethod);
         if (authMethods.length == 0) {
             callback(null, null); 
         } else if (authMethods.length > 1) {
-            callback(new Error("More than one authentication method is specified: " + config.authenticationMethod), null);
+            callback(new Error("More than one authentication method is specified: " + authenticationMethod), null);
         } else {
             const authMethod = authMethods[0];
             console.log("Authentication Method: " + authMethod);
@@ -116,7 +152,7 @@ function getAuthHeader(callback) {
                                 callback(error);
                             } else {
                                 const raftMsal = require(msalDirectory + '/msal_token.js')
-                                raftMsal.tokenFromEnvVariable(config.authenticationMethod[authMethod], (error, result) => {
+                                raftMsal.tokenFromEnvVariable(authenticationMethod[authMethod], (error, result) => {
                                         callback(error, result);
                                     }
                                 );
@@ -125,16 +161,16 @@ function getAuthHeader(callback) {
                     );
                     break;
                 case 'txttoken':
-                    callback(null, process.env['RAFT_' + config.authenticationMethod[authMethod]] || process.env[config.authenticationMethod[authMethod]] );
+                    callback(null, process.env['RAFT_' + authenticationMethod[authMethod]] || process.env[authenticationMethod[authMethod]] );
                     break;
                 case 'commandline':
-                    exec(config.authenticationMethod[authMethod], (error, result) => {
+                    exec(authenticationMethod[authMethod], (error, result) => {
                             callback(error, result);
                         }
                     );
                     break;
                 default:
-                    callback(new Error("Unhandled authentication method: " + config.authenticationMethod), null);
+                    callback(new Error("Unhandled authentication method: " + authenticationMethod), null);
                     break;
             }
         }
@@ -142,10 +178,12 @@ function getAuthHeader(callback) {
 }
 
 function installCertificates(callback) {
-    if (!config.targetConfiguration || !config.targetConfiguration.certificates) {
+    const certificates = jsonGet(config, ['targetConfiguration', 'certificates'])
+
+    if (!certificates) {
         callback(null, null);
     } else {
-        fs.readdir(config.targetConfiguration.certificates, function(err, files) {
+        fs.readdir(certificates, function(err, files) {
             if (err) {
                 callback(err, null);
             }
@@ -153,7 +191,7 @@ function installCertificates(callback) {
                 files.forEach(function(file) {
                     console.log("File: " + file);
                     if (path.extname(file) === '.crt') {
-                        const copySrc = config.targetConfiguration.certificates + "/" + file;
+                        const copySrc = certificates + "/" + file;
                         const copyDest = "/usr/local/share/ca-certificates/" + file;
                         console.log("CopySrc: " + copySrc + " CopyDest: " + copyDest);
                         fs.copyFileSync(copySrc, copyDest);
@@ -179,3 +217,4 @@ exports.workDirectory = workDirectory;
 exports.config = config;
 exports.RaftUtils = RaftUtils;
 exports.getAuthHeader = getAuthHeader;
+exports.jsonGet = jsonGet;

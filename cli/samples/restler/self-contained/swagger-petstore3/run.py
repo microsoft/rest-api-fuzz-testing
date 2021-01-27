@@ -9,7 +9,7 @@ import json
 cur_dir = os.path.dirname(os.path.abspath(__file__))
 cli_dir = os.path.join(cur_dir, '..', '..', '..', '..')
 sys.path.append(cli_dir)
-from raft_sdk.raft_service import RaftCLI, RaftJobConfig, RaftJobError, RaftDefinitions
+from raft_sdk.raft_service import RaftCLI, RaftJobConfig, RaftJobError, RaftDefinitions, RaftJsonDict
 
 
 def run(cli, config, subs):
@@ -31,7 +31,7 @@ if __name__ == "__main__":
         print(f"BUILD ID : {build_id}")
 
         with open(os.path.join(cli_dir, 'defaults.json'), 'r') as defaults_json:
-            defaults = json.load(defaults_json)
+            defaults = json.load(defaults_json, object_hook=RaftJsonDict.raft_json_object_hook)
             if len(sys.argv) > 3 and sys.argv[3] == '--secret':
                 defaults['secret'] = sys.argv[4]
 

@@ -51,9 +51,11 @@ function get_token(client_id, tenant_id, secret, scopes, authority_uri, callback
 }
 exports.tokenFromEnvVariable = function (env_variable_name, callback) {
     let auth = JSON.parse(process.env["RAFT_" + env_variable_name] || process.env[env_variable_name]);
+    auth.get = function(k) { return auth[Object.keys(auth).find(key => k.toLowerCase() === key.toLowerCase())]; }
+
     if (auth) {
         console.log("Getting MSAL token");
-        get_token(auth['client'], auth['tenant'], auth['secret'], auth['scopes'], auth['authorityUri'], callback, auth['audience']);
+        get_token(auth.get('client'), auth.get('tenant'), auth.get('secret'), auth.get('scopes'), auth.get('authorityUri'), callback, auth.get('audience'));
     }
     else {
         callback(new Error("Authentication parameters are not set in environment variable " + env_variable_name));
