@@ -7,6 +7,7 @@
 * How to configure [Webhooks](how-to-configure-webhooks.md)
 * How to [submit a job](how-to-submit-a-job.md) 
 * How to [handle webhooks with a Logic App](logicApps/github-email.md)
+* How to [fuzz using a github workfow](how-to-use-github-workflow.md)
 * Using the RAFT [command line](cli-reference.md)
 * REST API
   * [Swagger](sdk/swagger.md)
