@@ -129,6 +129,7 @@ namespace OrchestratorFunc
                                 new OrchestratorLogic.ContainerInstances.CommunicationClients(
                                     jobEventsSender: new MessageSender(GetSetting("RAFT_REPORT_JOB_STATUS"), Raft.Message.ServiceBus.Topic.events, RetryPolicy.Default),
                                     jobCreationSender: new MessageSender(GetSetting("RAFT_REPORT_JOB_STATUS"), Raft.Message.ServiceBus.Queue.create, RetryPolicy.Default),
+                                    jobDeletionSender: new MessageSender(GetSetting("RAFT_REPORT_JOB_STATUS"), Raft.Message.ServiceBus.Queue.delete, RetryPolicy.Default),
                                     webhookSender: new System.Net.Http.HttpClient()
                                 );
 

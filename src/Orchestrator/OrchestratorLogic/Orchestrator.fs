@@ -132,6 +132,7 @@ module ContainerInstances =
         {
             JobEventsSender: ServiceBus.Core.MessageSender
             JobCreationSender : ServiceBus.Core.MessageSender
+            JobDeletionSender : ServiceBus.Core.MessageSender
             WebhookSender : System.Net.Http.HttpClient
         }
 
@@ -181,6 +182,16 @@ module ContainerInstances =
                         message, (DateTimeOffset.UtcNow + rePostDelay)).ToAsync
             ()
         }
+
+    let postJobDelete (jobDeleteSender: ServiceBus.Core.MessageSender) (jobDeleteMessage : RaftCommand.RaftCommand<Raft.Job.DeleteJobRequest>) =
+        async {
+            let rePostDelay = TimeSpan.FromSeconds(10.0)
+            let message = ServiceBus.Message (RaftCommand.serializeToBytes {jobDeleteMessage with MessagePostCount = jobDeleteMessage.MessagePostCount + 1})
+            message.SessionId <- jobDeleteMessage.Message.JobId.ToString()
+            let! _ = jobDeleteSender.ScheduleMessageAsync(message, (DateTimeOffset.UtcNow + rePostDelay)).ToAsync
+            ()
+        }
+
 
     type ContainerConfiguration =
         {
@@ -968,6 +979,160 @@ module ContainerInstances =
         let [<Literal>] Failed = "Failed"
         let [<Literal>] Repairing = "Repairing"
 
+    module ContainerInstancesStates =
+        let [<Literal>] Terminated = "Terminated"
+        let [<Literal>] Error = "Error"
+        let [<Literal>] Succeeded = "Succeeded"
+        let [<Literal>] Running = "Running"
+
+    module JobStatus =
+        let getRow (agentConfig: AgentConfig) (jobId: string, agentName: string) =
+            async {
+                let! table = getJobStatusTable agentConfig.StorageTableConnectionString
+                let retrieve = TableOperation.Retrieve<JobStatusEntity>(jobId, agentName)
+                let! retrieveResult = table.ExecuteAsync(retrieve).ToAsync
+
+                if retrieveResult.HttpStatusCode = int HttpStatusCode.OK then
+                    let r = retrieveResult.Result :?> JobStatusEntity
+                    return Result.Ok(Some r)
+                else if retrieveResult.HttpStatusCode = int HttpStatusCode.NotFound then
+                    return Result.Ok(None)
+                else
+                    return Result.Error()
+    
+            }
+
+        let setRow (agentConfig : AgentConfig) (jobId: string, agentName : string) (message: string, state: Raft.JobEvents.JobState, utcEventTime : DateTime, resultsUrl : string) (etag: string) =
+            async {
+                let! table = getJobStatusTable agentConfig.StorageTableConnectionString
+                let entity = JobStatusEntity(
+                                jobId,
+                                agentName,
+                                message,
+                                state |> Microsoft.FSharpLu.Json.Compact.serialize,
+                                utcEventTime,
+                                resultsUrl,
+                                ETag = etag)
+
+                let insertOp = TableOperation.InsertOrReplace(entity)
+                let! insertResult = table.ExecuteAsync(insertOp).ToAsync
+                if insertResult.HttpStatusCode <> int HttpStatusCode.NoContent then
+                    return false
+                else
+                    return true
+            }
+
+        let getEvent (r: JobStatusEntity) : RaftEvent.RaftJobEvent<JobStatus> =
+            RaftEvent.deserializeEvent r.JobStatus
+
+        let getState (r: JobStatusEntity) : Raft.JobEvents.JobState =
+            match Option.ofObj r.JobState with
+            | None ->
+                (getEvent r).Message.State
+            | Some s ->
+                Microsoft.FSharpLu.Json.Compact.deserialize s
+
+
+    let status (logger:ILogger) (_, agentConfig: AgentConfig, communicationClients: CommunicationClients) (message: string) =
+        async {
+            let logInfo format = Printf.kprintf logger.LogInformation format
+            logInfo "[STATUS] Got status message: %s" message
+
+            let eventType = RaftEvent.getEventType message
+            if eventType = BugFound.EventType then
+                ()
+            else if eventType = JobStatus.EventType then
+                let decodedMessage: RaftEvent.RaftJobEvent<JobStatus> = RaftEvent.deserializeEvent message
+                let jobId, agentName = decodedMessage.Message.JobId, decodedMessage.Message.AgentName
+
+                match! JobStatus.getRow agentConfig (jobId, agentName) with
+                | Result.Error() -> logInfo "[STATUS] Failed to retrieve job status table row for %s:%s" jobId agentName
+                | Result.Ok(r) ->
+                    let currentStatusWithHigherPrecedence, utcEventTime, resultsUrl, etag =
+                        match r with
+                        | Some row ->
+                            let resultsUrl = Option.defaultValue row.ResultsUrl decodedMessage.Message.ResultsUrl
+                            let state = JobStatus.getState row
+                            if state = decodedMessage.Message.State && decodedMessage.Message.UtcEventTime > row.UtcEventTime then
+                                None, decodedMessage.Message.UtcEventTime, resultsUrl, row.ETag
+                            else if (state ??> decodedMessage.Message.State) then
+                                // if current row job state is one of the next states down the line, then ignore current message altogether.
+                                // Since current message is "late"
+                                Some (JobStatus.getEvent row), row.UtcEventTime, resultsUrl, row.ETag
+                            else
+                                None, decodedMessage.Message.UtcEventTime, resultsUrl, row.ETag
+                        | None ->
+                            let resultsUrl = Option.defaultValue null decodedMessage.Message.ResultsUrl
+                            None, decodedMessage.Message.UtcEventTime, resultsUrl, null
+
+                    match currentStatusWithHigherPrecedence with
+                    | Some currentRowMessage ->
+                        logInfo "Dropping new status message since current status has higher precedence : %A and new message state is : %A [current status: %A new message status: %s ]" 
+                                    currentRowMessage.Message.State decodedMessage.Message.State currentRowMessage message
+                    | None ->
+                        let! updated = JobStatus.setRow agentConfig (jobId, agentName) (message, decodedMessage.Message.State, utcEventTime, resultsUrl) etag
+                        if not updated then
+                            //Table record got updated by someone else, figure out what to do next.
+                            match decodedMessage.Message.State with
+                            | JobState.Running ->
+                                logInfo "Current message state is Running. The table-record was already updated. Dropping Current message: %s" message
+                                // if we are updating running progress -> and record got updated by someone else. 
+                                // Then just discard current update.
+                                ()
+                            | _ ->
+                                // Any other 
+                                // Try to send message again.
+                                logInfo "Current message failed to update the table record. Going to try again: %s" message
+                                let message = ServiceBus.Message(RaftEvent.serializeToBytes decodedMessage)
+                                do! communicationClients.JobEventsSender.SendAsync(message).ToAsync
+                        else
+                            let name, units =
+                                if decodedMessage.Message.AgentName = decodedMessage.Message.JobId then
+                                    "Job", "job"
+                                else
+                                    (sprintf "Task: %s" (if String.IsNullOrWhiteSpace decodedMessage.Message.Tool then "NotSet" else decodedMessage.Message.Tool)), "task"
+
+                            let collectToolMetrics() =
+                                match decodedMessage.Message.Metrics with
+                                | None -> ()
+                                | Some m ->
+                                    Central.Telemetry.TrackMetric(
+                                        TelemetryValues.BugsFound(
+                                            m.TotalBugBucketsCount,
+                                            name,
+                                            decodedMessage.Message.UtcEventTime), "Bugs")
+
+                                    for (KeyValue(statusCode, count)) in m.ResponseCodeCounts do
+                                        Central.Telemetry.TrackMetric(
+                                            TelemetryValues.StatusCount(
+                                                statusCode, 
+                                                count, 
+                                                name, 
+                                                decodedMessage.Message.UtcEventTime), "HttpRequests"
+                                        )
+
+                            match decodedMessage.Message.State with
+                            | JobState.Created ->
+                                Central.Telemetry.TrackMetric(TelemetryValues.Created(name, decodedMessage.Message.UtcEventTime), units)
+                            | JobState.Completed ->
+                                Central.Telemetry.TrackMetric(TelemetryValues.Completed(name, decodedMessage.Message.UtcEventTime), units)
+                                collectToolMetrics()
+                            | JobState.Error ->
+                                Central.Telemetry.TrackMetric(TelemetryValues.Error(name, decodedMessage.Message.UtcEventTime), units)
+                                collectToolMetrics()
+                            | JobState.TimedOut ->
+                                Central.Telemetry.TrackMetric(TelemetryValues.TimedOut(name, decodedMessage.Message.UtcEventTime), units)
+                                collectToolMetrics()
+                            | JobState.ManuallyStopped ->
+                                Central.Telemetry.TrackMetric(TelemetryValues.Deleted(name, decodedMessage.Message.UtcEventTime), units)
+                                collectToolMetrics()
+                            | JobState.ReStarted | JobState.Creating | JobState.Running | JobState.Completing -> ()
+
+                else
+                    logInfo "Unhandled message type %s in message %s" eventType message
+            return ()
+        } |> Async.StartAsTask
+
     let createJob
             (logger:ILogger)
             (secrets : IDictionary<string, string>)
@@ -1113,7 +1278,288 @@ module ContainerInstances =
                 do! containerGroup.StopAsync().ToAsync
         }
 
-    //TODO: need to add one more form of deletion where we execute PostRun command on the test target containers
+
+    /// Get a sequence of containers that terminated due to error
+    let getContainersExitedWithError (g: IContainerGroup) =
+        g.Containers |> Seq.filter(fun (KeyValue(_, v)) ->
+            if not <| isNull v.InstanceView then
+                let currentState = v.InstanceView.CurrentState
+                currentState.DetailStatus = ContainerInstancesStates.Error
+            else false)
+        |> Seq.map (fun (KeyValue(_, v)) -> v)
+
+
+    /// Calculate union of all container life times within container group
+    let calculateContainerGroupLifeSpan (g: IContainerGroup) =
+        (None, g.Containers)
+        ||> Seq.fold ( fun lifeSpan (KeyValue(_, v)) ->
+            if isNull v.InstanceView then
+                lifeSpan
+            else
+                let instance = v.InstanceView.CurrentState
+                match lifeSpan with
+                | None ->
+                    let startTime =
+                        if instance.StartTime.HasValue then instance.StartTime.Value else DateTime.UtcNow
+                    let endTime =
+                        if instance.FinishTime.HasValue then instance.FinishTime.Value else DateTime.UtcNow
+                    Some (startTime, endTime)
+                | Some(s, e) ->
+                    let startTime =
+                        if instance.StartTime.HasValue then min instance.StartTime.Value s else s
+                    let endTime =
+                        if instance.FinishTime.HasValue then max instance.FinishTime.Value e else e
+                    Some(startTime, endTime)
+            )
+
+    let executePostRun (agentConfig: AgentConfig, communicationClients: CommunicationClients) (logger: ILogger) (cg: IContainerGroup) =
+        async {
+            match! JobStatus.getRow (agentConfig) (cg.Name, cg.Name) with
+            | Result.Ok(Some r) ->
+                let logInfo format = Printf.kprintf logger.LogInformation format
+                let logError format = Printf.kprintf logger.LogError format
+
+                match Tags.getPostRunExpectedRunDuration cg.Tags with
+                | None ->
+                    return true
+                | Some d ->
+                    match JobStatus.getState r with
+                    | JobState.Completing when r.Timestamp + d < System.DateTimeOffset.UtcNow ->
+                        return true
+                    | JobState.Completing ->
+                        return false
+                    | s when JobState.Completing ??> s ->
+                        do! postStatus communicationClients.JobEventsSender cg.Name JobState.Completing None None
+                        let testTargets =
+                            cg.Containers
+                            |> Seq.map(fun (KeyValue(_, c)) -> c)
+                            |> Seq.filter(fun c -> c.Name.StartsWith(TestTarget, StringComparison.InvariantCultureIgnoreCase) )
+                
+                        for tt in testTargets do
+                            if tt.InstanceView.CurrentState.State = ContainerInstancesStates.Running then
+                                let shell = tt.EnvironmentVariables |> Seq.tryFind(fun ev -> ev.Name = "RAFT_CONTAINER_SHELL")
+                                let command = tt.EnvironmentVariables |> Seq.tryFind (fun ev -> ev.Name = "RAFT_POST_RUN_COMMAND")
+
+                                match shell, command with
+                                | Some sh, Some c ->
+                                    let! postRunOut = runWebsocketCmd logger (cg, tt.Name) (sh.Value, c.Value)
+                                    logInfo "PostRunOut: %s" postRunOut
+                                | None, _ -> logError "Shell must be set in order to execute post-run command for %s" tt.Name
+                                | Some _, None -> logInfo "PostRun command is not set. Skipping for %s" tt.Name
+                            else
+                                logInfo "Cannot execute post run command since container instance %s terminated" tt.Name
+
+                        return false
+                    | _ ->
+                        return true
+            | Result.Error() ->
+                return false
+            | Result.Ok(None) ->
+                return true
+        }
+
+    type Metric =
+        {
+            Average : float
+            TimeStamp: DateTime
+        }
+
+    type MetricEvent =
+        {
+            ContainerGroupName: string
+            MetricName : string
+            MetricUnits: string
+            MetricData : Metric
+        }
+
+    let metrics (logger: ILogger) (azure: IAzure) (containerGroup:IContainerGroup) (startTime: DateTime, endTime: DateTime) =
+        async {
+            let logInfo format = Printf.kprintf logger.LogInformation format
+            let logError format = Printf.kprintf logger.LogError format
+            let stopWatch = System.Diagnostics.Stopwatch()
+            stopWatch.Start()
+            let! metrics =
+                async {
+                    try
+                        let! metrics = azure.MetricDefinitions.ListByResourceAsync(containerGroup.Id).ToAsync
+                        let! metricsList =
+                            [
+                                for m in metrics ->
+                                    async {
+                                        let! res = m.DefineQuery().StartingFrom(startTime).EndsBefore(endTime).ExecuteAsync().ToAsync
+                                        return! [
+                                            for r in res.Metrics ->
+                                                async {
+                                                    let metricEvents: MetricEvent list =
+                                                        [
+                                                            for t in r.Timeseries do
+                                                                for d in t.Data do
+                                                                    if d.Average.HasValue then
+                                                                        yield
+                                                                            {
+                                                                                ContainerGroupName = containerGroup.Name
+                                                                                MetricName = r.Name.Value
+                                                                                MetricUnits = sprintf "%A" r.Unit
+                                                                                MetricData = 
+                                                                                    {
+                                                                                        Average = d.Average.Value
+                                                                                        TimeStamp = d.TimeStamp
+                                                                                    }
+                                                                            }
+                                                        ]
+                                                    let metricsList =
+                                                        metricEvents 
+                                                        |> List.map(fun event -> 
+                                                            match event.MetricName.ToLowerInvariant() with
+                                                            | "networkbytestransmittedpersecond" ->
+                                                                Some(TelemetryValues.AverageNetworkBytesTransmittedPerSecond(event.MetricData.Average, event.MetricData.TimeStamp), event.MetricUnits)
+                                                            | "networkbytesreceivedpersecond" ->
+                                                                Some(TelemetryValues.AverageNetworkBytesReceivedPerSecond(event.MetricData.Average, event.MetricData.TimeStamp), event.MetricUnits)
+                                                            | "memoryusage" ->
+                                                                Some(TelemetryValues.ContainerGroupAverageRAMUsageMB(event.MetricData.Average, event.MetricData.TimeStamp), event.MetricUnits)
+                                                            | "cpuusage" ->
+                                                                Some(TelemetryValues.ContainerGroupAverageCPUUsage(event.MetricData.Average, event.MetricData.TimeStamp), event.MetricUnits)
+                                                            | _ -> 
+                                                                logError  "[Metrics] Unexpected metric name - %s" event.MetricName
+                                                                None
+                                                        ) 
+                                                        |> List.filter Option.isSome
+                                                        |> List.map (fun v -> v.Value)
+
+                                                    return metricsList
+                                                }
+                                        ] |> Async.Sequential
+                                    }
+                            ] |> Async.Sequential
+                        return Some metricsList 
+                    with
+                    | Exceptions.AlreadyDeleted _ -> 
+                        logInfo "[Metrics] Skipping container group: %s, since it is not found" containerGroup.Name
+                        return None
+                    | ex ->
+                        Central.Telemetry.TrackError (TelemetryValues.Exception ex)
+                        logError "[Metrics] Failed to get metric %s due to %A" containerGroup.Name ex
+                        return None
+                }
+            stopWatch.Stop()
+            logInfo "[Metrics] Time took to run on-timer metrics collection for container  group %s: %f seconds" containerGroup.Name stopWatch.Elapsed.TotalSeconds
+            return metrics
+        }
+
+
+    /// Job is finished if every container is terminated
+    let isJobRunFinished (g: IContainerGroup) =
+        if Tags.isIdling g.Tags then
+            false
+        else
+            isJobProvisioningFailed g
+            ||
+            (g.Containers.Count = 0 ||
+                (g.Containers.Count > 0 &&
+                    g.Containers
+                    |> Seq.forall (fun (KeyValue(_, v)) ->
+                        not <| isNull v.InstanceView &&
+                            v.InstanceView.CurrentState.State = ContainerInstancesStates.Terminated ||
+                            v.Name.StartsWith(TestTarget, StringComparison.InvariantCultureIgnoreCase)
+                    )
+                )
+            )
+
+    // We want to allow all internal processes to complete before we 
+    // force kill a container. 
+    let durationSlack = TimeSpan.FromMinutes 10.0
+    let isJobExpired (logger: ILogger) (g: IContainerGroup) =
+        let logInfo format = Printf.kprintf logger.LogInformation format
+        if not <| g.Tags.ContainsKey Tags.Duration then
+            //if duration tag is not set, then let job run until it terminates
+            false
+        else
+            match Tags.getStartTime g.Tags, Tags.getDuration g.Tags with
+            | Some startTime, Some duration ->
+                let now = DateTime.UtcNow
+                let expirationTime = startTime + duration + durationSlack
+                if now > expirationTime then
+                    logInfo "Running job expired: %s. %s: %A, %s: %A. UtcNow: %A, ExpirationTimeUtc: %A" g.Name Tags.StartTimeUtc startTime Tags.Duration duration now expirationTime
+                    true
+                else
+                    false
+            // If tags do not have correct values, then assume job expired
+            | None, None -> 
+                logInfo "Running job assumed to be expired, since tags tracking start time and duration are not set: %s" g.Name
+                true
+            | Some _, None ->
+                logInfo "Running job assumed to be expired since %s tag is not set: %s" Tags.Duration g.Name
+                true
+            | None, Some _ ->
+                logInfo "Running job assumed to be expired since %s tag is not set: %s" Tags.StartTimeUtc g.Name
+                true
+
+
+    let getDetailsWithUsage (logger:ILogger) (azure: IAzure, containerGroup: IContainerGroup) (currentDetails: Map<string, string>) =
+        async {
+            let logInfo format = Printf.kprintf logger.LogInformation format
+
+            match calculateContainerGroupLifeSpan containerGroup with
+            | Some (startTime, endTime) ->
+                logInfo "Collecting metrics for %s from %A to %A" containerGroup.Name startTime endTime
+                match! metrics logger azure containerGroup (startTime - TimeSpan.FromMinutes(5.0), endTime + TimeSpan.FromMinutes(5.0)) with
+                | None -> return currentDetails
+                | Some ms -> 
+                    ms
+                    |> Array.iter(fun metricsEvents ->
+                        metricsEvents
+                        |> Array.iter(fun events -> 
+                            events |> List.iter(fun event -> Central.Telemetry.TrackMetric event)
+                        )
+                    )
+
+                    let cpu, bytesReceived, bytesSent =
+                        (([], [], []), ms)
+                        ||> Array.fold(fun (cpu, bytesReceived, bytesSent) metricsEvents ->
+                            ((cpu, bytesReceived, bytesSent), metricsEvents)
+                            ||> Array.fold(fun (cpu, bytesReceived, bytesSent) events -> 
+                                ((cpu, bytesReceived, bytesSent), events) 
+                                ||> List.fold(fun (cpu, bytesReceived, bytesSent) (event, _) ->
+                                    match event with
+                                    | ContainerGroupAverageCPUUsage(v, _) ->
+                                        (v::cpu, bytesReceived, bytesSent)
+                                    | AverageNetworkBytesTransmittedPerSecond(v, _) ->
+                                        (cpu, bytesReceived, v::bytesSent)
+                                    | AverageNetworkBytesReceivedPerSecond(v, _) ->
+                                        (cpu, v::bytesReceived, bytesSent)
+                                    | _ ->
+                                        (cpu, bytesReceived, bytesSent)
+                                )
+                            )
+                        )
+                    return
+                        currentDetails.Add(
+                            "CpuAverage", sprintf "%f" (if List.isEmpty cpu then 0.0 else List.average cpu)
+                        ).Add(
+                            "NetworkTotalBytesReceived", sprintf "%d" (if List.isEmpty bytesReceived then 0 else int (List.sum bytesReceived))
+                        ).Add(
+                            "NetworkTotalBytesSent", sprintf"%d" (if List.isEmpty bytesSent then 0 else int (List.sum bytesSent))
+                        )
+            | None ->
+                logInfo "[Metrics] ignoring metrics collection since could not calculate container lifespan for container group: %s" containerGroup.Name
+                return currentDetails
+        }
+
+
+    let doDelete (azure: IAzure) (agentConfig: AgentConfig, _) (containerGroupName: string)=
+        async {
+            try
+                do! azure.ContainerGroups.DeleteByResourceGroupAsync(agentConfig.ResourceGroup, containerGroupName).ToAsync
+                return Result.Ok ()
+            with 
+            | Exceptions.AlreadyDeleted _ -> 
+                return Result.Ok()
+            | ex ->
+                Central.Telemetry.TrackError (TelemetryValues.Exception ex)
+                return Result.Error("Failed to delete Container Instance", ex.Message)
+        }
+
+
     let delete (logger:ILogger) (azure: IAzure, agentConfig: AgentConfig, communicationClients: CommunicationClients) (message: string) =
         async {
             let logInfo format = Printf.kprintf logger.LogInformation format
@@ -1131,179 +1577,111 @@ module ContainerInstances =
             logInfo "Got delete queue message: %A" decodedMessage
 
             let containerGroupName = containerGroupName decodedMessage.Message.JobId
-            let! containerGroup = azure.ContainerGroups.GetByResourceGroupAsync(agentConfig.ResourceGroup, containerGroupName).ToAsync
-            match (containerGroup |> Option.ofObj) with
-            | Some cg ->
-                do! stopJob cg
-            | None -> ()
+            try
+                let! containerGroup = azure.ContainerGroups.GetByResourceGroupAsync(agentConfig.ResourceGroup, containerGroupName).ToAsync
 
-            stopWatch.Stop()
-            logInfo "Time took to stop job: %s total seconds %f" containerGroupName stopWatch.Elapsed.TotalSeconds
+                match (containerGroup |> Option.ofObj) with
+                | Some containerGroup ->
+                    let containerGroupFailedToProvision = isJobProvisioningFailed containerGroup
+                    let instancesExitedWithError = getContainersExitedWithError containerGroup
 
-            return ()
-        } |> Async.StartAsTask
+                    let jobManuallyStopped = isJobManuallyStopped containerGroup
+                    let jobRunFinished = isJobRunFinished containerGroup
 
-
-    module JobStatus =
-        let getRow (agentConfig: AgentConfig) (jobId: string, agentName: string) =
-            async {
-                let! table = getJobStatusTable agentConfig.StorageTableConnectionString
-                let retrieve = TableOperation.Retrieve<JobStatusEntity>(jobId, agentName)
-                let! retrieveResult = table.ExecuteAsync(retrieve).ToAsync
-
-                if retrieveResult.HttpStatusCode = int HttpStatusCode.OK then
-                    let r = retrieveResult.Result :?> JobStatusEntity
-                    return Result.Ok(Some r)
-                else if retrieveResult.HttpStatusCode = int HttpStatusCode.NotFound then
-                    return Result.Ok(None)
-                else
-                    return Result.Error()
-        
-            }
-
-        let setRow (agentConfig : AgentConfig) (jobId: string, agentName : string) (message: string, state: Raft.JobEvents.JobState, utcEventTime : DateTime, resultsUrl : string) (etag: string) =
-            async {
-                let! table = getJobStatusTable agentConfig.StorageTableConnectionString
-                let entity = JobStatusEntity(
-                                jobId,
-                                agentName,
-                                message,
-                                state |> Microsoft.FSharpLu.Json.Compact.serialize,
-                                utcEventTime,
-                                resultsUrl,
-                                ETag = etag)
-
-                let insertOp = TableOperation.InsertOrReplace(entity)
-                let! insertResult = table.ExecuteAsync(insertOp).ToAsync
-                if insertResult.HttpStatusCode <> int HttpStatusCode.NoContent then
-                    return false
-                else
-                    return true
-            }
-
-        let getEvent (r: JobStatusEntity) : RaftEvent.RaftJobEvent<JobStatus> =
-            RaftEvent.deserializeEvent r.JobStatus
-
-        let getState (r: JobStatusEntity) : Raft.JobEvents.JobState =
-            match Option.ofObj r.JobState with
-            | None ->
-                (getEvent r).Message.State
-            | Some s ->
-                Microsoft.FSharpLu.Json.Compact.deserialize s
-
-    let status (logger:ILogger) (_, agentConfig: AgentConfig, communicationClients: CommunicationClients) (message: string) =
-        async {
-            let logInfo format = Printf.kprintf logger.LogInformation format
-            logInfo "[STATUS] Got status message: %s" message
-
-            let eventType = RaftEvent.getEventType message
-            if eventType = BugFound.EventType then
-                ()
-            else if eventType = JobStatus.EventType then
-                let decodedMessage: RaftEvent.RaftJobEvent<JobStatus> = RaftEvent.deserializeEvent message
-                let jobId, agentName = decodedMessage.Message.JobId, decodedMessage.Message.AgentName
-
-                match! JobStatus.getRow agentConfig (jobId, agentName) with
-                | Result.Error() -> logInfo "[STATUS] Failed to retrieve job status table row for %s:%s" jobId agentName
-                | Result.Ok(r) ->
-                    let currentStatusWithHigherPrecedence, utcEventTime, resultsUrl, etag =
-                        match r with
-                        | Some row ->
-                            let resultsUrl = Option.defaultValue row.ResultsUrl decodedMessage.Message.ResultsUrl
-                            let state = JobStatus.getState row
-                            if state = decodedMessage.Message.State && decodedMessage.Message.UtcEventTime > row.UtcEventTime then
-                                None, decodedMessage.Message.UtcEventTime, resultsUrl, row.ETag
-                            else if (state ??> decodedMessage.Message.State) then
-                                // if current row job state is one of the next states down the line, then ignore current message altogether.
-                                // Since current message is "late"
-                                Some (JobStatus.getEvent row), row.UtcEventTime, resultsUrl, row.ETag
-                            else
-                                None, decodedMessage.Message.UtcEventTime, resultsUrl, row.ETag
-                        | None ->
-                            let resultsUrl = Option.defaultValue null decodedMessage.Message.ResultsUrl
-                            None, decodedMessage.Message.UtcEventTime, resultsUrl, null
-
-                    match currentStatusWithHigherPrecedence with
-                    | Some currentRowMessage ->
-                        logInfo "Dropping new status message since current status has higher precedence : %A and new message state is : %A [current status: %A new message status: %s ]" 
-                                    currentRowMessage.Message.State decodedMessage.Message.State currentRowMessage message
-                    | None ->
-                        let! updated = JobStatus.setRow agentConfig (jobId, agentName) (message, decodedMessage.Message.State, utcEventTime, resultsUrl) etag
-                        if not updated then
-                            //Table record got updated by someone else, figure out what to do next.
-                            match decodedMessage.Message.State with
-                            | JobState.Running ->
-                                logInfo "Current message state is Running. The table-record was already updated. Dropping Current message: %s" message
-                                // if we are updating running progress -> and record got updated by someone else. 
-                                // Then just discard current update.
-                                ()
-                            | _ ->
-                                // Any other 
-                                // Try to send message again.
-                                logInfo "Current message failed to update the table record. Going to try again: %s" message
-                                let message = ServiceBus.Message(RaftEvent.serializeToBytes decodedMessage)
-                                do! communicationClients.JobEventsSender.SendAsync(message).ToAsync
+                    let isExpired =
+                        if jobRunFinished || jobManuallyStopped then
+                            // if stopped it cannot be expired
+                            false
+                        else if isJobExpired logger containerGroup then
+                            true
                         else
-                            let name, units =
-                                if decodedMessage.Message.AgentName = decodedMessage.Message.JobId then
-                                    "Job", "job"
-                                else
-                                    (sprintf "Task: %s" (if String.IsNullOrWhiteSpace decodedMessage.Message.Tool then "NotSet" else decodedMessage.Message.Tool)), "task"
+                            false
 
-                            let collectToolMetrics() =
-                                match decodedMessage.Message.Metrics with
-                                | None -> ()
-                                | Some m ->
-                                    Central.Telemetry.TrackMetric(
-                                        TelemetryValues.BugsFound(
-                                            m.TotalBugBucketsCount,
-                                            name,
-                                            decodedMessage.Message.UtcEventTime), "Bugs")
+                    let! jobReadyForDeletion =
+                        async {
+                            if isExpired || jobRunFinished then
+                                let! postRun = executePostRun (agentConfig, communicationClients) logger containerGroup
+                                if not postRun then
+                                    logInfo "Post run seem to be still running, reposting deletion message for %d time " (decodedMessage.MessagePostCount + 1)
+                                    do! postJobDelete communicationClients.JobDeletionSender { decodedMessage with MessagePostCount = decodedMessage.MessagePostCount + 1}
+                                return postRun
+                            else
+                                return true
+                        }
 
-                                    for (KeyValue(statusCode, count)) in m.ResponseCodeCounts do
-                                        Central.Telemetry.TrackMetric(
-                                            TelemetryValues.StatusCount(
-                                                statusCode, 
-                                                count, 
-                                                name, 
-                                                decodedMessage.Message.UtcEventTime), "HttpRequests"
+                    if jobReadyForDeletion then
+                        if not containerGroupFailedToProvision then
+                            do! stopJob containerGroup
+
+                        let state, details =
+                            if containerGroupFailedToProvision then
+                                JobState.Error, 
+                                    (Map.empty, containerGroup.Events |> List.ofSeq)
+                                    ||> List.fold( fun details v ->
+                                        details
+                                            .Add("Name", v.Name)
+                                            .Add("Message", v.Message)
+                                            .Add("Type", v.Type)
+                                    )
+                            else if isExpired then
+                                JobState.TimedOut, Map.empty
+                            else if jobManuallyStopped then
+                                JobState.ManuallyStopped, Map.empty
+                            else if Seq.isEmpty instancesExitedWithError then
+                                JobState.Completed, Map.empty
+                            else
+                                //There is at least one container that terminated with an error
+                                JobState.Error, 
+                                    (Map.empty, instancesExitedWithError |> List.ofSeq)
+                                    ||> List.fold (fun details v ->
+                                            details.Add(
+                                                (sprintf "[%s] Exit Code" v.Name), sprintf "%A" v.InstanceView.CurrentState.ExitCode
+                                            ).Add(
+                                                (sprintf "[%s] State" v.Name), sprintf "%A" v.InstanceView.CurrentState.State
+                                            ).Add(
+                                                (sprintf "[%s] Detailed Status" v.Name), (sprintf "%A" v.InstanceView.CurrentState.DetailStatus)
+                                            )
                                         )
 
-                            match decodedMessage.Message.State with
-                            | JobState.Created ->
-                                Central.Telemetry.TrackMetric(TelemetryValues.Created(name, decodedMessage.Message.UtcEventTime), units)
-                            | JobState.Completed ->
-                                Central.Telemetry.TrackMetric(TelemetryValues.Completed(name, decodedMessage.Message.UtcEventTime), units)
-                                collectToolMetrics()
-                            | JobState.Error ->
-                                Central.Telemetry.TrackMetric(TelemetryValues.Error(name, decodedMessage.Message.UtcEventTime), units)
-                                collectToolMetrics()
-                            | JobState.TimedOut ->
-                                Central.Telemetry.TrackMetric(TelemetryValues.TimedOut(name, decodedMessage.Message.UtcEventTime), units)
-                                collectToolMetrics()
-                            | JobState.ManuallyStopped ->
-                                Central.Telemetry.TrackMetric(TelemetryValues.Deleted(name, decodedMessage.Message.UtcEventTime), units)
-                                collectToolMetrics()
-                            | JobState.ReStarted | JobState.Creating | JobState.Running | JobState.Completing -> ()
+                        let! detailsWithUsage = getDetailsWithUsage logger (azure, containerGroup) details 
 
-                else
-                    logInfo "Unhandled message type %s in message %s" eventType message
+                        do! postStatus communicationClients.JobEventsSender containerGroup.Name state None (Some detailsWithUsage)
+
+                        for v in instancesExitedWithError do
+                            let! failedContainerLogs = containerGroup.GetLogContentAsync(v.Name).ToAsync
+    
+                            logInfo "[%s][%s][State:%A][DetailStatus: %A][ExitCode: %A] failed logs: %s\nEvents: %A" 
+                                        containerGroup.Name v.Name 
+                                        v.InstanceView.CurrentState.State
+                                        v.InstanceView.CurrentState.DetailStatus 
+                                        v.InstanceView.CurrentState.ExitCode
+                                        failedContainerLogs
+                                        (v.InstanceView.Events |> Seq.map (fun e -> e.Name, e.Message))
+
+                        logInfo "Deleting container group: %s" containerGroup.Name
+                        let! result = doDelete azure (agentConfig, communicationClients) containerGroup.Name
+
+                        match result with
+                        | Result.Ok() -> ()
+                        | Result.Error errors ->
+                            logError "Container group %s failed to delete: %A" containerGroup.Name errors
+
+                        stopWatch.Stop()
+                        logInfo "Time took to stop job: %s total seconds %f" containerGroupName stopWatch.Elapsed.TotalSeconds
+                    else
+                        ()
+
+                | None -> ()
+            with
+            | Exceptions.AlreadyDeleted _ -> 
+                logInfo "Skipping container group: %s, since it is not found" containerGroupName
+            | ex ->
+                logError "Container group %s deletion failed due to %A" containerGroupName ex
+                Central.Telemetry.TrackError (TelemetryValues.Exception ex)
             return ()
         } |> Async.StartAsTask
 
 
-    let doDelete (azure: IAzure) (agentConfig: AgentConfig, _) (containerGroupName: string)=
-        async {
-            try
-                do! azure.ContainerGroups.DeleteByResourceGroupAsync(agentConfig.ResourceGroup, containerGroupName).ToAsync
-                return Result.Ok ()
-            with 
-            | Exceptions.AlreadyDeleted _ -> 
-                return Result.Ok()
-            | ex ->
-                Central.Telemetry.TrackError (TelemetryValues.Exception ex)
-                return Result.Error("Failed to delete Container Instance", ex.Message)
-        }
 
     // This function runs in response to a message in the webhook queue.
     // It takes the message and posts it to the event grid.
@@ -1418,225 +1796,6 @@ module ContainerInstances =
             return ()
         } |> Async.StartAsTask
 
-    type Metric =
-        {
-            Average : float
-            TimeStamp: DateTime
-        }
-
-    type MetricEvent =
-        {
-            ContainerGroupName: string
-            MetricName : string
-            MetricUnits: string
-            MetricData : Metric
-        }
-
-    let metrics (logger: ILogger) (azure: IAzure) (containerGroup:IContainerGroup) (startTime: DateTime, endTime: DateTime) =
-        async {
-            let logInfo format = Printf.kprintf logger.LogInformation format
-            let logError format = Printf.kprintf logger.LogError format
-            let stopWatch = System.Diagnostics.Stopwatch()
-            stopWatch.Start()
-            let! metrics =
-                async {
-                    try
-                        let! metrics = azure.MetricDefinitions.ListByResourceAsync(containerGroup.Id).ToAsync
-                        let! metricsList =
-                            [
-                                for m in metrics ->
-                                    async {
-                                        let! res = m.DefineQuery().StartingFrom(startTime).EndsBefore(endTime).ExecuteAsync().ToAsync
-                                        return! [
-                                            for r in res.Metrics ->
-                                                async {
-                                                    let metricEvents: MetricEvent list =
-                                                        [
-                                                            for t in r.Timeseries do
-                                                                for d in t.Data do
-                                                                    if d.Average.HasValue then
-                                                                        yield
-                                                                            {
-                                                                                ContainerGroupName = containerGroup.Name
-                                                                                MetricName = r.Name.Value
-                                                                                MetricUnits = sprintf "%A" r.Unit
-                                                                                MetricData = 
-                                                                                    {
-                                                                                        Average = d.Average.Value
-                                                                                        TimeStamp = d.TimeStamp
-                                                                                    }
-                                                                            }
-                                                        ]
-                                                    let metricsList =
-                                                        metricEvents 
-                                                        |> List.map(fun event -> 
-                                                            match event.MetricName.ToLowerInvariant() with
-                                                            | "networkbytestransmittedpersecond" ->
-                                                                Some(TelemetryValues.AverageNetworkBytesTransmittedPerSecond(event.MetricData.Average, event.MetricData.TimeStamp), event.MetricUnits)
-                                                            | "networkbytesreceivedpersecond" ->
-                                                                Some(TelemetryValues.AverageNetworkBytesReceivedPerSecond(event.MetricData.Average, event.MetricData.TimeStamp), event.MetricUnits)
-                                                            | "memoryusage" ->
-                                                                Some(TelemetryValues.ContainerGroupAverageRAMUsageMB(event.MetricData.Average, event.MetricData.TimeStamp), event.MetricUnits)
-                                                            | "cpuusage" ->
-                                                                Some(TelemetryValues.ContainerGroupAverageCPUUsage(event.MetricData.Average, event.MetricData.TimeStamp), event.MetricUnits)
-                                                            | _ -> 
-                                                                logError  "[Metrics] Unexpected metric name - %s" event.MetricName
-                                                                None
-                                                        ) 
-                                                        |> List.filter Option.isSome
-                                                        |> List.map (fun v -> v.Value)
-
-                                                    return metricsList
-                                                }
-                                        ] |> Async.Sequential
-                                    }
-                            ] |> Async.Sequential
-                        return Some metricsList 
-                    with
-                    | Exceptions.AlreadyDeleted _ -> 
-                        logInfo "[Metrics] Skipping container group: %s, since it is not found" containerGroup.Name
-                        return None
-                    | ex ->
-                        Central.Telemetry.TrackError (TelemetryValues.Exception ex)
-                        logError "[Metrics] Failed to get metric %s due to %A" containerGroup.Name ex
-                        return None
-                }
-            stopWatch.Stop()
-            logInfo "[Metrics] Time took to run on-timer metrics collection for container  group %s: %f seconds" containerGroup.Name stopWatch.Elapsed.TotalSeconds
-            return metrics
-        }
-
-    module ContainerInstancesStates =
-        let [<Literal>] Terminated = "Terminated"
-        let [<Literal>] Error = "Error"
-        let [<Literal>] Succeeded = "Succeeded"
-        let [<Literal>] Running = "Running"
-
-    /// Job is finished if every container is terminated
-    let isJobRunFinished (g: IContainerGroup) =
-        if Tags.isIdling g.Tags then
-            false
-        else
-            isJobProvisioningFailed g
-            ||
-            (g.Containers.Count = 0 ||
-                (g.Containers.Count > 0 &&
-                    g.Containers
-                    |> Seq.forall (fun (KeyValue(_, v)) ->
-                        not <| isNull v.InstanceView &&
-                            v.InstanceView.CurrentState.State = ContainerInstancesStates.Terminated ||
-                            v.Name.StartsWith(TestTarget, StringComparison.InvariantCultureIgnoreCase)
-                    )
-                )
-            )
-
-    // We want to allow all internal processes to complete before we 
-    // force kill a container. 
-    let durationSlack = TimeSpan.FromMinutes 10.0
-    let isJobExpired (logger: ILogger) (g: IContainerGroup) =
-        let logInfo format = Printf.kprintf logger.LogInformation format
-        if not <| g.Tags.ContainsKey Tags.Duration then
-            //if duration tag is not set, then let job run until it terminates
-            false
-        else
-            match Tags.getStartTime g.Tags, Tags.getDuration g.Tags with
-            | Some startTime, Some duration ->
-                let now = DateTime.UtcNow
-                let expirationTime = startTime + duration + durationSlack
-                if now > expirationTime then
-                    logInfo "Running job expired: %s. %s: %A, %s: %A. UtcNow: %A, ExpirationTimeUtc: %A" g.Name Tags.StartTimeUtc startTime Tags.Duration duration now expirationTime
-                    true
-                else
-                    false
-            // If tags do not have correct values, then assume job expired
-            | None, None -> 
-                logInfo "Running job assumed to be expired, since tags tracking start time and duration are not set: %s" g.Name
-                true
-            | Some _, None ->
-                logInfo "Running job assumed to be expired since %s tag is not set: %s" Tags.Duration g.Name
-                true
-            | None, Some _ ->
-                logInfo "Running job assumed to be expired since %s tag is not set: %s" Tags.StartTimeUtc g.Name
-                true
-
-    /// Get a sequence of containers that terminated due to error
-    let getContainersExitedWithError (g: IContainerGroup) =
-        g.Containers |> Seq.filter(fun (KeyValue(_, v)) ->
-            if not <| isNull v.InstanceView then
-                let currentState = v.InstanceView.CurrentState
-                currentState.DetailStatus = ContainerInstancesStates.Error
-            else false)
-        |> Seq.map (fun (KeyValue(_, v)) -> v)
-
-
-    /// Calculate union of all container life times within container group
-    let calculateContainerGroupLifeSpan (g: IContainerGroup) =
-        (None, g.Containers)
-        ||> Seq.fold ( fun lifeSpan (KeyValue(_, v)) ->
-            if isNull v.InstanceView then
-                lifeSpan
-            else
-                let instance = v.InstanceView.CurrentState
-                match lifeSpan with
-                | None ->
-                    let startTime =
-                        if instance.StartTime.HasValue then instance.StartTime.Value else DateTime.UtcNow
-                    let endTime =
-                        if instance.FinishTime.HasValue then instance.FinishTime.Value else DateTime.UtcNow
-                    Some (startTime, endTime)
-                | Some(s, e) ->
-                    let startTime =
-                        if instance.StartTime.HasValue then min instance.StartTime.Value s else s
-                    let endTime =
-                        if instance.FinishTime.HasValue then max instance.FinishTime.Value e else e
-                    Some(startTime, endTime)
-            )
-
-    let executePostRun (agentConfig: AgentConfig, communicationClients: CommunicationClients) (logger: ILogger) (cg: IContainerGroup) =
-        async {
-            match! JobStatus.getRow (agentConfig) (cg.Name, cg.Name) with
-            | Result.Ok(Some r) ->
-                let logInfo format = Printf.kprintf logger.LogInformation format
-                let logError format = Printf.kprintf logger.LogError format
-
-                match Tags.getPostRunExpectedRunDuration cg.Tags with
-                | None ->
-                    return true
-                | Some d ->
-                    match JobStatus.getState r with
-                    | JobState.Completing when r.Timestamp + d < System.DateTimeOffset.UtcNow ->
-                        return true
-                    | JobState.Completing ->
-                        return false
-                    | s when JobState.Completing ??> s ->
-                        do! postStatus communicationClients.JobEventsSender cg.Name JobState.Completing None None
-                        let testTargets =
-                            cg.Containers
-                            |> Seq.map(fun (KeyValue(_, c)) -> c)
-                            |> Seq.filter(fun c -> c.Name.StartsWith(TestTarget, StringComparison.InvariantCultureIgnoreCase) )
-                    
-                        for tt in testTargets do
-                            if tt.InstanceView.CurrentState.State = ContainerInstancesStates.Running then
-                                let shell = tt.EnvironmentVariables |> Seq.tryFind(fun ev -> ev.Name = "RAFT_CONTAINER_SHELL")
-                                let command = tt.EnvironmentVariables |> Seq.tryFind (fun ev -> ev.Name = "RAFT_POST_RUN_COMMAND")
-
-                                match shell, command with
-                                | Some sh, Some c ->
-                                    let! postRunOut = runWebsocketCmd logger (cg, tt.Name) (sh.Value, c.Value)
-                                    logInfo "PostRunOut: %s" postRunOut
-                                | None, _ -> logError "Shell must be set in order to execute post-run command for %s" tt.Name
-                                | Some _, None -> logInfo "PostRun command is not set. Skipping for %s" tt.Name
-                            else
-                                logInfo "Cannot execute post run command since container instance %s terminated" tt.Name
-
-                        return false
-                    | _ ->
-                        return true
-            | Result.Error() ->
-                return false
-            | Result.Ok(None) ->
-                return true
-        }
 
     /// Garbage collect all finished jobs.
     /// Job is finished if all containers are stopped or job is running longer than it's set duration.
@@ -1650,165 +1809,44 @@ module ContainerInstances =
             let stopWatch = System.Diagnostics.Stopwatch()
             stopWatch.Start()
 
-            let rec processContainerGroups (containerGroups: Core.IPagedCollection<IContainerGroup>) (numberOfSuccessfullDeletions: int, numberOfFailedDeletion: int) =
+            let rec processContainerGroups (containerGroups: Core.IPagedCollection<IContainerGroup>) =
                 async {
                     if (isNull containerGroups) then
-                        return (numberOfSuccessfullDeletions, numberOfFailedDeletion)
+                        return ()
                     else
-                        let successFullDeletionsCount, failedDeletionsCount = ref 0, ref 0
                         for g in containerGroups do
                             try
                                 let jobManuallyStopped = isJobManuallyStopped g
                                 let jobRunFinished = isJobRunFinished g
-
-                                let! isExpired =
-                                    async {
-                                        if jobRunFinished || jobManuallyStopped then
-                                            // if job is GC ready, then it is already stopped. And therefore cannot be expired
-                                            return false
-                                        else if isJobExpired logger g then
-                                            //since job is expired, need to stop it and garbage collect it
-                                            logInfo "[GC] Stopping running job since it expired: %s" g.Name
-                                            do! stopJob g
-                                            return true
-                                        else
-                                            return false
-                                    }
-
-                                let! postRunFinished =
-                                    async {
-                                        if jobRunFinished || isExpired then
-                                            let! pr = executePostRun (agentConfig, communicationClients) logger g
-                                            if pr then
-                                                do! stopJob g
-                                            return pr
-                                        else
-                                            return false
-                                    }
+                                let containerGroupFailedToProvision = isJobProvisioningFailed g
+                                let isExpired =
+                                    if jobRunFinished || jobManuallyStopped then
+                                        // if job is GC ready, then it is already stopped. And therefore cannot be expired
+                                        false
+                                    else if isJobExpired logger g then
+                                        //since job is expired, need to stop it and garbage collect it
+                                        true
+                                    else
+                                        false
 
                                 if jobRunFinished && not isExpired then
                                     logInfo "[GC] All containers [Count: %d] terminated for container group: %s" g.Containers.Count g.Name
 
-                                if ((jobRunFinished || isExpired ) && postRunFinished) || jobManuallyStopped then
-                                    let containerGroupFailedToProvision = isJobProvisioningFailed g
-                                    let instancesExitedWithError = getContainersExitedWithError g
-
-                                    let state, details =
-                                        if containerGroupFailedToProvision then
-                                            JobState.Error, 
-                                                (Map.empty, g.Events |> List.ofSeq)
-                                                ||> List.fold( fun details v ->
-                                                    details
-                                                        .Add("Name", v.Name)
-                                                        .Add("Message", v.Message)
-                                                        .Add("Type", v.Type)
-                                                )
-                                        else if isExpired then
-                                            JobState.TimedOut, Map.empty
-                                        else if jobManuallyStopped then
-                                            JobState.ManuallyStopped, Map.empty
-                                        else if Seq.isEmpty instancesExitedWithError then
-                                            JobState.Completed, Map.empty
-                                        else
-                                            //There is at least one container that terminated with an error
-                                            JobState.Error, 
-                                                (Map.empty, instancesExitedWithError |> List.ofSeq)
-                                                ||> List.fold (fun details v ->
-                                                        details.Add(
-                                                            (sprintf "[%s] Exit Code" v.Name), sprintf "%A" v.InstanceView.CurrentState.ExitCode
-                                                        ).Add(
-                                                            (sprintf "[%s] State" v.Name), sprintf "%A" v.InstanceView.CurrentState.State
-                                                        ).Add(
-                                                            (sprintf "[%s] Detailed Status" v.Name), (sprintf "%A" v.InstanceView.CurrentState.DetailStatus)
-                                                        )
-                                                    )
-
-                                    let! detailsWithUsage =
-                                        async {
-                                            match calculateContainerGroupLifeSpan g with
-                                            | Some (startTime, endTime) ->
-                                                logInfo "[GC] Collecting metrics for %s from %A to %A" g.Name startTime endTime
-                                                match! metrics logger azure g (startTime - TimeSpan.FromMinutes(5.0), endTime + TimeSpan.FromMinutes(5.0)) with
-                                                | None -> return details
-                                                | Some ms -> 
-                                                    ms
-                                                    |> Array.iter(fun metricsEvents ->
-                                                        metricsEvents
-                                                        |> Array.iter(fun events -> 
-                                                            events |> List.iter(fun event -> Central.Telemetry.TrackMetric event)
-                                                        )
-                                                    )
-
-                                                    let cpu, bytesReceived, bytesSent =
-                                                        (([], [], []), ms)
-                                                        ||> Array.fold(fun (cpu, bytesReceived, bytesSent) metricsEvents ->
-                                                            ((cpu, bytesReceived, bytesSent), metricsEvents)
-                                                            ||> Array.fold(fun (cpu, bytesReceived, bytesSent) events -> 
-                                                                ((cpu, bytesReceived, bytesSent), events) 
-                                                                ||> List.fold(fun (cpu, bytesReceived, bytesSent) (event, _) ->
-                                                                    match event with
-                                                                    | ContainerGroupAverageCPUUsage(v, _) ->
-                                                                        (v::cpu, bytesReceived, bytesSent)
-                                                                    | AverageNetworkBytesTransmittedPerSecond(v, _) ->
-                                                                        (cpu, bytesReceived, v::bytesSent)
-                                                                    | AverageNetworkBytesReceivedPerSecond(v, _) ->
-                                                                        (cpu, v::bytesReceived, bytesSent)
-                                                                    | _ ->
-                                                                        (cpu, bytesReceived, bytesSent)
-                                                                )
-                                                            )
-                                                        )
-                                                    return
-                                                        details.Add(
-                                                            "CpuAverage", sprintf "%f" (if List.isEmpty cpu then 0.0 else List.average cpu)
-                                                        ).Add(
-                                                            "NetworkTotalBytesReceived", sprintf "%d" (if List.isEmpty bytesReceived then 0 else int (List.sum bytesReceived))
-                                                        ).Add(
-                                                            "NetworkTotalBytesSent", sprintf"%d" (if List.isEmpty bytesSent then 0 else int (List.sum bytesSent))
-                                                        )
-                                            | None ->
-                                                logInfo "[Metrics] ignoring metrics collection since could not calculate container lifespan for container group: %s" g.Name
-                                                return details
-                                        }
-
-                                    do! postStatus communicationClients.JobEventsSender g.Name state None (Some detailsWithUsage)
-
-                                    for v in instancesExitedWithError do
-                                        let! failedContainerLogs = g.GetLogContentAsync(v.Name).ToAsync
-                                        
-                                        logInfo "[%s][%s][State:%A][DetailStatus: %A][ExitCode: %A] failed logs: %s\nEvents: %A" 
-                                                    g.Name v.Name 
-                                                    v.InstanceView.CurrentState.State
-                                                    v.InstanceView.CurrentState.DetailStatus 
-                                                    v.InstanceView.CurrentState.ExitCode
-                                                    failedContainerLogs
-                                                    (v.InstanceView.Events |> Seq.map (fun e -> e.Name, e.Message))
-
-                                    logInfo "[GC] Deleting container group: %s" g.Name
-                                    let! result = doDelete azure (agentConfig, communicationClients) g.Name
-                                    
-                                    match result with
-                                    | Result.Ok() ->
-                                        incr successFullDeletionsCount
-                                    | Result.Error errors ->
-                                        logError "[GC] for container group %s failed to delete: %A" g.Name errors
-                                        incr failedDeletionsCount
+                                if jobRunFinished || isExpired || jobManuallyStopped || containerGroupFailedToProvision then
+                                    do! postJobDelete communicationClients.JobDeletionSender { Message = {JobId = g.Name}; MessagePostCount = 0 }
                             with
-                            | Exceptions.AlreadyDeleted _ -> 
-                                logInfo "[GC] Skipping container group: %s, since it is not found" g.Name
                             | ex ->
-                                logError "[GC] for container group: %s due to %A" g.Name ex
+                                logError "[GC] failed for container group: %s due to %A" g.Name ex
                                 Central.Telemetry.TrackError (TelemetryValues.Exception ex)
 
                         let! nextGroup = containerGroups.GetNextPageAsync().ToAsync
-                        return! processContainerGroups nextGroup (numberOfSuccessfullDeletions + !successFullDeletionsCount, numberOfFailedDeletion + !failedDeletionsCount)
+                        return! processContainerGroups nextGroup
                 }
             let! containerGroups = azure.ContainerGroups.ListByResourceGroupAsync(agentConfig.ResourceGroup).ToAsync
-            
-            let! numberOfSuccessfullfDeletions, numberOfFailedDeletions = processContainerGroups containerGroups (0, 0)
+            do! processContainerGroups containerGroups
             stopWatch.Stop()
-            if numberOfSuccessfullfDeletions <> 0 || numberOfFailedDeletions <> 0 then
-                Central.Telemetry.TrackMetric(GCRun(stopWatch.Elapsed.TotalSeconds, numberOfSuccessfullfDeletions, numberOfFailedDeletions), "seconds")
-                logInfo "[GC] Time took to run GC: %f seconds. Container Groups deleted [Successfully: %d; Failed: %d]" stopWatch.Elapsed.TotalSeconds numberOfSuccessfullfDeletions numberOfFailedDeletions
+
+            Central.Telemetry.TrackMetric(GCRun(stopWatch.Elapsed.TotalSeconds), "seconds")
+
             return ()
         } |> Async.StartAsTask
