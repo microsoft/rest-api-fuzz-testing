@@ -62,6 +62,9 @@ type TargetConfiguration =
     {
         Endpoint: System.Uri option
 
+        /// Path to a certificate to add to trusted certificate store. Certificate has to have .crt extension
+        Certificates : string array option
+
         /// where to get service under test API specifications definition from
         /// Could be file path or url
         ApiSpecifications : (ApiSpecification array) option

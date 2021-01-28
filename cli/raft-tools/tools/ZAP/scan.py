@@ -60,8 +60,14 @@ def run_zap(target_index, targets_total, host, target, token):
         pass
 
     try:
-        raftUtils.log_trace("Starting ZAP")
         details = {"targetIndex": target_index, "numberOfTargets" : targets_total, "target": target}
+        print(f"Starting ZAP target: {target} host_config: {host_config}")
+
+        if os.path.exists(target):
+            shutil.copy(target, '/zap/wrk/swagger.json')
+            target='swagger.json'
+
+        raftUtils.log_trace(f"Starting ZAP")
         raftUtils.report_status_running(details)
         status_reporter = StatusReporter(details)
         logger = logging.getLogger()

@@ -14,6 +14,7 @@ if __name__ == "__main__":
         subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", os.path.join(raft_libs_dir, "requirements.txt")])
         raft.auth_token(True)
     else:
+        raft.install_certificates()
         token = raft.auth_token(False)
 
         work_directory = os.environ['RAFT_WORK_DIRECTORY']

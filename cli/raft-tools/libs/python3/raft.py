@@ -5,9 +5,26 @@ import sys
 import time
 import io
 import importlib
+import shutil
+import glob
 
 from urllib.parse import urlparse
 from contextlib import redirect_stdout
+
+def install_certificates():
+    work_directory = os.environ['RAFT_WORK_DIRECTORY']
+    run_directory = os.environ['RAFT_TOOL_RUN_DIRECTORY']
+    with open(os.path.join(work_directory, "task-config.json"), 'r') as task_config:
+        config = json.load(task_config)
+        if config.get("targetConfiguration") and config.get("targetConfiguration").get("certificates"):
+            certificates = config["targetConfiguration"]["certificates"]
+            files = glob.iglob(os.path.join(certificates, "*.crt"))
+            for f in files:
+                if os.path.isfile(f):
+                    print(f"Copying file {f}")
+                    shutil.copy(f, "/usr/local/share/ca-certificates/")
+            subprocess.check_call(["update-ca-certificates", "--fresh"])
+
 
 def auth_token(init):
     work_directory = os.environ['RAFT_WORK_DIRECTORY']

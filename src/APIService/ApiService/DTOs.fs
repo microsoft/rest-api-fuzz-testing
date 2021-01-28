@@ -42,6 +42,12 @@ module DTOs =
             Endpoint : System.Uri
 
             /// <summary>
+            /// Paths to folders containing certificates to add to trusted certificate store. Certificates must have .crt extension.
+            /// These certificates are used for SSL authentication.
+            /// </summary>
+            Certificates : string array
+
+            /// <summary>
             /// List of OpenApi/swagger specifications locations for the job run. Can be URL or file path.
             /// </summary>
             ApiSpecifications : string array

@@ -16,7 +16,7 @@ module private RESTlerInternal =
         let [<Literal>] DotNet = "dotnet"
 
         let [<Literal>] Python = "python3"
-
+        
 
     module Paths =
         let compiler (restlerRootDirectory: string) = 
@@ -316,6 +316,7 @@ module private RESTlerInternal =
                 return failwithf "Failed to validate Authentication configuration. Please see stdout-auth.txt and stderr-auth.txt for errors."
         }
 
+
     let test testType restlerRootDirectory workingDirectory (parameters: Raft.RESTlerTypes.Engine.EngineParameters) = 
         async {
             do!
@@ -549,3 +550,38 @@ let fuzz (fuzzType: string)
         return ()
     }
 
+
+let prepCertificates (certificateFolder: string) =
+    async {
+        let certs = System.IO.DirectoryInfo(certificateFolder)
+        let crts = certs.EnumerateFiles("*.crt")
+        printfn "There are : %d crt files in %s" (Seq.length crts) certificateFolder
+
+        let copy c destination =
+            async {
+                printfn "Copying : %s to %s" c destination
+                System.IO.File.Copy(c, destination, true)
+
+                let cmd, args = "/bin/sh", sprintf "-c \"chmod 644 %s\"" destination
+                let! r = RESTlerInternal.startProcessAsync cmd args "." None None
+                match r.ExitCode with
+                | Some 0 -> return ()
+                | None | Some _ ->
+                    return failwithf "Failed Update certificate permissions"
+            }
+
+        for c in crts do
+            do! copy c.FullName ("/usr/local/share/ca-certificates/" ++ c.Name)
+    }
+
+
+let updateCaCertificates () =
+    async {
+        printfn "Updating certificates store"
+        let cmd, args = "/bin/sh", "-c \"update-ca-certificates --fresh\""
+        let! r = RESTlerInternal.startProcessAsync cmd args "." None None
+        match r.ExitCode with
+        | Some 0 -> return ()
+        | None | Some _ ->
+            return failwithf "Failed to run update-ca-certificates"
+    }
