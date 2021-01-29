@@ -239,12 +239,12 @@ class RaftServiceCLI():
         if 'userPrincipalName' in account:
             az('role assignment create'
                f' --assignee {account["userPrincipalName"]}'
-               ' --role "Key Vault Secrets Officer (preview)"'
+               ' --role "Key Vault Secrets Officer"'
                f' --scope "{scope}"')
 
         az('role assignment create'
            f' --assignee {sp_app_id}'
-           ' --role "Key Vault Secrets User (preview)"'
+           ' --role "Key Vault Secrets User"'
            f' --scope "{scope}"')
 
     def assign_resource_group_roles(self, sp_app_id):
@@ -583,12 +583,18 @@ class RaftServiceCLI():
                       f' --id {app_id}'
                       f' --api-permissions "{user_read_permission}=Scope"')
         except RaftAzCliException as ex:
-            if ex.error_message.startswith(
+            if (ex.error_message.startswith(
                                     'Invoking "az ad app permission grant'
                                     f' --id {app_id}'
                                     ' --api'
                                     ' 00000003-0000-0000-c000-000000000000"'
-                                    ' is needed to make the change effective'):
+                                    ' is needed to make the change effective') or
+               ex.error_message.startswith(
+                                    'WARNING: Invoking "az ad app permission grant'
+                                    f' --id {app_id}'
+                                    ' --api'
+                                    ' 00000003-0000-0000-c000-000000000000"'
+                                    ' is needed to make the change effective')):
 
                 pass
             else:
