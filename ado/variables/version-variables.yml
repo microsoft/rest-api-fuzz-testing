@@ -2,11 +2,11 @@ variables:
   - name: version.major
     value: 2
   - name: version.minor
-    value: 0
+    value: 1
   - name: version.revision
     value: 0
   - name: imageTag
-    value: 'v2.0.0'
+    value: 'v2.1.0'
   - name: imageTagLatest
     value: 'v2.latest'
   - name: devRevision
