@@ -31,8 +31,6 @@ variables:
 
 stages:
   - template: stages/build/build.yml
-    parameters: 
-      BuildArtifactsLocation: ${{ parameters.BuildArtifactsLocation }}
   - template: stages/publish/publish.yml
     parameters: 
       BuildArtifactsLocation: ${{ parameters.BuildArtifactsLocation }}

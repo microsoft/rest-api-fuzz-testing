@@ -1,14 +1,9 @@
-parameters:
-  - name: BuildArtifactsLocation
-    type: string
-    
 stages:
   - stage: Build
     jobs:
       - job: CLI
         pool:
           vmImage: 'ubuntu-latest'
-        condition: or(eq('${{parameters.BuildArtifactsLocation}}', 'current'), eq('${{parameters.BuildArtifactsLocation}}', ''))
         steps:
           - template: steps/cli.yml     
           - template: steps/bvt-tests.yml
@@ -16,42 +11,36 @@ stages:
       - job: ApiService
         pool:
           vmImage: 'ubuntu-latest'
-        condition: or(eq('${{parameters.BuildArtifactsLocation}}', 'current'), eq('${{parameters.BuildArtifactsLocation}}', ''))
         steps:
           - template: steps/apiservice.yml
 
       - job: RESTlerAgent
         pool:
           vmImage: 'ubuntu-latest'
-        condition: or(eq('${{parameters.BuildArtifactsLocation}}', 'current'), eq('${{parameters.BuildArtifactsLocation}}', ''))
         steps:
           - template: steps/restleragent.yml
  
       - job: Orchestrator
         pool:
           vmImage: 'ubuntu-latest'
-        condition: or(eq('${{parameters.BuildArtifactsLocation}}', 'current'), eq('${{parameters.BuildArtifactsLocation}}', ''))
         steps:
           - template: steps/orchestrator.yml
 
       - job: TestInfra
         pool:
           vmImage: 'ubuntu-latest'
-        condition: or(eq('${{parameters.BuildArtifactsLocation}}', 'current'), eq('${{parameters.BuildArtifactsLocation}}', ''))
         steps:
           - template: steps/test-infra.yml
  
       - job: ResultAnalyzer
         pool:
           vmImage: 'ubuntu-latest'
-        condition: or(eq('${{parameters.BuildArtifactsLocation}}', 'current'), eq('${{parameters.BuildArtifactsLocation}}', ''))
         steps:
           - template: steps/result-analyzer.yml
  
       - job: AzureAuthUtility
         pool:
           vmImage: 'ubuntu-latest'
-        condition: or(eq('${{parameters.BuildArtifactsLocation}}', 'current'), eq('${{parameters.BuildArtifactsLocation}}', ''))
         steps:
           - template: steps/azure-auth-utility.yml
  

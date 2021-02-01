@@ -21,5 +21,3 @@ parameters:
 
 stages:
   - template: stages/build/build.yml
-    parameters: 
-      BuildArtifactsLocation: ${{ parameters.BuildArtifactsLocation }}
