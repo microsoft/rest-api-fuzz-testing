@@ -1,12 +1,24 @@
 steps:  
   - task: DownloadPipelineArtifact@2
-    displayName: 'Download Production pipeline artifact'
+    displayName: 'Download Production CLI pipeline artifact'
     inputs:
       source: 'specific'
       project: 'raft'
       pipeline: $(build-production-pipeline-id)
       artifact: cli
       path: $(Build.SourcesDirectory)/artifacts/cli
+      runVersion: 'latest'
+
+# Azure auth library is kept in a seperate artifact. Merge into the
+# CLI tree here before the zip file is created.
+  - task: DownloadPipelineArtifact@2
+    displayName: 'Download Production Azure Auth pipeline artifact'
+    inputs:
+      source: 'specific'
+      project: 'raft'
+      pipeline: $(build-production-pipeline-id)
+      artifact: AzureAuth
+      path: $(Build.SourcesDirectory)/artifacts/cli/raft-tools/auth/dotnet-core-3.1
       runVersion: 'latest'
 
   - task: ArchiveFiles@2
