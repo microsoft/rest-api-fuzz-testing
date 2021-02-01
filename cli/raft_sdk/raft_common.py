@@ -6,6 +6,7 @@ import os
 import atexit
 import string
 from pathlib import Path
+import time
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 cache_dir = os.path.join(str(Path.home()), '.cache', 'raft')
@@ -80,6 +81,8 @@ class RestApiClient():
         self.tenant_id = tenant_id
         self.secret = secret
 
+        self.retry_status_code = [503]
+
     def auth_header(self):
         token = get_auth_token(self.client_id, self.tenant_id, self.secret)
         if 'error_description' in token:
@@ -88,27 +91,51 @@ class RestApiClient():
             'Authorization': f"{token['token_type']} {token['access_token']}"
             }
 
-    def post(self, relative_url, json_data):
-        return requests.post(
+    def post(self, relative_url, json_data, seconds_to_wait=10):
+        response = requests.post(
             self.endpoint + relative_url,
             json=json_data,
             headers=self.auth_header())
+        if (response.status_code in self.retry_status_code and
+                seconds_to_wait > 0.0):
+            time.sleep(2.0)
+            return self.post(relative_url, json_data, seconds_to_wait-2.0)
+        else:
+            return response
 
-    def put(self, relative_url, json_data):
-        return requests.put(
+    def put(self, relative_url, json_data, seconds_to_wait=10):
+        response = requests.put(
             self.endpoint + relative_url,
             json=json_data,
             headers=self.auth_header())
+        if (response.status_code in self.retry_status_code and
+                seconds_to_wait > 0.0):
+            time.sleep(2.0)
+            return self.put(relative_url, json_data, seconds_to_wait-2.0)
+        else:
+            return response
 
-    def delete(self, relative_url):
-        return requests.delete(
+    def delete(self, relative_url, seconds_to_wait=10):
+        response = requests.delete(
             self.endpoint + relative_url,
             headers=self.auth_header())
+        if (response.status_code in self.retry_status_code and
+                seconds_to_wait > 0.0):
+            time.sleep(2.0)
+            return self.delete(relative_url, seconds_to_wait-2.0)
+        else:
+            return response
 
-    def get(self, relative_url):
-        return requests.get(
+    def get(self, relative_url, seconds_to_wait=10):
+        response = requests.get(
             self.endpoint + relative_url,
             headers=self.auth_header())
+        if (response.status_code in self.retry_status_code and
+                seconds_to_wait > 0.0):
+            time.sleep(2.0)
+            return self.get(relative_url, seconds_to_wait-2.0)
+        else:
+            return response
 
 
 class RaftDefinitions():

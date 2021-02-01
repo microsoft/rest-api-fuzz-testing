@@ -584,17 +584,17 @@ class RaftServiceCLI():
                       f' --api-permissions "{user_read_permission}=Scope"')
         except RaftAzCliException as ex:
             if (ex.error_message.startswith(
-                                    'Invoking "az ad app permission grant'
-                                    f' --id {app_id}'
-                                    ' --api'
-                                    ' 00000003-0000-0000-c000-000000000000"'
-                                    ' is needed to make the change effective') or
+                                'Invoking "az ad app permission grant'
+                                f' --id {app_id}'
+                                ' --api'
+                                ' 00000003-0000-0000-c000-000000000000"'
+                                ' is needed to make the change effective') or
                ex.error_message.startswith(
-                                    'WARNING: Invoking "az ad app permission grant'
-                                    f' --id {app_id}'
-                                    ' --api'
-                                    ' 00000003-0000-0000-c000-000000000000"'
-                                    ' is needed to make the change effective')):
+                                'WARNING: Invoking "az ad app permission grant'
+                                f' --id {app_id}'
+                                ' --api'
+                                ' 00000003-0000-0000-c000-000000000000"'
+                                ' is needed to make the change effective')):
 
                 pass
             else:
