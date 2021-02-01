@@ -160,6 +160,22 @@ let validateJsonFile (filePath : string) =
     with
     | ex -> Result.Error (sprintf "Failed to validate %s due to %s. %A" filePath ex.Message ex)
 
+
+
+let installCertificatesIfNeeded (task: Raft.Job.RaftTask) =
+    async {
+        match task.TargetConfiguration with
+        | Some tt ->
+            match tt.Certificates with
+            | Some certs ->
+                for c in certs do
+                    do! Raft.RESTlerDriver.prepCertificates c
+                do! Raft.RESTlerDriver.updateCaCertificates()
+            | None -> ()
+        | None -> ()
+    
+    }
+
 // Need this for TEST and FUZZ tasks
 let createRESTlerEngineParameters
     (workDirectory: string)
@@ -178,6 +194,7 @@ let createRESTlerEngineParameters
                 | System.UriHostNameType.Dns ->
                     Some(endpoint.Host), None, Some(endpoint.Port)
                 | _ -> None, Some(endpoint.Host), Some(endpoint.Port)
+
     {
         /// File path to the REST-ler (python) grammar.
         GrammarFilePath = grammarFilePath
@@ -699,6 +716,7 @@ let main argv =
         let test (testType: string) checkerOptions (jobConfiguration: RunConfiguration) =
             async {
                 let resultAnalyzerReportInterval = getResultReportingInterval()
+                do! installCertificatesIfNeeded task
                 let engineParameters = createRESTlerEngineParameters workDirectory grammarPy dictJson task checkerOptions jobConfiguration
                 printfn "Starting RESTler test task"
 
@@ -713,6 +731,7 @@ let main argv =
         let fuzz (fuzzType:string) checkerOptions (jobConfiguration: RunConfiguration) =
             async {
                 let resultAnalyzerReportInterval = getResultReportingInterval()
+                do! installCertificatesIfNeeded task
                 let engineParameters = createRESTlerEngineParameters workDirectory grammarPy dictJson task checkerOptions jobConfiguration
                 printfn "Starting RESTler fuzz task"
 
@@ -739,6 +758,7 @@ let main argv =
 
                     | _ -> task
 
+                do! installCertificatesIfNeeded task
                 let engineParameters = createRESTlerEngineParameters workDirectory grammarPy dictJson task [] jobConfiguration
                 printfn "Starting RESTler replay task"
                 return! Raft.RESTlerDriver.replay restlerPath workDirectory replayLogFile engineParameters

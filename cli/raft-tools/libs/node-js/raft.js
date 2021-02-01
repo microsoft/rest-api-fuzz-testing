@@ -1,6 +1,7 @@
 'use strict';
 
 const fs = require('fs');
+const path = require('path'); 
 const url = require('url');
 const { exec } = require('child_process');
 
@@ -106,6 +107,7 @@ function getAuthHeader(callback) {
             callback(new Error("More than one authentication method is specified: " + config.authenticationMethod), null);
         } else {
             const authMethod = authMethods[0];
+            console.log("Authentication Method: " + authMethod);
             switch (authMethod.toLowerCase()) {
                 case 'msal':
                     const msalDirectory = toolDirectory + "/../../auth/node-js/msal";
@@ -123,11 +125,11 @@ function getAuthHeader(callback) {
                     );
                     break;
                 case 'txttoken':
-                    callback(null, process.env['RAFT_' + config.authenticationmethod.txttoken] || process.env[config.authenticationmethod.txttoken] );
+                    callback(null, process.env['RAFT_' + config.authenticationMethod[authMethod]] || process.env[config.authenticationMethod[authMethod]] );
                     break;
                 case 'commandline':
-                    exec(config.authenticationmethod.commandline, (error, result) => {
-                            callback(erorr, result);
+                    exec(config.authenticationMethod[authMethod], (error, result) => {
+                            callback(error, result);
                         }
                     );
                     break;
@@ -139,6 +141,40 @@ function getAuthHeader(callback) {
     }
 }
 
+function installCertificates(callback) {
+    if (!config.targetConfiguration || !config.targetConfiguration.certificates) {
+        callback(null, null);
+    } else {
+        fs.readdir(config.targetConfiguration.certificates, function(err, files) {
+            if (err) {
+                callback(err, null);
+            }
+            else {
+                files.forEach(function(file) {
+                    console.log("File: " + file);
+                    if (path.extname(file) === '.crt') {
+                        const copySrc = config.targetConfiguration.certificates + "/" + file;
+                        const copyDest = "/usr/local/share/ca-certificates/" + file;
+                        console.log("CopySrc: " + copySrc + " CopyDest: " + copyDest);
+                        fs.copyFileSync(copySrc, copyDest);
+                    }
+                });
+                console.log("Updating certificates");
+                exec("update-ca-certificates --fresh", (error, _) => {
+                        if (error) {
+                            console.log("Failed to update certificates: " + error);
+                            callback(error, null);
+                        } else {
+                            callback(null, null);
+                        }
+                    }
+                );
+            }
+        });
+    }
+}
+
+exports.installCertificates = installCertificates;
 exports.workDirectory = workDirectory;
 exports.config = config;
 exports.RaftUtils = RaftUtils;
