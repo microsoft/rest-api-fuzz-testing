@@ -114,7 +114,7 @@ let main argv =
                     | Some uri ->
                         authBuilder.WithAuthority(uri, auth.tenant, true).Build()
 
-                let! r = cred.AcquireTokenForClient(scopes).ExecuteAsync() |> Async.AwaitTask 
+                let! r = cred.AcquireTokenForClient(scopes).ExecuteAsync() |> Async.AwaitTask
 
                 match config.PrependLine with
                 | Some h -> printfn "%s" h
