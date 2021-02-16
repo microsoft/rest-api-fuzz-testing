@@ -278,13 +278,15 @@ class RaftServiceCLI():
                     app_insights_installed = True
 
             if not app_insights_installed:
-                p = ("The installed extension"
-                     " 'application-insights' is in preview.")
+                p = [("The installed extension"
+                     " 'application-insights' is in preview."),
+                     ("WARNING: The installed extension"
+                      " 'application-insights' is in preview.")]
                 try:
                     print('Installing application insights extension')
                     az('extension add --name application-insights')
                 except RaftAzCliException as ex:
-                    if ex.error_message.strip() == p:
+                    if ex.error_message.strip() in p:
                         pass
                     else:
                         raise ex
@@ -929,7 +931,7 @@ class RaftServiceCLI():
             json.dump(defaults, d, indent=4)
 
     def test_az_version(self):
-        supported_versions = ['2.15.0', '2.16.0', '2.17.1']
+        supported_versions = ['2.19.0', '2.19.1']
         # az sometimes reports the version with an asterisk.
         # Perhaps when a new version of the CLI is available.
         tested_az_cli_versions = (
