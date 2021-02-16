@@ -279,14 +279,14 @@ class RaftServiceCLI():
 
             if not app_insights_installed:
                 p = [("The installed extension"
-                     " 'application-insights' is in preview.")
+                     " 'application-insights' is in preview."),
                      ("WARNING: The installed extension"
-                      " 'application-insights' is in preview.)"]
+                      " 'application-insights' is in preview.")]
                 try:
                     print('Installing application insights extension')
                     az('extension add --name application-insights')
                 except RaftAzCliException as ex:
-                    if ex.error_message.strip() is in p:
+                    if ex.error_message.strip() in p:
                         pass
                     else:
                         raise ex
