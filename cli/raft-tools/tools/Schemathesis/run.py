@@ -11,9 +11,10 @@ import raft
 
 if __name__ == "__main__":
     if len(sys.argv) == 2 and sys.argv[1] == "install":
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", os.path.join(raft_libs_dir, "requirements.txt")])
-        raft.auth_token(True)
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "--no-cache-dir", "--root", "/tmp", "-r", os.path.join(raft_libs_dir, "requirements.txt")])
+        raft.auth_token(True, pip_root_dir='/tmp')
     else:
+        sys.path.append('/tmp/usr/local/lib/python3.9/site-packages')
         raft.install_certificates()
         token = raft.auth_token(False)
 

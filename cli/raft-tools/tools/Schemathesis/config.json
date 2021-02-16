@@ -1,9 +1,9 @@
 {
-	"container" : "python:3.9.1-buster",
+	"container" : "schemathesis/schemathesis:v3.0.8-buster",
 	"shell" : "/bin/sh",
 	"run" : {
 		"shellArguments" : ["-c", 
-		"pip install schemathesis; cd /;  python3 $RAFT_TOOL_RUN_DIRECTORY/run.py install; sleep $RAFT_STARTUP_DELAY; python3 $RAFT_TOOL_RUN_DIRECTORY/run.py" ]
+		"cd /;  python3 $RAFT_TOOL_RUN_DIRECTORY/run.py install; sleep $RAFT_STARTUP_DELAY; python3 $RAFT_TOOL_RUN_DIRECTORY/run.py" ]
 	},
 	"idle" : {
 		"shellArguments" : ["-c", "echo DebugMode; while true; do sleep 100000; done;"]
