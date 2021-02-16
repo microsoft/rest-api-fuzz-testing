@@ -69,8 +69,8 @@ type AppRegistration =
         secret : string
         scopes : string array option
         authorityUri :string option
+        audience : string option
     }
-
 
 [<EntryPoint>]
 let main argv =
@@ -103,7 +103,11 @@ let main argv =
                 let auth : AppRegistration = envVar |> loadSecretEnv |> Json.Compact.deserialize
                 let scopes = 
                     match auth.scopes with
-                    | None -> [|sprintf "%s/.default" auth.client|]
+                    | None -> 
+                        // The audience is the applicationId of the service you will be accessing over REST
+                        match auth.audience with
+                        | None -> [|sprintf "%s/.default" auth.client|]
+                        | Some a -> [|sprintf "%s/.default" a|]
                     | Some s -> s
 
                 let cred =

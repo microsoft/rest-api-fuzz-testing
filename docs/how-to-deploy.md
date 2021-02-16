@@ -112,7 +112,6 @@ of this object type.
 ## Step 3: Choose Configuration Options
 
 To deploy RAFT, you will need to settle on a few configuration options in advance.
-Note that only four of these are required.
 
 | Option | Required? | Description |
 |--------|-------------|--------|
