@@ -26,7 +26,7 @@ def install_certificates():
             subprocess.check_call(["update-ca-certificates", "--fresh"])
 
 
-def auth_token(init):
+def auth_token(init, pip_root_dir=None):
     work_directory = os.environ['RAFT_WORK_DIRECTORY']
     run_directory = os.environ['RAFT_TOOL_RUN_DIRECTORY']
     with open(os.path.join(work_directory, "task-config.json"), 'r') as task_config:
@@ -49,7 +49,13 @@ def auth_token(init):
 
                 if init:
                     print("Installing MSAL requirements")
-                    subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", os.path.join(msal_dir, "requirements.txt")])
+                    args = [sys.executable, "-m", "pip", "install", "--no-cache-dir"]
+                    if pip_root_dir:
+                        args = args + ["--root", pip_root_dir]
+
+                    args = args + ["-r", os.path.join(msal_dir, "requirements.txt")]
+
+                    subprocess.check_call(args)
                 else:
                     print("Retrieving MSAL token")
                     sys.path.append(msal_dir)
