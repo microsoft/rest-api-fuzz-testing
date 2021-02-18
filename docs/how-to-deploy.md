@@ -40,7 +40,8 @@ In the cloud shell the path to Python version 3.6 `/opt/az/bin/python3`
 You will need the RAFT CLI files. You can do this in a number of ways:
 - Download the RAFT CLI from a specific release</br>
   For example:</br>
-    `wget https://github.com/microsoft/rest-api-fuzz-testing/releases/download/v1.2/cli.zip`
+    `wget https://github.com/microsoft/rest-api-fuzz-testing/releases/download/LATEST_VERSION_OF_CLI/raft-cli.zip`
+    where LATEST_VERSION_OF_CLI is the latest released version of CLI
   </br>
   Then run unzip `unzip cli.zip`
 - Clone the repo
