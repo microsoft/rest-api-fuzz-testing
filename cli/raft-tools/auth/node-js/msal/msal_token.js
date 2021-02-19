@@ -1,7 +1,7 @@
 'use strict';
 var msal = require('@azure/msal-node');
 
-function get_token(client_id, tenant_id, secret, scopes, authority_uri, callback) {
+function get_token(client_id, tenant_id, secret, scopes, authority_uri, callback, audience) {
     let authority;
     if (authority_uri) {
         authority = authority_uri + '/' + tenant_id;
@@ -11,7 +11,12 @@ function get_token(client_id, tenant_id, secret, scopes, authority_uri, callback
     }
 
     if (!scopes) {
-        scopes = [client_id + "/.default"];
+        if (!audience) {
+            scopes = [client_id + "/.default"];
+        }
+        else {
+            scopes = [audience + "/.default"];
+        }
     }
 
     const msalConfig = {
@@ -48,7 +53,7 @@ exports.tokenFromEnvVariable = function (env_variable_name, callback) {
     let auth = JSON.parse(process.env["RAFT_" + env_variable_name] || process.env[env_variable_name]);
     if (auth) {
         console.log("Getting MSAL token");
-        get_token(auth['client'], auth['tenant'], auth['secret'], auth['scopes'], auth['authorityUri'], callback);
+        get_token(auth['client'], auth['tenant'], auth['secret'], auth['scopes'], auth['authorityUri'], callback, auth['audience']);
     }
     else {
         callback(new Error("Authentication parameters are not set in environment variable " + env_variable_name));

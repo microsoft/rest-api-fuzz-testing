@@ -37,12 +37,18 @@ The MSAL configuration JSON blob stored in the key vault should be in this form:
   "secret": "<your secret string>"
   "scopes": ["example/.default"]
   "authorityUri" : "<your authority uri>"
+  "audience" : "<applicationId>"
 }
 ```
 The `client`, `tenant`, and `secret` fields are mandatory.
 
 The optional `scopes` field is an array of strings and has a default value of `["{client}/.default"]` 
-where `{client}` is the value of the client field in the structure.
+where `{client}` is the value of the client field in the structure. If you provide the `audience` field,
+the scope will be set to the default value `["{audience}/.default"]`. This is useful when your
+application registration service principal is different from the application you are targeting. 
+
+**If you provide the `scopes` array with your own values, it will be used as you have defined it, no 
+defaults will be applied.**
 
 The optional `authorityUri` field is a string and has a default value of 
 "https://login.microsoftonline.com/{tenant}" where `{tenant}` is the tenant field in the structure. 
