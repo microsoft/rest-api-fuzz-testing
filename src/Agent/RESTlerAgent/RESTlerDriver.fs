@@ -7,7 +7,7 @@ open System
 open Microsoft.FSharpLu
 
 module RESTler =
-    let version = "7.1.0"
+    let version = "7.2.0"
 
 module private RESTlerInternal =
     let inline (++) (path1: string) (path2 : string) = IO.Path.Join(path1, path2)
