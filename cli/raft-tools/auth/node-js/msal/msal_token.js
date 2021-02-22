@@ -45,7 +45,7 @@ function get_token(client_id, tenant_id, secret, scopes, authority_uri, callback
     msalInstance.acquireTokenByClientCredential(accessTokenRequest).then(function(accessTokenResponse) {
         callback(null, accessTokenResponse.tokenType + ' ' + accessTokenResponse.accessToken);
     }).catch(function (error) {
-        log.error(error);
+        console.error(error);
         callback(error);
     })
 }

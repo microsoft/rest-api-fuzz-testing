@@ -1,5 +1,7 @@
 'use strict';
 
+const { config } = require('../../libs/node-js/raft');
+
 const toolDirectory = process.env.RAFT_TOOL_RUN_DIRECTORY;
 console.log(toolDirectory + "/../../libs/node-js/raft.js");
 
@@ -26,15 +28,14 @@ raft.installCertificates((error, result) => {
                     raftUtils.flush();
                 });
             } else {
+                var Dredd = require('dredd');
+                const EventEmitter = require('events');
+                let eventEmitter = new EventEmitter();
 
                 let headers = [];
                 if (result) {
                     headers = ["Authorization: " + result];
                 }
-                var Dredd = require('dredd');
-                const EventEmitter = require('events');
-                let eventEmitter = new EventEmitter();
-                console.log(raftUtils.config);
 
                 let configuration = {
                     init: false,
@@ -53,8 +54,45 @@ raft.installCertificates((error, result) => {
                     require: null,    // String, When using nodejs hooks, require the given module before executing hooks
                     color: true,
                     emitter: eventEmitter, // listen to test progress, your own instance of EventEmitter
-                    path: raft.config.targetConfiguration.apiSpecifications
+                    path: raft.config.targetConfiguration.apiSpecifications,
+                    sorted : false
                 }
+
+                if (raft.config.toolConfiguration) {
+                    const toolConfig = raft.config.toolConfiguration;
+                    if (toolConfig.header) {
+                        console.log("Adding extra headers to configuration");
+                        configuration.header = configuration.header.concat(toolConfig.header);
+                    }
+
+                    if (toolConfig["dry-run"]) {
+                        console.log("Dry-run is set"); 
+                        configuration['dry-run'] = toolConfig["dry-run"];
+                    }
+
+                    if (toolConfig.only) {
+                        console.log("Setting 'only' transaction names");
+                        configuration.only = toolConfig.only;
+                    }
+
+                    if (toolConfig.hookfiles) {
+                        console.log("Setting hook files");
+                        configuration.hookfiles = toolConfig.hookfiles;
+                    }
+
+                    if (toolConfig.require) {
+                        console.log("Setting node-js hooks require");
+                        configuration.require = toolConfig.require;
+                    }
+
+                    if (toolConfig.sorted) {
+                        console.log("Setting sorted configuration");
+                        configuration.sorted = toolConfig.sorted;
+                    }
+                }
+
+                console.log(raft.config);
+
                 var dredd = new Dredd(configuration);
 
                 //This is very ugly hack to address:

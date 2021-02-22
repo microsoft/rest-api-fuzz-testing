@@ -110,7 +110,7 @@ def run(args):
             skip_sp_deployment = args.get('skip_sp_deployment')
             service_cli.deploy(
                 args['sku'], skip_sp_deployment and skip_sp_deployment is True)
-        elif service_action == 'upload-tools':
+        elif service_action == 'upload-tools' or service_action == 'update':
             utils_file_share = f'{uuid.uuid4()}'
             service_cli.upload_utils(
                 utils_file_share, args.get('custom_tools_path'))
@@ -313,7 +313,7 @@ Clears the cache so re-authentication will be needed to use the CLI again.'''))
         formatter_class=argparse.RawTextHelpFormatter)
     service_parser.add_argument(
         'service-action',
-        choices=['deploy', 'restart', 'info', 'upload-tools'],
+        choices=['deploy', 'restart', 'info', 'upload-tools', 'update'],
         help=textwrap.dedent('''\
 deploy       - Deploys the service
 
@@ -322,7 +322,10 @@ restart      - Restarts the service updating the
 
 info         - Show the version of the service and the last time it was started
 
-upload-tools - Uploads the tool definitions to the service
+upload-tools - Uploads the tools definitions to the service
+
+update - Uploads the tools definitions to the service and
+         restarts service to get latest service components
 '''))
 
     allowed_skus = [
