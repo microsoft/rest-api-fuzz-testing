@@ -1,0 +1,54 @@
+
+{
+    "openapi": "3.0.1",
+    "info": {
+        "title": "Dredd",
+        "version": "v2"
+    },
+    "paths": {},
+    "components": {
+        "schemas": {
+            "Dredd" : {
+                "type" : "object",
+                "properties" : {
+                    "sorted" : {
+                        "type" : "boolean",
+                        "description" : "Sorts requests in a sensible way so that objects are not modified before they are created. Order: CONNECT, OPTIONS, POST, GET, HEAD, PUT, PATCH, LINK, UNLINK, DELETE, TRACE."
+                    },
+                    "dry-run" : {
+                        "type" : "boolean",
+                        "description": "Boolean, do not run any real HTTP transaction"
+                    },
+                    "only" : {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description" : "Array of Strings, run only transaction that match these names"
+                    },
+                    "header" : {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description" : "Array of Strings, these strings are then added as headers (key:value) to every transaction"
+                    },
+                    "hookfiles" : {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description" : "Array of Strings, filepaths to files containing hooks (can use glob wildcards)"
+                    },
+                    "require" : {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description" : "String, When using nodejs hooks, require the given module before executing hooks"
+                    }
+                }
+            }
+        }
+    }
+}

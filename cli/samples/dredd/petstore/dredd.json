@@ -29,7 +29,14 @@
       "tasks": [
         {
           "toolName" : "Dredd",
-          "outputFolder" : "dredd"
+          "outputFolder" : "dredd",
+          "toolConfiguration" : {
+            "dry-run" : true,
+            "only" : [],
+            "header" : [],
+            "hookfiles" : [],
+            "require" : null
+          }
         }
       ]
     }
