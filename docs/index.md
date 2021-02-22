@@ -11,7 +11,7 @@
 * Using the RAFT [command line](cli-reference.md)
 * REST API
   * [Swagger](sdk/swagger.md)
-  * [Authentication](schema/authentication)
+  * [Authentication](schema/authentication.md)
   * [Using Postman](schema/postman.md)
 
 * [Job Definition file](schema/jobdefinition.md)
@@ -20,3 +20,5 @@
   * [How to SSH to a container](troubleshooting/idle.md)
 * Browse our [Samples Gallery](samples.md)
 * Browse our [Video Tutorials](https://www.youtube.com/channel/UCUgE9Mv0GsavLg4I7z0lHVA)
+* Step-by-step
+  * [Text Token](step-by-step/txttoken.md)
