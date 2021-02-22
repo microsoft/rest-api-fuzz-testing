@@ -11,15 +11,15 @@ Got to your RAFT deployment keyvault
 
 Under the `Secrets` select `Generate/Import` button.
 
-![RAFT keyvault](../images/key-vault.png)
+![RAFT keyvault](../images/key-vault.PNG)
 
 
 Create a secret with name that follows environment variable conventions (e.g. no dashes in the name). Add you `Token` text as the secret value.
-![Create secret](../images/create-secret.png)
+![Create secret](../images/create-secret.PNG)
 
 
 **Specify in job config token authentication**
 
 In your job config specify the secret to be imported in the list of `keyVaultSecrets`. Use that secret as `TxtToken` authentication method.
 
-![Job Config](../images/TxtToken-job-config.png)
+![Job Config](../images/TxtToken-job-config.PNG)
