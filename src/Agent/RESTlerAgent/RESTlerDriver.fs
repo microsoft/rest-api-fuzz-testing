@@ -155,7 +155,7 @@ module private RESTlerInternal =
                     let startedExperiments =
                         experiments 
                         |> Seq.filter ( fun e -> e.CreationTimeUtc >= runStartTime)
-                        |> Seq.sortBy ( fun e -> e.CreationTimeUtc )
+                        |> Seq.sortByDescending ( fun e -> e.CreationTimeUtc )
 
                     if (Seq.length startedExperiments > 1) then
                         printfn "There are : %d [%A] that have been create past %A. Using one closest to start time of this run." 

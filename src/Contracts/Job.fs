@@ -121,7 +121,6 @@ type JobDefinition =
 
         Resources : Resources
 
-
         // !!NOTE!!: according to Azure Container spec, we can have up to 60 elements
         // of TestTargets and Tasks combined
         TestTargets : TestTarget option

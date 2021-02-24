@@ -117,8 +117,8 @@ def bvt(cli, definitions, subs):
                     raise Exception('Expected job to be in completed state when retrieved job list.'
                                     f'{after_fuzz}')
         
-        if m != 3:
-            raise Exception('Expected 3 after compile job step'
+        if m != 4:
+            raise Exception('Expected 4 after fuzz job step'
                             f' for job {fuzz_job["jobId"]}'
                             f' got {m}'
                             f' {after_fuzz}')

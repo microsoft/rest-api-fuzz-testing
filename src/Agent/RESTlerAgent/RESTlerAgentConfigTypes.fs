@@ -58,6 +58,18 @@ type CompileConfiguration =
         CustomDictionary: CustomDictionary option
     }
 
+    static member Empty : CompileConfiguration =
+        {
+            InputJsonGrammarPath = None;
+            InputFolderPath = None;
+            ReadOnlyFuzz = false;
+            AllowGetProducers = false;
+            UseRefreshableToken = false;
+            MutationsSeed = None;
+            CustomDictionary = None
+        }
+
+
 type ReplayConfiguration =
     {
         //list of paths to RESTler folder runs to replay (names of folders are assigned when mounted readonly/readwrite file share mounts)
@@ -93,7 +105,7 @@ type RunConfiguration =
         /// file share is mounted and set here. Agent will not modify
         /// this share. Agent will make a copy of all needed files to it's work directory.
         /// For Replay task: path to RESTler Fuzz or Test run that contains bug buckets to replay
-        InputFolderPath: string
+        InputFolderPath: string option
 
         /// The delay in seconds after invoking an API that creates a new resource
         ProducerTimingDelay : int option
@@ -104,6 +116,8 @@ type RunConfiguration =
         /// Token Refresh Interval
         AuthenticationTokenRefreshIntervalSeconds: int option
 
+        /// RESTler run duration
+        Duration : System.TimeSpan option
         /// Path regex for filtering tested endpoints
         PathRegex : string option
 
@@ -131,6 +145,28 @@ type RunConfiguration =
 
     }
 
+    static member Empty =
+        {
+            GrammarPy = None
+            InputFolderPath = None
+            ProducerTimingDelay = None
+            UseSsl = None
+            AuthenticationTokenRefreshIntervalSeconds = None
+            PathRegex = None
+            IgnoreBugHashes = None
+            MaxRequestExecutionTime = None
+            Checkers = None
+            IgnoreDependencies = None
+            IgnoreFeedback = None
+            IncludeUserAgent = None
+            MaxAsyncResourceCreationTime = None
+            MaxCombinations = None
+            MaxSequenceLength = None
+            WaitForAsyncResourceCreation = None
+            PerResourceSettings = None
+            Duration = None
+        }
+
 
 type AgentConfiguration =
     {
@@ -150,7 +186,7 @@ type TaskType =
 
 type RESTlerPayload =
     {
-        Task: TaskType
+        Task: TaskType option
 
         //Compile task type configuration
         CompileConfiguration: CompileConfiguration option
@@ -164,3 +200,7 @@ type RESTlerPayload =
     }
 
 
+type RESTlerPayloads =
+    {
+        tasks: RESTlerPayload array
+    }

@@ -75,6 +75,28 @@
           ],
           "endpoint" : "http://localhost:8082"
         }
+      },
+      {
+        "toolName" : "RESTler",
+        "outputFolder" : "restlerCombined",
+        "targetConfiguration" : {
+          "apiSpecifications": [
+            "http://localhost:8082/api/v3/openapi.json"
+          ],
+          "endpoint" : "http://localhost:8082"
+        },
+        "toolConfiguration": {
+          "tasks" : [
+            {"task": "Compile"},
+            {
+              "task": "Fuzz",
+              "RunConfiguration" : {
+                "useSsl" : false,
+                "Duration" : "00:08:00"
+              }
+            }
+          ]
+        }
       }
     ]
   }
