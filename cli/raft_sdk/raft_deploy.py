@@ -247,6 +247,22 @@ class RaftServiceCLI():
            ' --role "Key Vault Secrets User"'
            f' --scope "{scope}"')
 
+    def create_keyvault_event_subscription(self):
+        print('Creating Key Vault event subscription')
+
+        kvsubscription = az('eventgrid event-subscription create'
+          f' --name OnSecretChanged'
+          f' --source-resource-id /subscriptions/{self.definitions.subscription}'
+          f'/resourceGroups/{self.definitions.resource_group}'
+          f'/providers/Microsoft.KeyVault'
+          f'/vaults/{self.definitions.key_vault}'
+          f' --endpoint /subscriptions/{self.definitions.subscription}'
+          f'/resourceGroups/{self.definitions.resource_group}'
+          f'/providers/Microsoft.Web/sites/{self.definitions.orchestrator}'
+          f'/functions/OnSecretChanged'
+          f' --endpoint-type azurefunction'
+          f' --included-event-types Microsoft.KeyVault.SecretNewVersionCreated'
+        )
     def assign_resource_group_roles(self, sp_app_id):
         print('Assigning Resource Group roles')
         try:
@@ -1057,6 +1073,7 @@ class RaftServiceCLI():
                                     [self.assign_resource_group_roles,
                                      self.assign_keyvault_roles])
 
+            self.create_keyvault_event_subscription()
             # add service principal information to the keyvault
             auth = {
                 'client': service_principal['appId'],
