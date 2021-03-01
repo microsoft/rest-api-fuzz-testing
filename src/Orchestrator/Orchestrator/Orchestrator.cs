@@ -14,6 +14,8 @@ using Microsoft.Azure.Cosmos.Table;
 using System.Collections.Generic;
 using Microsoft.Azure.Management.AppService.Fluent.Models;
 using Microsoft.Azure.Management.Monitor.Fluent.Models;
+using Microsoft.Azure.WebJobs.Extensions.EventGrid;
+using Microsoft.Azure.EventGrid.Models;
 
 namespace OrchestratorFunc
 {
@@ -147,6 +149,21 @@ namespace OrchestratorFunc
                 Raft.Telemetry.Central.Telemetry.TrackError(Raft.Telemetry.TelemetryValues.NewException(ex));
                 throw;
             }
+        }
+
+        [FunctionName("OnSecretChanged")]
+        public static void EventGridKeyVaultEvent([EventGridTrigger] EventGridEvent eventGridEvent, ILogger log)
+        {
+            log.LogInformation("OnSecretChanged: " + eventGridEvent.Data.ToString());
+
+            azure = Authenticate();
+            var allSecrets = OrchestratorLogic.ContainerInstances.initializeSecretsFromKeyvault(azure, agentConfig);
+            allSecrets.Wait();
+
+            secrets = allSecrets.Result.Item1;
+            dockerConfigs = allSecrets.Result.Item2;
+
+            log.LogInformation("OnSecretChanged: Secrets updated from Key Vault");
         }
 
         [FunctionName(Raft.Message.ServiceBus.Queue.create)]
