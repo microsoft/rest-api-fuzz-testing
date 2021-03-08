@@ -1126,6 +1126,9 @@ module ContainerInstances =
                             | JobState.ManuallyStopped ->
                                 Central.Telemetry.TrackMetric(TelemetryValues.Deleted(name, decodedMessage.Message.UtcEventTime), units)
                                 collectToolMetrics()
+                            | JobState.TaskCompleted ->
+                                Central.Telemetry.TrackMetric(TelemetryValues.Completed(name, decodedMessage.Message.UtcEventTime), units)
+                                collectToolMetrics()
                             | JobState.ReStarted | JobState.Creating | JobState.Running | JobState.Completing -> ()
 
                 else

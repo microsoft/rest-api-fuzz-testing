@@ -15,12 +15,16 @@ type JobState =
     | Error
     | TimedOut
     | ReStarted
+    | TaskCompleted
 
 /// Returns True if s1 state has higher precedence than s2
 /// False otherwise
 let ( ??> ) (s1: JobState) (s2: JobState) =
     match s1, s2 with
     | JobState.Creating, _ -> false
+
+    | JobState.TaskCompleted, _ -> false
+    | _, JobState.TaskCompleted -> false
 
     | JobState.Created, JobState.Creating -> true
     | JobState.Created, _ -> false
@@ -52,6 +56,21 @@ type RunSummary =
             TotalBugBucketsCount = 0
             TotalRequestCount = 0
             ResponseCodeCounts = Map.empty
+        }
+
+    static member Combine(runSummary1: RunSummary, runSummary2: RunSummary) =
+        {
+            TotalRequestCount = runSummary1.TotalRequestCount + runSummary2.TotalRequestCount
+            TotalBugBucketsCount = runSummary1.TotalBugBucketsCount + runSummary2.TotalBugBucketsCount
+
+            ResponseCodeCounts =
+                (runSummary1.ResponseCodeCounts, runSummary2.ResponseCodeCounts)
+                ||> Map.fold(fun runningCodeCounts code count ->
+                    if runningCodeCounts.ContainsKey(code) then
+                        runningCodeCounts.Add(code, runningCodeCounts.[code] + count)
+                    else
+                        runningCodeCounts.Add(code, count)
+                )
         }
 
 

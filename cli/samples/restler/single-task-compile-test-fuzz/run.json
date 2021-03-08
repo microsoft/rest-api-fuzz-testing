@@ -1,0 +1,34 @@
+{
+  "namePrefix": "sample-",
+  "webhook": {
+    "name": "sample"
+  },
+  
+  "testTasks": {
+    "targetConfiguration" : {
+      "apiSpecifications": [
+        "https://petstore.swagger.io/v2/swagger.json"
+      ]
+    },
+    "tasks": [
+      {
+        "toolName": "RESTler",
+        "outputFolder": "restler-run",
+        "toolConfiguration": {
+          "tasks": [
+                {"task": "Compile"}, 
+                
+                {"task" : "Test"}, 
+                
+                {
+                    "task" : "Fuzz",
+                    "runConfiguration" : {
+                      "Duration" : "00:10:00"
+                    }
+                }
+            ]
+        }
+      }
+    ]
+  }
+}

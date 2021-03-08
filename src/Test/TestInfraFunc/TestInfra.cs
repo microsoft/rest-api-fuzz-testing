@@ -55,13 +55,13 @@ namespace TestInfraFunc
             {
                 if (request.Method.ToLowerInvariant() == "get")
                 {
-                    log.LogInformation($"Getting webhook messages for job ${jobId}");
+                    log.LogInformation($"Getting webhook messages for job {jobId}");
                     var results = await TestInfraLogic.WebhooksTest.get(log, StorageTableConnectionString, jobId);
                     return new OkObjectResult(results);
                 }
                 else
                 {
-                    log.LogWarning($"Unhandled request method {request.Method} when job id is ${jobId}");
+                    log.LogWarning($"Unhandled request method {request.Method} when job id is {jobId}");
                     return new BadRequestResult();
                 }
             }

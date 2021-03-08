@@ -305,6 +305,7 @@ module DTOs =
         | Error = 6
         | TimedOut = 7
         | ReStarted = 8
+        | TaskCompleted = 9
 
     [<CLIMutable>]
     type RunSummary =
