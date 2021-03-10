@@ -83,7 +83,8 @@ def bvt(cli, definitions, subs):
         n = 0
         for x in after_compile_pre_fuzz:
             if x['jobId'] == compile_job['jobId']:
-                n += 1
+                if x['state'] == 'Completed':
+                    n += 1
             if x['agentName'] == compile_job['jobId']:
                 if x['state'] != 'Completed':
                     raise Exception('Expected job to be in completed state when retrieved job list.'
@@ -110,7 +111,8 @@ def bvt(cli, definitions, subs):
         m = 0
         for x in after_fuzz:
             if x['jobId'] == fuzz_job['jobId']:
-                m += 1
+                if x['state'] == 'Completed':
+                    m += 1
 
             if x['agentName'] == fuzz_job['jobId']:
                 if x['state'] != 'Completed':

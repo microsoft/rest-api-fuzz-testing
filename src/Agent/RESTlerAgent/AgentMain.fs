@@ -688,32 +688,6 @@ let main argv =
                 do! Raft.RESTlerDriver.compile restlerPath workDirectory compilerConfig
             }
 
-        let report state (experiment : string option, summary:Raft.JobEvents.RunSummary option) =
-            async {
-                printfn "Reporting summary [%A]: %A" state summary
-                let! bugsList = Raft.RESTlerDriver.getListOfBugs workDirectory globalRunStartTime
-                let bugsListLen = match bugsList with None -> 0 | Some xs -> Seq.length xs
-
-                let details =
-                    match experiment with
-                    | Some e -> Map.empty.Add("Experiment", e)
-                    | None -> Map.empty
-
-                do! jobEventSender.SendRaftJobEvent jobId
-                                                ({
-                                                    AgentName = agentName
-                                                    Metadata = None
-                                                    Tool = "RESTler"
-                                                    JobId = jobId
-                                                    State = state
-
-                                                    Metrics = summary
-                                                    UtcEventTime = System.DateTime.UtcNow
-                                                    Details = Some( details.Add("numberOfBugsFound", sprintf "%d" bugsListLen))
-                                                    ResultsUrl = None
-                                                } : Raft.JobEvents.JobStatus)
-            }
-
         let onBugFound (bugDetails : Map<string, string>) =
             async {
                 let bugDetails = 
@@ -733,11 +707,39 @@ let main argv =
         
 
         let combinedMetrics = ref Raft.JobEvents.RunSummary.Empty
+        let taskIndex = ref 0
         for restlerPayload in restlerPayloads do
             // execution id is used for RESTler specific metrics only
             // Each loop iteration represents a RESTler run. Thus requires
             // new execution ID
             let executionId = Guid.NewGuid()
+            let agentName = sprintf "%s:%d" agentName (!taskIndex)
+
+            let report state (experiment : string option, summary:Raft.JobEvents.RunSummary option) =
+                async {
+                    printfn "Reporting summary [%A]: %A" state summary
+                    let! bugsList = Raft.RESTlerDriver.getListOfBugs workDirectory globalRunStartTime
+                    let bugsListLen = match bugsList with None -> 0 | Some xs -> Seq.length xs
+
+                    let details =
+                        match experiment with
+                        | Some e -> Map.empty.Add("Experiment", e)
+                        | None -> Map.empty
+
+                    do! jobEventSender.SendRaftJobEvent jobId
+                                                    ({
+                                                        AgentName = agentName
+                                                        Metadata = None
+                                                        Tool = "RESTler"
+                                                        JobId = jobId
+                                                        State = state
+
+                                                        Metrics = summary
+                                                        UtcEventTime = System.DateTime.UtcNow
+                                                        Details = Some( details.Add("numberOfBugsFound", sprintf "%d" bugsListLen))
+                                                        ResultsUrl = None
+                                                    } : Raft.JobEvents.JobStatus)
+                }
 
             let getResultReportingInterval() =
                 let resultAnalyzerReportInterval =
@@ -1096,6 +1098,7 @@ let main argv =
                 restlerTelemetry.specCoverageCounts,
                 restlerTelemetry.bugBucketCounts)
 
+            incr taskIndex
 
         do! jobEventSender.SendRaftJobEvent jobId
                     ({
