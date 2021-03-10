@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 
 import tabulate
-from .raft_common import RaftApiException, RestApiClient, RaftDefinitions
+from .raft_common import RaftApiException, RestApiClient, RaftDefinitions, RaftJsonDict
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 dos2unix_file_types = [".sh", ".bash"]
@@ -29,7 +29,7 @@ class RaftJobConfig():
 
                 ext = Path(file_path).suffix
                 if ext == '.json':
-                    config = json.loads(c)
+                    config = json.loads(c, object_hook=RaftJsonDict.raft_json_object_hook)
                 elif ext == '.yml' or ext == '.yaml':
                     config = yaml.load(c, Loader=yaml.FullLoader)
                 else:
@@ -64,7 +64,7 @@ class RaftCLI():
                         script_dir,
                         '..',
                         'defaults.json'), 'r') as defaults_json:
-                self.context = json.load(defaults_json)
+                self.context = json.load(defaults_json, object_hook=RaftJsonDict.raft_json_object_hook)
 
         self.definitions = RaftDefinitions(self.context)
         self.raft_api = RestApiClient(
@@ -85,7 +85,7 @@ class RaftCLI():
         '''
         response = self.raft_api.get(f'/jobs/{job_id}')
         if response.ok:
-            return json.loads(response.text)
+            return json.loads(response.text, object_hook=RaftJsonDict.raft_json_object_hook)
         else:
             raise RaftApiException(response.text, response.status_code)
 
@@ -107,7 +107,7 @@ class RaftCLI():
         else:
             response = self.raft_api.get(f'/jobs')
         if response.ok:
-            return json.loads(response.text)
+            return json.loads(response.text, object_hook=RaftJsonDict.raft_json_object_hook)
         else:
             raise RaftApiException(response.text, response.status_code)
 
@@ -129,7 +129,7 @@ class RaftCLI():
             query = '/jobs'
         response = self.raft_api.post(query, job_config.config)
         if response.ok:
-            return json.loads(response.text)
+            return json.loads(response.text, object_hook=RaftJsonDict.raft_json_object_hook)
         else:
             raise RaftApiException(response.text, response.status_code)
 
@@ -145,7 +145,7 @@ class RaftCLI():
         '''
         response = self.raft_api.post(f'/jobs/{job_id}', job_config.config)
         if response.ok:
-            return json.loads(response.text)
+            return json.loads(response.text, object_hook=RaftJsonDict.raft_json_object_hook)
         else:
             raise RaftApiException(response.text, response.status_code)
 
@@ -158,7 +158,7 @@ class RaftCLI():
         '''
         response = self.raft_api.delete(f'/jobs/{job_id}')
         if response.ok:
-            return json.loads(response.text)
+            return json.loads(response.text, object_hook=RaftJsonDict.raft_json_object_hook)
         else:
             raise RaftApiException(response.text, response.status_code)
 
@@ -172,7 +172,7 @@ class RaftCLI():
         '''
         response = self.raft_api.get('/webhooks/events')
         if response.ok:
-            return json.loads(response.text)
+            return json.loads(response.text, object_hook=RaftJsonDict.raft_json_object_hook)
         else:
             raise RaftApiException(response.text, response.status_code)
 
@@ -196,7 +196,7 @@ class RaftCLI():
         }
         response = self.raft_api.post('/webhooks', data)
         if response.ok:
-            return json.loads(response.text)
+            return json.loads(response.text, object_hook=RaftJsonDict.raft_json_object_hook)
         else:
             raise RaftApiException(response.text, response.status_code)
 
@@ -215,7 +215,7 @@ class RaftCLI():
         '''
         response = self.raft_api.put(f'/webhooks/test/{name}/{event}', None)
         if response.ok:
-            return json.loads(response.text)
+            return json.loads(response.text, object_hook=RaftJsonDict.raft_json_object_hook)
         else:
             raise RaftApiException(response.text, response.status_code)
 
@@ -239,7 +239,7 @@ class RaftCLI():
 
         response = self.raft_api.get(url)
         if response.ok:
-            return json.loads(response.text)
+            return json.loads(response.text, object_hook=RaftJsonDict.raft_json_object_hook)
         else:
             raise RaftApiException(response.text, response.status_code)
 
@@ -254,7 +254,7 @@ class RaftCLI():
         '''
         response = self.raft_api.delete(f'/webhooks/{name}/{event}')
         if response.ok:
-            return json.loads(response.text)
+            return json.loads(response.text, object_hook=RaftJsonDict.raft_json_object_hook)
         else:
             raise RaftApiException(response.text, response.status_code)
 

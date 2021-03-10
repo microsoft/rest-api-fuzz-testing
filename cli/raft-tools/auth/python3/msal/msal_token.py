@@ -3,6 +3,27 @@ import os
 import json
 import sys
 
+class RaftJsonDict(dict):
+    def __init__(self):
+        pass
+
+    def __getitem__(self, key):
+        return super(RaftJsonDict, self).__getitem__(key.lower())
+
+    def get(self, key):
+    	return super(RaftJsonDict, self).get(key.lower())
+
+    def __setitem__(self, key, value):
+        return super(RaftJsonDict, self).__setitem__(key.lower(), value)
+
+    @staticmethod
+    def raft_json_object_hook(x):
+        r = RaftJsonDict()
+        for k in x:
+            r[k] = x[k]
+        return r
+
+
 def get_token(client_id, tenant_id, secret, scopes, authority_uri, audience):
 
     if authority_uri:
@@ -22,7 +43,7 @@ def get_token(client_id, tenant_id, secret, scopes, authority_uri, audience):
 def token_from_env_variable(env_variable_name):
     auth_params = os.environ.get(f"RAFT_{env_variable_name}") or os.environ.get(env_variable_name)
     if auth_params:
-        auth = json.loads(auth_params)
+        auth = json.loads(auth_params, object_hook=RaftJsonDict.raft_json_object_hook)
         print("Getting MSAL token")
         token = get_token(auth['client'], auth['tenant'], auth['secret'], auth.get('scopes'), auth.get('authorityUri'), auth.get('audience'))
         print("Token created")

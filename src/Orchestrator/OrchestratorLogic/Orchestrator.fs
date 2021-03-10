@@ -767,16 +767,13 @@ module ContainerInstances =
                             failwithf "Secret with name %s does not exist" name
                     
                     let startupDelay =
-                        if jobCreateRequest.IsIdlingRun then
-                            TimeSpan.Zero
-                        else
-                            match jobCreateRequest.JobDefinition.TestTargets with
-                            | None -> TimeSpan.Zero
-                            | Some ts ->
-                                if Array.isEmpty ts.Services then
-                                    TimeSpan.Zero
-                                else
-                                    (ts.Services |> Array.maxBy (fun t -> t.ExpectedDurationUntilReady)).ExpectedDurationUntilReady
+                        match jobCreateRequest.JobDefinition.TestTargets with
+                        | None -> TimeSpan.Zero
+                        | Some ts ->
+                            if Array.isEmpty ts.Services then
+                                TimeSpan.Zero
+                            else
+                                (ts.Services |> Array.maxBy (fun t -> t.ExpectedDurationUntilReady)).ExpectedDurationUntilReady
 
                     let setupContainerEnvironment (i : int) (config: ContainerToolRun) =
                         let secrets =
@@ -795,6 +792,12 @@ module ContainerInstances =
                             match config.ContainerConfiguration.Shell with
                             | Some sh -> sh
                             | None -> failwith "Shell is not set"
+
+                        let startupDelay =
+                            if config.ContainerConfiguration.IsIdling then
+                                TimeSpan.Zero
+                            else
+                                startupDelay
     
                         let predefinedEnvironmentVariablesDict =
                             dict ([

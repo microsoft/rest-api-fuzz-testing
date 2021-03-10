@@ -1,5 +1,5 @@
 {
-	"container" : "schemathesis/schemathesis:v3.0.8-buster",
+	"container": "schemathesis/schemathesis:stable-buster",
 	"shell" : "/bin/sh",
 	"run" : {
 		"shellArguments" : ["-c", 

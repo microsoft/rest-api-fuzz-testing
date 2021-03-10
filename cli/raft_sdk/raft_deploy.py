@@ -14,7 +14,7 @@ import uuid
 from subprocess import PIPE
 
 import requests
-from .raft_common import RaftApiException, RestApiClient, RaftDefinitions
+from .raft_common import RaftApiException, RestApiClient, RaftDefinitions, RaftJsonDict
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 tmp_dir = os.path.join(script_dir, '.tmp')
@@ -1103,7 +1103,7 @@ class RaftServiceCLI():
                 response = requests.get(
                     f"{self.context['getToken']}&name={token_name}")
                 if response.ok:
-                    content = json.loads(response.text)
+                    content = json.loads(response.text, object_hook=RaftJsonDict.raft_json_object_hook)
                     container_registry_username = content['tokenName']
                     container_registry_password = content['password']
                 else:
@@ -1205,7 +1205,7 @@ class RaftServiceCLI():
                     self.context.get('secret'))
         info = raft_api.get('/info')
         if info.ok:
-            return json.loads(info.text)
+            return json.loads(info.text, object_hook=RaftJsonDict.raft_json_object_hook)
         else:
             raise RaftApiException(info.text, info.status_code)
 

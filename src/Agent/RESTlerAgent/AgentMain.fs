@@ -18,9 +18,7 @@ type System.Threading.Tasks.Task with
 type System.Threading.Tasks.Task<'T> with
     member x.ToAsync = Async.AwaitTask(x)
 
-
 let globalRunStartTime = DateTime.UtcNow
-
 
 type ServiceBus.Core.MessageSender with
     member inline x.SendRaftJobEvent (jobId: string) (message : ^T when ^T : (static member EventType : string)) =
@@ -29,6 +27,36 @@ type ServiceBus.Core.MessageSender with
             let message = ServiceBus.Message(RaftEvent.serializeToBytes raftJobEvent, SessionId = jobId.ToString())
             do! x.SendAsync(message).ToAsync
         }
+
+
+type RaftMessageSender(sas : string option ) =
+
+    let sender =
+        match sas with
+        | Some sas ->
+            Some (ServiceBus.Core.MessageSender(ServiceBus.ServiceBusConnectionStringBuilder(sas), ServiceBus.RetryPolicy.Default))
+        | None -> None
+
+    member __.Sender = sender
+
+    member __.CloseAsync() =
+        async {
+            match sender with
+            | Some s -> return! s.CloseAsync().ToAsync
+            | None -> return ()
+        }
+
+    member inline __.SendRaftJobEvent (jobId: string) (message : ^T when ^T : (static member EventType : string)) =
+        async {
+            match __.Sender with
+            | Some s ->
+                let raftJobEvent = Raft.Message.RaftEvent.createJobEvent message
+                let message = ServiceBus.Message(RaftEvent.serializeToBytes raftJobEvent, SessionId = jobId.ToString())
+                do! s.SendAsync(message).ToAsync
+                return ()
+            | None -> return ()
+        }
+
 
 module Arguments =
 
@@ -541,7 +569,9 @@ let main argv =
         match agentConfiguration.JobEventTopicSAS with
         | None -> failwith "Job status connection is not set"
         | Some sas ->
-            ServiceBus.Core.MessageSender(ServiceBus.ServiceBusConnectionStringBuilder(sas), ServiceBus.RetryPolicy.Default)
+            match System.Environment.GetEnvironmentVariable("RAFT_LOCAL") |> Option.ofObj with
+            | None -> RaftMessageSender(Some sas)
+            | Some _ -> RaftMessageSender(None)
 
     async {
         let siteHash =
@@ -1112,7 +1142,7 @@ let main argv =
                         return 2
                 }
             appInsights.Flush()
-            do! jobEventSender.CloseAsync().ToAsync
+            do! jobEventSender.CloseAsync()
             do! Console.Out.FlushAsync() |> Async.AwaitTask
             do! Console.Error.FlushAsync() |> Async.AwaitTask
             return res

@@ -52,6 +52,8 @@ please run 'raft.py service deploy'
 -------------------------
 '''
 
+json_hook = raft_sdk.raft_common.RaftJsonDict.raft_json_object_hook
+
 
 def run(args):
     def validate(defaults):
@@ -65,14 +67,14 @@ def run(args):
 
     if defaults_json:
         print(f"Loading defaults from command line: {defaults_json}")
-        defaults = json.loads(defaults_json)
+        defaults = json.loads(defaults_json, object_hook=json_hook)
         if not validate(defaults):
             print(defaults_help)
             return
     # check if defaults.json is set in the context and it exists
     elif os.path.isfile(defaults_path):
         with open(defaults_path, 'r') as d:
-            defaults = json.load(d)
+            defaults = json.load(d, object_hook=json_hook)
             if not validate(defaults):
                 print(defaults_help)
                 return
@@ -128,7 +130,9 @@ def run(args):
             substitutionDictionary = {}
             substitutionParameter = args.get('substitute')
             if substitutionParameter:
-                substitutionDictionary = json.loads(substitutionParameter)
+                substitutionDictionary = json.loads(
+                                            substitutionParameter,
+                                            object_hook=json_hook)
 
             job_config = RaftJobConfig(file_path=json_config_path,
                                        substitutions=substitutionDictionary)
@@ -140,7 +144,9 @@ def run(args):
 
             metadata = args.get('metadata')
             if metadata:
-                job_config.config['metadata'] = json.loads(metadata)
+                job_config.config['metadata'] = json.loads(
+                                                    metadata,
+                                                    object_hook=json_hook)
 
             newJob = cli.new_job(job_config, args.get('region'))
             poll_interval = args.get('poll')
@@ -183,7 +189,9 @@ def run(args):
             substitutionDictionary = {}
             substitutionParameter = args.get('substitute')
             if substitutionParameter:
-                substitutionDictionary = json.loads(substitutionParameter)
+                substitutionDictionary = json.loads(
+                                            substitutionParameter,
+                                            object_hook=json_hook)
 
             job_update = cli.update_job(
                 args.get('job_id'),
@@ -195,8 +203,8 @@ def run(args):
             job_id = args.get('job_id')
             if job_id is None:
                 ArgumentRequired('--job-id')
-            url = cli.result_url(job_id)
-            print(url)
+            job_status = cli.job_status(job_id)
+            print(job_status)
 
         elif job_action == 'delete':
             job_id = args.get('job_id')

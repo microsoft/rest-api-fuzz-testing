@@ -11,7 +11,7 @@
             "ShellArguments" : ["-c", "cp /var/log/*-requests.log $RAFT_WORK_DIRECTORY"],
             "ExpectedRunDuration" : "00:00:10"
           },
-          "OutputFolder" : "zap_petstore3"
+          "OutputFolder" : "petstore3"
       }
     ]
   },
