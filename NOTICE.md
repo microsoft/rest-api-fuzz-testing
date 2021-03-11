@@ -7866,7 +7866,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ---------------------------------------------------------
 
-FSharp.Core 4.7.2 - MIT
+FSharp.Core 5.0.1 - MIT
 
 
 (c) 2008 VeriSign, Inc.

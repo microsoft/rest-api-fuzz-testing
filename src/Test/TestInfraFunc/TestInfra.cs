@@ -1,11 +1,11 @@
 using System;
-using System.IO;
+using System.Net;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Azure.WebJobs;
-using Microsoft.Azure.WebJobs.Extensions.Http;
-using Microsoft.AspNetCore.Http;
+using Microsoft.Azure.Functions.Worker;
+using Microsoft.Azure.Functions.Worker.Http;
+
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Hosting;
 using Newtonsoft.Json;
 
 namespace TestInfraFunc
@@ -19,10 +19,13 @@ namespace TestInfraFunc
 
         static private string StorageTableConnectionString = GetSetting("RAFT_STORAGE_TABLE_CONNECTION_STRING");
 
-        [FunctionName("webhooks-trigger-test")]
-        public static async Task<IActionResult> WebhookTriggerTest([HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = "test")] HttpRequest request, ILogger log)
+        [Function("webhooks-trigger-test")]
+        public static async Task<HttpResponseData> WebhookTriggerTest([HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = "test")] HttpRequestData request, FunctionContext executionContext)
         {
-            string jobId = request.Query["jobId"];
+            var log = executionContext.GetLogger("WebhooksTrigger");
+
+            var query = System.Web.HttpUtility.ParseQueryString(request.Url.Query);
+            string jobId = query["jobId"];
 
             if (string.IsNullOrEmpty(jobId))
             {
@@ -37,18 +40,20 @@ namespace TestInfraFunc
                     if (r.Item1)
                     {
                         log.LogInformation($"Returning validation code {r.Item2}");
-                        return new OkObjectResult(r.Item2);
+                        var response = request.CreateResponse(HttpStatusCode.OK);
+                        await response.WriteAsJsonAsync(r.Item2);
+                        return response;
                     }
                     else
                     {
                         await TestInfraLogic.WebhooksTest.post(log, StorageTableConnectionString, text);
-                        return new OkResult();
+                        return request.CreateResponse(HttpStatusCode.OK);
                     }
                 }
                 else
                 {
                     log.LogWarning($"Unhandled request method {request.Method} when job id is not set");
-                    return new BadRequestResult();
+                    return request.CreateResponse(HttpStatusCode.BadRequest);
                 }
             }
             else
@@ -57,14 +62,30 @@ namespace TestInfraFunc
                 {
                     log.LogInformation($"Getting webhook messages for job {jobId}");
                     var results = await TestInfraLogic.WebhooksTest.get(log, StorageTableConnectionString, jobId);
-                    return new OkObjectResult(results);
+                    var response = request.CreateResponse(HttpStatusCode.OK);
+                    await response.WriteAsJsonAsync(results);
+                    return response;
                 }
                 else
                 {
                     log.LogWarning($"Unhandled request method {request.Method} when job id is {jobId}");
-                    return new BadRequestResult();
+
+                    return request.CreateResponse(HttpStatusCode.BadRequest);
                 }
             }
         }
     }
+
+    public class Program
+    {
+        public static void Main()
+        {
+            var host = new HostBuilder()
+                .ConfigureFunctionsWorkerDefaults()
+                .Build();
+
+            host.Run();
+        }
+    }
+
 }

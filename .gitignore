@@ -82,6 +82,7 @@ __pycache__/
 /cli/raft_sdk/.cache/token_cache.bin
 
 /cli/raft-tools/auth/dotnet-core-3.1/*
+/cli/raft-tools/auth/dotnet-5.0/*
 
 /cli/defaults-*.json
 /cli/local/

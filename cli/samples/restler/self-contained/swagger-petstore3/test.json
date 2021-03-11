@@ -30,7 +30,7 @@
       {
         "Container" : "swaggerapi/petstore3",
         "Ports" : [8080],
-        "ExpectedDurationUntilReady" : "00:00:30",
+        "ExpectedDurationUntilReady" : "00:01:00",
         "Shell" : "/bin/sh",
         "PostRun" : {
           "ShellArguments" : ["-c", "cp /var/log/*-requests.log $RAFT_WORK_DIRECTORY"],

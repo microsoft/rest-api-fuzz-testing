@@ -16,7 +16,7 @@
       {
         "Container" : "swaggerapi/petstore3",
         "Ports" : [8082],
-        "ExpectedDurationUntilReady" : "00:00:30",
+        "ExpectedDurationUntilReady" : "00:01:00",
         "Shell" : "/bin/sh",
         "Run" : {
           "ShellArguments" : ["-c", "java -jar /swagger-petstore/jetty-runner.jar --log /var/log/yyyy_mm_dd-requests.log --port 8082 /swagger-petstore/server.war"]

@@ -23,12 +23,12 @@ steps:
   - task: CopyFiles@2
     displayName: 'Copy Orchestrator Dockerfile'
     inputs:
-      targetFolder: src/Orchestrator/Orchestrator/bin/release/netcoreapp3.1/publish/
+      targetFolder: src/Orchestrator/Orchestrator/bin/release/net5.0/publish/
       sourceFolder: src/Orchestrator
       contents: Dockerfile
 
   - task: PublishPipelineArtifact@1
     inputs:
-      targetPath: src/Orchestrator/Orchestrator/bin/release/netcoreapp3.1/publish/
+      targetPath: src/Orchestrator/Orchestrator/bin/release/net5.0/publish/
       artifactName: Orchestrator
 

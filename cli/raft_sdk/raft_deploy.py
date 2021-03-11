@@ -667,7 +667,8 @@ class RaftServiceCLI():
                          f' --resource-group {rg}'
                          f' --plan "{self.definitions.asp}"'
                          ' --functions-version 3'
-                         ' --os-type Linux --runtime dotnet'
+                         ' --os-type Linux --runtime dotnet-isolated'
+                         ' --runtime-version 5.0'
                          f' {ai}')
 
         connection_string = az_json(
@@ -757,7 +758,8 @@ class RaftServiceCLI():
                          f' --resource-group {rg}'
                          f' --plan "{self.definitions.asp}"'
                          ' --functions-version 3'
-                         ' --os-type Linux --runtime dotnet'
+                         ' --os-type Linux --runtime dotnet-isolated'
+                         ' --runtime-version 5.0'
                          f' {ai}')
 
         connection_string = az_json(
@@ -947,7 +949,7 @@ class RaftServiceCLI():
             json.dump(defaults, d, indent=4)
 
     def test_az_version(self):
-        supported_versions = ['2.19.0', '2.19.1']
+        supported_versions = ['2.20.0']
         # az sometimes reports the version with an asterisk.
         # Perhaps when a new version of the CLI is available.
         tested_az_cli_versions = (

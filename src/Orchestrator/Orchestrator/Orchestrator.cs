@@ -6,19 +6,51 @@ using System.Threading.Tasks;
 using Microsoft.ApplicationInsights;
 using Microsoft.Extensions.Logging;
 using Microsoft.Azure.ServiceBus.Core;
-using Microsoft.Azure.WebJobs;
+
+using Microsoft.Azure.Functions.Worker;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Azure.ServiceBus;
 using Microsoft.Azure.Management.Fluent;
 using Microsoft.Azure.Management.ResourceManager.Fluent;
 using Microsoft.Azure.Cosmos.Table;
 using System.Collections.Generic;
-using Microsoft.Azure.Management.AppService.Fluent.Models;
-using Microsoft.Azure.Management.Monitor.Fluent.Models;
-using Microsoft.Azure.WebJobs.Extensions.EventGrid;
-using Microsoft.Azure.EventGrid.Models;
+
 
 namespace OrchestratorFunc
 {
+
+    public class EventGridEvent
+    {
+        public string Id { get; set; }
+
+        public string Topic { get; set; }
+
+        public string Subject { get; set; }
+
+        public string EventType { get; set; }
+
+        public DateTime EventTime { get; set; }
+
+        public object Data { get; set; }
+    }
+
+    public class TimerInfo
+    {
+        public TimerScheduleStatus ScheduleStatus { get; set; }
+
+        public bool IsPastDue { get; set; }
+    }
+
+    public class TimerScheduleStatus
+    {
+        public DateTime Last { get; set; }
+
+        public DateTime Next { get; set; }
+
+        public DateTime LastUpdated { get; set; }
+    }
+
+
     public static class Orchestrator
     {
         private static String GetSetting(String envVariableName)
@@ -151,9 +183,10 @@ namespace OrchestratorFunc
             }
         }
 
-        [FunctionName("OnSecretChanged")]
-        public static void EventGridKeyVaultEvent([EventGridTrigger] EventGridEvent eventGridEvent, ILogger log)
+        [Function("OnSecretChanged")]
+        public static void EventGridKeyVaultEvent([EventGridTrigger] EventGridEvent eventGridEvent, FunctionContext context)
         {
+            var log = context.GetLogger("OnSecretChanged");
             log.LogInformation("OnSecretChanged: " + eventGridEvent.Data.ToString());
 
             azure = Authenticate();
@@ -166,11 +199,11 @@ namespace OrchestratorFunc
             log.LogInformation("OnSecretChanged: Secrets updated from Key Vault");
         }
 
-        [FunctionName(Raft.Message.ServiceBus.Queue.create)]
-        public static async Task CreateJob([ServiceBusTrigger(Raft.Message.ServiceBus.Queue.create, IsSessionsEnabled = true)] string createJobMessage, ILogger log)
+        [Function(Raft.Message.ServiceBus.Queue.create)]
+        public static async Task CreateJob([ServiceBusTrigger(Raft.Message.ServiceBus.Queue.create, IsSessionsEnabled = true)] string createJobMessage, FunctionContext context)
         {
             await OrchestratorLogic.ContainerInstances.createJob(
-                log,
+                context.GetLogger("JobCreate"),
                 secrets,
                 dockerConfigs,
                 toolConfigs,
@@ -180,11 +213,11 @@ namespace OrchestratorFunc
                 createJobMessage);
         }
 
-        [FunctionName(Raft.Message.ServiceBus.Queue.delete)]
-        public static async Task Delete([ServiceBusTrigger(Raft.Message.ServiceBus.Queue.delete, IsSessionsEnabled = true)]string deleteJobMessage, ILogger log)
+        [Function(Raft.Message.ServiceBus.Queue.delete)]
+        public static async Task Delete([ServiceBusTrigger(Raft.Message.ServiceBus.Queue.delete, IsSessionsEnabled = true)]string deleteJobMessage, FunctionContext context)
         {
             await OrchestratorLogic.ContainerInstances.delete(
-                log,
+                context.GetLogger("JobDelete"),
                 azure,
                 agentConfig,
                 communicationClients,
@@ -192,36 +225,49 @@ namespace OrchestratorFunc
         }
 
 
-        [FunctionName("jobstatus-handler")]
-        public static async Task Status([ServiceBusTrigger(Raft.Message.ServiceBus.Topic.events, "jobstatus-handler")]string statusMessage, ILogger log)
+        [Function("jobstatus-handler")]
+        public static async Task Status([ServiceBusTrigger(Raft.Message.ServiceBus.Topic.events, "jobstatus-handler")]string statusMessage, FunctionContext context)
         {
             await OrchestratorLogic.ContainerInstances.status(
-                log,
+                context.GetLogger("JobStatus"),
                 azure,
                 agentConfig,
                 communicationClients,
                 statusMessage);
         }
 
-        [FunctionName("webhooks-handler")]
-        public static async Task WebhookMessage([ServiceBusTrigger(Raft.Message.ServiceBus.Topic.events, "webhooks-handler")] string webhookMessage, ILogger log)
+        [Function("webhooks-handler")]
+        public static async Task WebhookMessage([ServiceBusTrigger(Raft.Message.ServiceBus.Topic.events, "webhooks-handler")] string webhookMessage, FunctionContext context)
         {
             await OrchestratorLogic.ContainerInstances.webhookMessage(
-                log,
+                context.GetLogger("Webhooks"),
                 azure,
                 agentConfig,
                 communicationClients,
                 webhookMessage);
         }
 
-        [FunctionName("raft-timer-garbage-collection")]
-        public static async Task TimerGarbageCollection([TimerTrigger("0 */1 * * * *")] TimerInfo t, ILogger log)
+        [Function("raft-timer-garbage-collection")]
+        public static async Task TimerGarbageCollection([TimerTrigger("0 */1 * * * *")] TimerInfo t, FunctionContext context)
         {
             await OrchestratorLogic.ContainerInstances.gc(
-                log,
+                context.GetLogger("GC"),
                 azure,
                 agentConfig,
                 communicationClients);
+        }
+    }
+
+
+    public class Program
+    {
+        public static void Main()
+        {
+            var host = new HostBuilder()
+                .ConfigureFunctionsWorkerDefaults()
+                .Build();
+
+            host.Run();
         }
     }
 }

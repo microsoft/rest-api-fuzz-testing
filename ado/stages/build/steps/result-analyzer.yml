@@ -20,5 +20,5 @@ steps:
 
   - task: PublishPipelineArtifact@1
     inputs:
-      targetPath: src/Agent/RaftResultAnalyzer/bin/release/netcoreapp3.1/publish/
+      targetPath: src/Agent/RaftResultAnalyzer/bin/release/net5.0/publish/
       artifactName: RaftResultAnalyzer

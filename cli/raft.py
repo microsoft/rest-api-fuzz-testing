@@ -78,14 +78,14 @@ def run(args):
 
     if defaults_json:
         print(f"Loading defaults from command line: {defaults_json}")
-        defaults = json.loads(defaults_json, object_hook=json_hook)
+        defaults = json.loads(defaults_json)
         if not validate(defaults):
             print(defaults_help)
             return
     # check if defaults.json is set in the context and it exists
     elif os.path.isfile(defaults_path):
         with open(defaults_path, 'r') as d:
-            defaults = json.load(d, object_hook=json_hook)
+            defaults = json.load(d)
             if not validate(defaults):
                 print(defaults_help)
                 return
