@@ -119,6 +119,9 @@ module ContainerInstances =
             
             ResultsStorageAccount : string
             ResultsStorageAccountKey: string
+
+            NetworkProfileName: string
+            VNetResourceGroup: string
         }
 
     type DockerConfig =
@@ -452,7 +455,7 @@ module ContainerInstances =
         let configureTasksContainerInstances
                 (cg: Choice<ContainerGroup.Definition.IWithVolume, ContainerGroup.Definition.IWithNextContainerInstance>) (resources: Resources)
                 (toolContainerRunsWithSecrets: (ContainerToolRun * IDictionary<string, string> * IDictionary<string, string>) array)
-                (workDirectory, workVolume) (readOnlyShares, readWriteShares) =
+                (workDirectory, workVolume) (readOnlyShares, readWriteShares) networkProfileName =
 
             let numberOfTasks = Array.length toolContainerRunsWithSecrets
             let cores = float resources.Cores
@@ -460,10 +463,10 @@ module ContainerInstances =
 
             let cpu = System.Math.Round(cores / float numberOfTasks, 2, MidpointRounding.ToZero)
             let ram = System.Math.Round(mem / float numberOfTasks, 1, MidpointRounding.ToZero)
-
-            let r, isIdling, _ =
-                ((cg, false, (cores, mem)), toolContainerRunsWithSecrets)
-                ||> Array.fold (fun (a, isIdling, (remainingCpu, remainingRam)) (toolContainerRun, secrets, environmentVariables) ->
+            let portAssigned = false
+            let r, isIdling, _, _ =
+                ((cg, false, (cores, mem), portAssigned), toolContainerRunsWithSecrets)
+                ||> Array.fold (fun (a, isIdling, (remainingCpu, remainingRam), portAssigned) (toolContainerRun, secrets, environmentVariables) ->
                     let cpu =
                         if remainingCpu >= 0.01 && remainingCpu < cpu then
                             System.Math.Round(remainingCpu, 2, MidpointRounding.ToZero)
@@ -476,7 +479,7 @@ module ContainerInstances =
                         else
                             ram
 
-                    let c =
+                    let c, portIsAssigned =
                         let b =
                             match a with
                             | Choice1Of2 b ->
@@ -486,16 +489,26 @@ module ContainerInstances =
 
                         let b1 = 
                             b.WithImage(toolContainerRun.ContainerConfiguration.Container)
-
-                        let b2 =
+                        
+                        let b2, portIsAssigned =
                             match toolContainerRun.ContainerConfiguration.Ports with
                             | None ->
-                                b1.WithoutPorts().WithCpuCoreCount(cpu)
+                                // External port assignments on the container instance need to be unique.
+                                // Since we are only assigning an external port to satisfy the system (it's not actually used)
+                                // we just need to keep track if we have already assigned it or not.
+                                if String.IsNullOrWhiteSpace(networkProfileName) || portAssigned then
+                                    (b1.WithoutPorts()).WithCpuCoreCount(cpu), portAssigned
+                                else
+                                    // When deploying into a vnet a port *must* be defined
+                                    // This number is in the dynamic range. We will document
+                                    // it's what we do. 
+                                    (b1.WithExternalTcpPort 55555)
+                                       .WithCpuCoreCount(cpu), true
                             | Some p ->
-                                (b1.WithInternalTcpPorts p).WithCpuCoreCount(cpu)
-                        b2
+                                (b1.WithInternalTcpPorts p).WithCpuCoreCount(cpu), portAssigned
+                        (b2
                             .WithMemorySizeInGB(ram)
-                            .WithVolumeMountSetting(workVolume, workDirectory)
+                            .WithVolumeMountSetting(workVolume, workDirectory)), portIsAssigned
 
                     let d =
                         match readOnlyShares with
@@ -532,7 +545,7 @@ module ContainerInstances =
                         | None ->
                             if toolContainerRun.ContainerConfiguration.IsIdling then
                                 match toolContainerRun.ContainerConfiguration.Idle with
-                                | Some _ -> failwith "Cannot exectue Idle command since shell is not set"
+                                | Some _ -> failwith "Cannot execute Idle command since shell is not set"
                                 | None -> ()
                             else
                                 match toolContainerRun.ContainerConfiguration.Run with
@@ -546,7 +559,7 @@ module ContainerInstances =
                             Choice2Of2(g.WithStartingCommandLine(shell, args).Attach())
                         | None ->
                             Choice2Of2(g.Attach())
-                    cg,(isIdling || toolContainerRun.ContainerConfiguration.IsIdling), (remainingCpu - cpu, remainingRam - ram)
+                    cg,(isIdling || toolContainerRun.ContainerConfiguration.IsIdling), (remainingCpu - cpu, remainingRam - ram), portIsAssigned
                 )
             r, isIdling
 
@@ -714,6 +727,7 @@ module ContainerInstances =
                     logInfo "Deploying container group: %s for job : %A" containerGroupName jobCreateRequest.JobId
 
                     let region = resourceGroup.Region
+
                     logInfo "Container group does not exist %s. Deploying..." containerGroupName
 
                     let _1_1 =
@@ -845,6 +859,7 @@ module ContainerInstances =
                                 containerToolRunsConfigurationsWithSecrets
                                 (workDirectory, workVolume)
                                 (readOnlyFileShares, jobCreateRequest.JobDefinition.ReadWriteFileShareMounts)
+                                agentConfig.NetworkProfileName
 
                     match _4 with
                     | Choice1Of2 (_), _ ->
@@ -887,7 +902,7 @@ module ContainerInstances =
                                         (Choice2Of2 cg)
                                         t.Resources targetRuns
                                         (workDirectory, workVolume)
-                                        (readOnlyFileShares, jobCreateRequest.JobDefinition.ReadWriteFileShareMounts) with
+                                        (readOnlyFileShares, jobCreateRequest.JobDefinition.ReadWriteFileShareMounts) agentConfig.NetworkProfileName with
                                 | Choice1Of2 _, _ -> failwith "Not possible"
                                 | Choice2Of2 cg, idling -> cg, (isIdling || idling)
                             | None -> cg, isIdling
@@ -927,13 +942,29 @@ module ContainerInstances =
                         async {
                             logInfo "Starting background creation of :%s with tags: %A" containerGroupName newTags
                             try
-                                let! _ =
-                                    w
-                                        .WithTags(newTags)
-                                        .WithRestartPolicy(Models.ContainerGroupRestartPolicy.Never)
-                                        .CreateAsync()
-                                        .ToAsync
-                                ()
+                                if String.IsNullOrWhiteSpace(agentConfig.NetworkProfileName) then
+                                    let! _ =
+                                        w
+                                            .WithTags(newTags)
+                                            .WithRestartPolicy(Models.ContainerGroupRestartPolicy.Never)                                        
+                                            .CreateAsync()
+                                            .ToAsync
+                                    ()
+                                else
+                                    let vnetRG =
+                                        if String.IsNullOrWhiteSpace(agentConfig.VNetResourceGroup) then
+                                            agentConfig.ResourceGroup
+                                        else
+                                            agentConfig.VNetResourceGroup
+
+                                    let! _ =
+                                        w
+                                            .WithNetworkProfileId(azure.SubscriptionId, vnetRG, agentConfig.NetworkProfileName)
+                                            .WithTags(newTags)
+                                            .WithRestartPolicy(Models.ContainerGroupRestartPolicy.Never)                                        
+                                            .CreateAsync()
+                                            .ToAsync
+                                    ()
                             with
                             | ex ->
                                 do! reportDeploymentError ex

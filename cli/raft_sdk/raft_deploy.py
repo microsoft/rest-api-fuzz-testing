@@ -1213,6 +1213,69 @@ class RaftServiceCLI():
         else:
             raise RaftApiException(info.text, info.status_code)
 
+    def config_vnet(self, vnetName, vnetSubnetName, vnetResourceGroup, vnetRegion):
+        networkProfileName = (f'{self.definitions.deployment}'
+                              f'-raft-aci-network-profile')
+
+        uri = (f"https://management.azure.com/subscriptions/"
+               f"{self.definitions.subscription}/"
+               f"resourceGroups/{vnetResourceGroup}/"
+               f"providers/Microsoft.Network/networkProfiles/"
+               f"{networkProfileName}/"
+               f"?api-version=2020-05-01")
+
+        body = (f'{{"properties" : {{'
+                f'"containerNetworkInterfaceConfigurations":[{{'
+                f'"properties":{{'
+                f'"ipConfigurations":[{{'
+                f'"properties": {{'
+                f'"subnet":{{'
+                f'"id":"/subscriptions/{self.definitions.subscription}'
+                f'/resourceGroups/{vnetResourceGroup}/providers'
+                f'/Microsoft.Network/virtualNetworks/{vnetName}'
+                f'/subnets/{vnetSubnetName}"'
+                f'}}}},"name":"ipconfig1"}}]}},"name":"eth1"}}]}},'
+                f'"location" : "{vnetRegion}"}}')
+
+        body_path = os.path.join(script_dir, 'body.json')
+        with open(body_path, 'w') as f:
+            f.write(body)
+
+        print(f'Creating network profile: {networkProfileName}')
+        result = az_json(f'rest --method put --uri {uri} '
+                         f'--body @{body_path} --output json')
+        os.remove(body_path)
+
+        print('Updating orchestrator settings')
+        az('functionapp config appsettings set'
+            f' --name {self.definitions.orchestrator}'
+            f' --resource-group {self.definitions.resource_group}'
+            f' --settings "RAFT_NETWORK_PROFILE_NAME={networkProfileName}"')
+            
+        az('functionapp config appsettings set'
+            f' --name {self.definitions.orchestrator}'
+            f' --resource-group {self.definitions.resource_group}'
+            f' --settings "RAFT_VNET_RESOURCE_GROUP={vnetResourceGroup}"')
+
+    def clear_vnet(self, vnetResourceGroup):
+        networkProfileName = (f'{self.definitions.deployment}'
+                              f'-raft-aci-network-profile')
+        
+        print('Removing network profile')
+        az(f'network profile delete --name {networkProfileName} '
+           f'--resource-group {vnetResourceGroup} --yes')
+
+        print('Updating orchestrator settings')
+        az('functionapp config appsettings set'
+            f' --name {self.definitions.orchestrator}'
+            f' --resource-group {self.definitions.resource_group}'
+            f' --settings "RAFT_NETWORK_PROFILE_NAME="')
+
+        az('functionapp config appsettings set'
+            f' --name {self.definitions.orchestrator}'
+            f' --resource-group {self.definitions.resource_group}'
+            f' --settings "RAFT_VNET_RESOURCE_GROUP="')
+
     def wait_for_service_to_start(self, old_info=None):
         new_info = old_info
         while True:
