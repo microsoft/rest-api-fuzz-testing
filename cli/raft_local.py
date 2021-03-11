@@ -10,7 +10,7 @@ import json
 import datetime
 import time
 from subprocess import PIPE
-from raft_sdk.raft_common import RaftDefinitions, RaftJsonDict
+from raft_sdk.raft_common import RaftDefinitions, RaftJsonDict, get_version
 from raft_sdk.raft_service import RaftJobConfig, RaftJobError
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -503,7 +503,7 @@ def run(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description='RAFT-Local CLI',
+        description=f'RAFT-Local CLI {get_version()}',
         formatter_class=argparse.RawTextHelpFormatter)
 
     sub_parser = parser.add_subparsers()

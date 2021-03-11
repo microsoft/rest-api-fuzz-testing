@@ -53,6 +53,7 @@ please run 'raft.py service deploy'
 '''
 
 json_hook = raft_sdk.raft_common.RaftJsonDict.raft_json_object_hook
+version = raft_sdk.raft_common.get_version()
 
 
 def run(args):
@@ -61,6 +62,16 @@ def run(args):
         d = defaults.get('deploymentName')
         r = defaults.get('region')
         return (s and d and r)
+
+    cli_action = args.get('cli-action')
+    if cli_action:
+        if cli_action == 'logout':
+            raft_sdk.raft_common.delete_token_cache()
+        elif cli_action == 'version':
+            print(version)
+        else:
+            raise Exception(f'Unhandled cli argument: {cli_action}')
+        return
 
     defaults_path = args['defaults_context_path']
     defaults_json = args['defaults_context_json']
@@ -91,14 +102,11 @@ def run(args):
     if defaults.get('useAppInsights') is None:
         defaults['useAppInsights'] = True
 
-    cli_action = args.get('logout')
     service_action = args.get('service-action')
     job_action = args.get('job-action')
     webhook_action = args.get('webhook-action')
 
-    if cli_action == 'logout':
-        raft_sdk.raft_common.delete_token_cache()
-    elif service_action:
+    if service_action:
         service_cli = RaftServiceCLI(
                             defaults,
                             defaults_path,
@@ -304,7 +312,7 @@ def add_defaults_and_secret_args(parser):
 # pip install -r requirements.txt
 def main():
     parser = argparse.ArgumentParser(
-        description='RAFT CLI',
+        description=f'RAFT CLI {version}',
         formatter_class=argparse.RawTextHelpFormatter)
     sub_parser = parser.add_subparsers()
 
@@ -312,9 +320,15 @@ def main():
         'cli',
         formatter_class=argparse.RawTextHelpFormatter)
 
-    cli_parser.add_argument('logout',
-                            help=textwrap.dedent('''\
-Clears the cache so re-authentication will be needed to use the CLI again.'''))
+    cli_parser.add_argument(
+        'cli-action',
+        choices=['logout', 'version'],
+        help=textwrap.dedent('''\
+logout      - Clears the cache so re-authentication will be
+              needed to use the CLI again.
+
+version     - Prints CLI version
+'''))
 
     service_parser = sub_parser.add_parser(
         'service',

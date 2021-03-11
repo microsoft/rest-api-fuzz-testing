@@ -9,6 +9,10 @@ steps:
       pycodestyle cli/raft.py
     displayName: 'Run pycodestyle'
 
+  - script: |
+      pip install -r cli/requirements.txt
+      python cli/raft.py cli version
+
   - task: PublishPipelineArtifact@1
     inputs:
       targetPath: cli

@@ -85,3 +85,5 @@ __pycache__/
 
 /cli/defaults-*.json
 /cli/local/
+
+/cli/raft_sdk/version.yml

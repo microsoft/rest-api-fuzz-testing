@@ -8,10 +8,38 @@ import string
 from pathlib import Path
 import time
 import json
+import yaml
+import shutil
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 cache_dir = os.path.join(str(Path.home()), '.cache', 'raft')
 cache_path = os.path.join(cache_dir, 'token_cache.bin')
+
+def get_version():
+    version_variables_yml = os.path.join(script_dir, '..', '..', 'ado', 'variables', 'version-variables.yml')
+    version_vars = os.path.join(script_dir, "version.yml")
+    if os.path.exists(version_variables_yml):
+        shutil.copyfile(version_variables_yml, version_vars)
+
+    if os.path.exists(version_vars):
+        with open(version_vars, 'r') as ver_file:
+            v = yaml.load(ver_file.read(), Loader=yaml.FullLoader)
+        version_major = None
+        version_minor = None
+        all_variables = v.get('variables')
+        if all_variables:
+            for x in all_variables:
+                if x['name'] == 'version.major':
+                    version_major = x['value']
+                if x['name'] == 'version.minor':
+                    version_minor = x['value']
+                if version_major and version_minor:
+                    break
+            return f'{version_major}.{version_minor}'
+        else:
+            return ''
+    else:
+        return ''
 
 class RaftJsonDict(dict):
     def __init__(self):
