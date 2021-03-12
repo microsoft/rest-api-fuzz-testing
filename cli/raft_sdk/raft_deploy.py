@@ -1073,7 +1073,6 @@ class RaftServiceCLI():
                                     [self.assign_resource_group_roles,
                                      self.assign_keyvault_roles])
 
-            self.create_keyvault_event_subscription()
             # add service principal information to the keyvault
             auth = {
                 'client': service_principal['appId'],
@@ -1168,7 +1167,10 @@ class RaftServiceCLI():
         print('Waiting for service to start'
               f' {self.definitions.api_service_webapp}')
         self.wait_for_service_to_start()
-        print('Service started')
+        
+        # The orchestrator *must* be running for this to succeed.
+        self.create_keyvault_event_subscription()
+        print('Deployment Complete')
 
     def restart(self):
         try:
