@@ -125,12 +125,12 @@ namespace OrchestratorFunc
                 var resourceGroup = GetSetting("RAFT_CONTAINER_RUN_RESOURCE_GROUP");
 
                 var utilsStorageAccount = GetSetting("RAFT_UTILS_STORAGE");
-                var utilsStorageAccountKey = OrchestratorLogic.ContainerInstances.getStorageKeyTask(azure, resourceGroup, utilsStorageAccount);
-                utilsStorageAccountKey.Wait();
+                var utilsStorageAccountKeyAndUri = OrchestratorLogic.ContainerInstances.getStorageKeyTask(azure, resourceGroup, utilsStorageAccount);
+                utilsStorageAccountKeyAndUri.Wait();
 
                 var resultsStorageAccount = GetSetting("RAFT_RESULTS_STORAGE");
-                var resultsStorageAccountKey = OrchestratorLogic.ContainerInstances.getStorageKeyTask(azure, resourceGroup, resultsStorageAccount);
-                resultsStorageAccountKey.Wait();
+                var resultsStorageAccountKeyAndUri = OrchestratorLogic.ContainerInstances.getStorageKeyTask(azure, resourceGroup, resultsStorageAccount);
+                resultsStorageAccountKeyAndUri.Wait();
 
 
                 var metricsKey = GetSetting("RAFT_METRICS_APP_INSIGHTS_KEY");
@@ -147,10 +147,13 @@ namespace OrchestratorFunc
                         siteHash: GetSetting("RAFT_SITE_HASH"),
 
                         utilsStorageAccount: utilsStorageAccount,
-                        utilsStorageAccountKey: utilsStorageAccountKey.Result,
+                        utilsStorageAccountKey: utilsStorageAccountKeyAndUri.Result.Item1,
+                        utilsStorageAccountUri: utilsStorageAccountKeyAndUri.Result.Item2,
+
                         utilsFileShare: GetSetting("RAFT_UTILS_FILESHARE"),
                         resultsStorageAccount: resultsStorageAccount,
-                        resultsStorageAccountKey: resultsStorageAccountKey.Result,
+                        resultsStorageAccountKey: resultsStorageAccountKeyAndUri.Result.Item1,
+                        resultsStorageAccountUri: resultsStorageAccountKeyAndUri.Result.Item2,
 
                         networkProfileName: GetSetting("RAFT_NETWORK_PROFILE_NAME"),
                         vNetResourceGroup: GetSetting("RAFT_VNET_RESOURCE_GROUP")

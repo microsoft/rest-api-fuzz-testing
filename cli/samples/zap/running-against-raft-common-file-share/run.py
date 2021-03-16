@@ -22,4 +22,4 @@ def run(run_zap):
     cli.poll(zap_job['jobId'])
 
 if __name__ == "__main__":
-    run("zap.json")
+    run(os.path.join(cur_dir, "zap.json"))
