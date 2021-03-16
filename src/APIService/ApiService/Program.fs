@@ -24,9 +24,10 @@ open Microsoft.Azure.ServiceBus.Core
 open Microsoft.AspNetCore.Mvc
 open Microsoft.OpenApi.Models
 open Microsoft.AspNetCore.Http
-open Microsoft.AspNetCore.Authentication.AzureAD.UI
-open Microsoft.AspNetCore.Authentication
 open Swashbuckle.AspNetCore.SwaggerGen
+open Microsoft.Identity.Web
+open System.IdentityModel.Tokens.Jwt
+open Microsoft.AspNetCore.Authentication.JwtBearer
 
 module main = 
 
@@ -123,7 +124,8 @@ module main =
     let configureApp (app : IApplicationBuilder) =
         app.UseAuthentication()
            .UseCors(configureCors)
-           .UseExceptionHandler(fun options -> options.Run(RequestDelegate ErrorHandling.handleExceptions)) 
+           .UseExceptionHandler(fun options -> options.Run(RequestDelegate ErrorHandling.handleExceptions))
+           .UseAuthentication()
            .UseMvc()
            .UseSwagger()
            .UseSwaggerUI(fun config ->
@@ -201,23 +203,28 @@ module main =
         // Enable logging of details on console window
         Microsoft.IdentityModel.Logging.IdentityModelEventSource.ShowPII <- true
 
-        services.AddAuthentication(AzureADDefaults.BearerAuthenticationScheme)
-                .AddAzureADBearer(fun options -> options.ClientId <- settings.["RAFT_SERVICE_PRINCIPAL_CLIENT_ID"]
-                                                 options.Instance <- "https://login.microsoftonline.com/"
-                                                 options.TenantId <- settings.["RAFT_SERVICE_PRINCIPAL_TENANT_ID"]
-                                  )
-                 //https://developer.okta.com/blog/2018/03/23/token-authentication-aspnetcore-complete-guide
-                .AddJwtBearer(fun options -> 
-                                    // It is important to validate the audience so we know this token is for us. 
-                                    options.TokenValidationParameters.ValidAudience <- settings.["RAFT_SERVICE_PRINCIPAL_CLIENT_ID"]
-                                    options.TokenValidationParameters.ValidateAudience <- true
+        // This is required to be instantiated before the OpenIdConnectOptions starts getting configured.
+        // By default, the claims mapping will map claim names in the old format to accommodate older SAML applications.
+        // 'http://schemas.microsoft.com/ws/2008/06/identity/claims/role' instead of 'roles'
+        // This flag ensures that the ClaimsIdentity claims collection will be built from the claims in the token
+        JwtSecurityTokenHandler.DefaultMapInboundClaims <- false
+        
+        //https://aka.ms/ms-identity-web
+        use config = 
+            let mem = Microsoft.Extensions.Configuration.Memory.MemoryConfigurationSource()
+            let p = Microsoft.Extensions.Configuration.Memory.MemoryConfigurationProvider(mem) :> Microsoft.Extensions.Configuration.IConfigurationProvider
 
-                                    options.TokenValidationParameters.ValidateLifetime <- true
-                                    options.TokenValidationParameters.ValidateIssuerSigningKey <- true
+            let config = new Microsoft.Extensions.Configuration.ConfigurationRoot(ResizeArray [p])
+            let section = config.GetSection("AzureAd")
+            section.["ClientId"] <- settings.["RAFT_SERVICE_PRINCIPAL_CLIENT_ID"]
+            section.["Instance"] <- "https://login.microsoftonline.com/"
+            section.["TenantId"] <- settings.["RAFT_SERVICE_PRINCIPAL_TENANT_ID"]
+            section.["Audience"] <- settings.["RAFT_SERVICE_PRINCIPAL_CLIENT_ID"]
+            //https://github.com/AzureAD/microsoft-identity-web/wiki/web-apis#to-support-acl-based-authorization
+            section.["AllowWebApiToBeAuthorizedByACL"] <- "true"
+            config
 
-                                    options.TokenValidationParameters.ClockSkew <- TimeSpan.FromMinutes(5.0)
-                             ) 
-                |> ignore
+        services.AddMicrosoftIdentityWebApiAuthentication(config) |> ignore
 
         // Pre-create the tables once when startup up so the running controllers does not need to.
         // This eliminates a bunch of 409's. 
