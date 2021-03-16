@@ -150,7 +150,10 @@ namespace OrchestratorFunc
                         utilsStorageAccountKey: utilsStorageAccountKey.Result,
                         utilsFileShare: GetSetting("RAFT_UTILS_FILESHARE"),
                         resultsStorageAccount: resultsStorageAccount,
-                        resultsStorageAccountKey: resultsStorageAccountKey.Result
+                        resultsStorageAccountKey: resultsStorageAccountKey.Result,
+
+                        networkProfileName: GetSetting("RAFT_NETWORK_PROFILE_NAME"),
+                        vNetResourceGroup: GetSetting("RAFT_VNET_RESOURCE_GROUP")
                     );
 
                 var allSecrets = OrchestratorLogic.ContainerInstances.initializeSecretsFromKeyvault(azure, agentConfig);

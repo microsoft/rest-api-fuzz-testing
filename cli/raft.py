@@ -125,6 +125,34 @@ def run(args):
             service_cli.upload_utils(
                 utils_file_share, args.get('custom_tools_path'))
             service_cli.restart()
+        elif service_action == 'config-vnet':
+            vnetName = args.get('vnetName')
+            if vnetName is None:
+                ArgumentRequired('--vnetName')
+
+            subnetName = args.get('vnetSubnetName')
+            if subnetName is None:
+                ArgumentRequired('--vnetSubnetName')
+
+            vnetResourceGroup = args.get('vnetResourceGroup')
+            if vnetResourceGroup is None:
+                ArgumentRequired('--vnetResourceGroup')
+
+            vnetRegion = args.get('vnetRegion')
+            if vnetRegion is None:
+                ArgumentRequired('--vnetRegion')
+
+            service_cli.config_vnet(vnetName,
+                                    subnetName,
+                                    vnetResourceGroup,
+                                    vnetRegion)
+
+        elif service_action == 'clear-vnet':
+            vnetResourceGroup = args.get('vnetResourceGroup')
+            if vnetResourceGroup is None:
+                ArgumentRequired('--vnetResourceGroup')
+
+            service_cli.clear_vnet(vnetResourceGroup)
         else:
             raise Exception(f'Unhandled service argument: {service_action}')
 
@@ -335,7 +363,8 @@ version     - Prints CLI version
         formatter_class=argparse.RawTextHelpFormatter)
     service_parser.add_argument(
         'service-action',
-        choices=['deploy', 'restart', 'info', 'upload-tools', 'update'],
+        choices=['deploy', 'restart', 'info', 'upload-tools',
+                 'update', 'config-vnet', 'clear-vnet'],
         help=textwrap.dedent('''\
 deploy       - Deploys the service
 
@@ -346,8 +375,19 @@ info         - Show the version of the service and the last time it was started
 
 upload-tools - Uploads the tools definitions to the service
 
-update - Uploads the tools definitions to the service and
-         restarts service to get latest service components
+update       - Uploads the tools definitions to the service and
+               restarts service to get latest service components
+
+config-vnet  - Defines the VNET that Azure Container Instances are deployed
+               into. The --vnetName, --vnetSubnetName, --vnetResourceGroup
+               and --vnetRegion parameters are required. Note that the subnet
+               must be created with Microsoft.Storage service endpoint and
+               it must be delegated to
+               Microsoft.ContainerInstance/containerGroups.
+               See the documentation for more information.
+
+clear-vnet   - Removes the vnet configuration. The --vnetResourceGroup
+               parameter is required.
 '''))
 
     allowed_skus = [
@@ -361,6 +401,18 @@ update - Uploads the tools definitions to the service and
 
     service_parser.add_argument(
         '--custom-tools-path', default=None, required=False)
+
+    service_parser.add_argument(
+        '--vnetName', default=None, required=False)
+
+    service_parser.add_argument(
+        '--vnetSubnetName', default=None, required=False)
+
+    service_parser.add_argument(
+        '--vnetResourceGroup', default=None, required=False)
+
+    service_parser.add_argument(
+        '--vnetRegion', default=None, required=False)
 
     # Add the positional argument.
     job_parser = sub_parser.add_parser(
