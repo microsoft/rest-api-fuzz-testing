@@ -23,11 +23,11 @@ steps:
   - task: CopyFiles@2
     displayName: 'Copy RESTlerAgent Dockerfile'
     inputs:
-      targetFolder: src/Agent/RESTlerAgent/bin/release/netcoreapp3.1/publish/
+      targetFolder: src/Agent/RESTlerAgent/bin/release/net5.0/publish/
       sourceFolder: src/Agent
       contents: Dockerfile
 
   - task: PublishPipelineArtifact@1
     inputs:
-      targetPath: src/Agent/RESTlerAgent/bin/release/netcoreapp3.1/publish/
+      targetPath: src/Agent/RESTlerAgent/bin/release/net5.0/publish/
       artifactName: RestlerAgent

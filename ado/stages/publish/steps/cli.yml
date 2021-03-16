@@ -18,7 +18,7 @@ steps:
       project: 'raft'
       pipeline: $(build-production-pipeline-id)
       artifact: AzureAuth
-      path: $(Build.SourcesDirectory)/artifacts/cli/raft-tools/auth/dotnet-core-3.1
+      path: $(Build.SourcesDirectory)/artifacts/cli/raft-tools/auth/dotnet-5.0
       runVersion: 'latest'
 
   - task: ArchiveFiles@2

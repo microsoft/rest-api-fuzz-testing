@@ -21,7 +21,7 @@ steps:
   - task: CopyFiles@2
     displayName: 'Copy Test Infra Dockerfile'
     inputs:
-      targetFolder: src/Test/TestInfraFunc/bin/release/netcoreapp3.1/publish/
+      targetFolder: src/Test/TestInfraFunc/bin/release/net5.0/publish/
       sourceFolder: src/Test/
       contents: Dockerfile
 
@@ -30,12 +30,12 @@ steps:
   - task: CopyFiles@2
     displayName: 'Copy TestInfraFunc Dockerfile'
     inputs:
-      targetFolder: src/Test/TestInfraFunc/bin/release/netcoreapp3.1/publish/
+      targetFolder: src/Test/TestInfraFunc/bin/release/net5.0/publish/
       sourceFolder: src/Test
       contents: Dockerfile
 
   - task: PublishPipelineArtifact@1
     inputs:
-      targetPath: src/Test/TestInfraFunc/bin/release/netcoreapp3.1/publish/
+      targetPath: src/Test/TestInfraFunc/bin/release/net5.0/publish/
       artifactName: TestInfraFunc
 

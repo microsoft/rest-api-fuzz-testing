@@ -3,7 +3,7 @@
 	"shell" : "/bin/sh",
 	"run" : {
 		"shellArguments" : ["-c",
-			"sleep $RAFT_STARTUP_DELAY; dotnet /raft/agent/RestlerAgent.dll --agent-name ${RAFT_CONTAINER_NAME} --job-id ${RAFT_JOB_ID} --task-config-path ${RAFT_WORK_DIRECTORY}/task-config.json --work-directory ${RAFT_WORK_DIRECTORY} --restler-path /RESTler --app-insights-instrumentation-key ${RAFT_APP_INSIGHTS_KEY} --output-sas \"${RAFT_SB_OUT_SAS}\""
+			"date; sleep ${RAFT_STARTUP_DELAY}; date; dotnet /raft/agent/RestlerAgent.dll --agent-name ${RAFT_CONTAINER_NAME} --job-id ${RAFT_JOB_ID} --task-config-path ${RAFT_WORK_DIRECTORY}/task-config.json --work-directory ${RAFT_WORK_DIRECTORY} --restler-path /RESTler --app-insights-instrumentation-key ${RAFT_APP_INSIGHTS_KEY} --output-sas \"${RAFT_SB_OUT_SAS}\""
 		]
 	},
 	"idle" : {

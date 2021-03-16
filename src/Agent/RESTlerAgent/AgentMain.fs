@@ -254,10 +254,10 @@ let createRESTlerEngineParameters
                             | Raft.Job.Authentication.TokenRefresh.CommandLine cmd -> cmd
 
                             | Raft.Job.Authentication.TokenRefresh.MSAL secret ->
-                                (sprintf "dotnet /raft-tools/auth/dotnet-core-3.1/AzureAuth.dll msal --secret \"%s\" --prepend-line \"{u'user1':{}}\"" secret)
+                                (sprintf "dotnet /raft-tools/auth/dotnet-5.0/AzureAuth.dll msal --secret \"%s\" --prepend-line \"{u'user1':{}}\"" secret)
 
                             | Raft.Job.Authentication.TokenRefresh.TxtToken secret ->
-                                (sprintf "dotnet /raft-tools/auth/dotnet-core-3.1/AzureAuth.dll token --secret \"%s\" --prepend-line \"{u'user1':{}}\"" secret)
+                                (sprintf "dotnet /raft-tools/auth/dotnet-5.0/AzureAuth.dll token --secret \"%s\" --prepend-line \"{u'user1':{}}\"" secret)
                     }
                 printfn "Refreshable token configuration : %A" authConfig
                 Some authConfig
