@@ -22,6 +22,8 @@ The image tags produced for the containers will follow this pattern.
 - v1.latest	Points to the latest version of v1
 - v2.0.0    Release not-compatible with v1.*
 - v2.latest Points to the latest version of v2
+- v3.0.0    Release not-compatible with v2.*
+- v3.latest Points to the latest version of v3
 
 Releases will be created on the github project whenever a new CLI is needed and
 when a new image is release. For the releases that only include image updates,
