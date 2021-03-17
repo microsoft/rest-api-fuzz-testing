@@ -1,5 +1,5 @@
 {
-	"container" : "mcr.microsoft.com/restapifuzztesting/restler-agent:v2.latest",
+	"container" : "mcr.microsoft.com/restapifuzztesting/restler-agent:v3.latest",
 	"shell" : "/bin/sh",
 	"run" : {
 		"shellArguments" : ["-c",

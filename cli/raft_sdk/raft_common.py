@@ -207,7 +207,7 @@ class RaftDefinitions():
         self.resource_group = f"{self.deployment}-raft"
         self.app_insights = f"{self.deployment}-raft-ai"
         self.asp = f"{self.deployment}-raft-asp"
-        self.container_tag = "v2.latest"
+        self.container_tag = "v3.latest"
         self.queues = {
                 'job_events': "raft-jobevents",
                 'create_queue': "raft-jobcreate",
