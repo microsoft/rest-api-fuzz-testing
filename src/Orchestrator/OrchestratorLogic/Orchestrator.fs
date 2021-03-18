@@ -116,9 +116,11 @@ module ContainerInstances =
             UtilsStorageAccount: string
             UtilsStorageAccountKey: string
             UtilsFileShare: string
+            UtilsStorageAccountUri : System.Uri
             
             ResultsStorageAccount : string
             ResultsStorageAccountKey: string
+            ResultsStorageAccountUri : System.Uri
 
             NetworkProfileName: string
             VNetResourceGroup: string
@@ -236,9 +238,10 @@ module ContainerInstances =
     let getStorageKey (azure: IAzure) (resourceGroup: string, storageAccount: string) =
         async {
             let! storage = azure.StorageAccounts.GetByResourceGroupAsync(resourceGroup, storageAccount).ToAsync
+            
             let! keys = storage.GetKeysAsync().ToAsync
             let storageKey = keys.[0].Value
-            return storageKey
+            return storageKey, (System.Uri(storage.EndPoints.Primary.File))
         }
 
     let getStorageKeyTask (azure: IAzure) (resourceGroup: string, storageAccount: string) =
@@ -246,12 +249,11 @@ module ContainerInstances =
 
     let initializeTools (agentConfig: AgentConfig) =
         async {
-            let auth = Microsoft.Azure.Storage.Auth.StorageCredentials(agentConfig.UtilsStorageAccount, agentConfig.UtilsStorageAccountKey;)
-            let account = Microsoft.Azure.Storage.CloudStorageAccount(auth, true)
-            let sasUrl = account.ToString(true)
+            let storageCredential = Azure.Storage.StorageSharedKeyCredential(agentConfig.UtilsStorageAccount, agentConfig.UtilsStorageAccountKey)
+            let builder = Azure.Storage.Files.Shares.ShareUriBuilder(agentConfig.UtilsStorageAccountUri, ShareName = agentConfig.UtilsFileShare )
+            let share = Azure.Storage.Files.Shares.ShareClient(builder.ToUri(), storageCredential)
+            let directoryClient = share.GetDirectoryClient("tools")
 
-            let directoryClient = Azure.Storage.Files.Shares.ShareDirectoryClient(sasUrl, agentConfig.UtilsFileShare, "tools")
-            
             let asyncEnum = directoryClient.GetFilesAndDirectoriesAsync().GetAsyncEnumerator()
 
             let rec loadAllConfigs(allConfigs) =
@@ -368,7 +370,7 @@ module ContainerInstances =
                     + (sprintf "%s/" storageAccountName)
                     + (sprintf "path/%s/protocol/" (Option.defaultValue containerGroupName rootFileShare))
 
-    let createJobShareAndFolders (logger: ILogger) (containerGroupName: string) (sasUrl: string) (jobCreateRequest: CreateJobRequest) =
+    let createJobShareAndFolders (logger: ILogger) (containerGroupName: string) (getShare: string -> Azure.Storage.Files.Shares.ShareClient) (jobCreateRequest: CreateJobRequest) =
         async {
             let shareName, createSubDirectory, shareQuota =
                 match jobCreateRequest.JobDefinition.RootFileShare with
@@ -390,9 +392,12 @@ module ContainerInstances =
             let logInfo format = Printf.kprintf logger.LogInformation format
             logInfo "Creating config fileshare: %s" shareName
 
+            let shareClient = getShare shareName
+            let rootDirectory = shareClient.GetRootDirectoryClient()
+
             let saveString(fileName: string) (data: string) =
                 async {
-                    let file = Azure.Storage.Files.Shares.ShareFileClient(sasUrl, shareName, fileName)
+                    let file = rootDirectory.GetFileClient(fileName)
                     let! _ = file.DeleteIfExistsAsync().ToAsync
 
                     let! _ = file.CreateAsync(int64 data.Length).ToAsync
@@ -403,7 +408,6 @@ module ContainerInstances =
                     return ()
                 }
 
-            let shareClient = Azure.Storage.Files.Shares.ShareClient(sasUrl, shareName)
             let! _ = shareClient.CreateIfNotExistsAsync(dict[], Nullable(shareQuota)).ToAsync
 
             let! subDirectory = createSubDirectory(shareClient)
@@ -579,14 +583,15 @@ module ContainerInstances =
             let workVolume = jobCreateRequest.JobId
             let workDirectory = sprintf "/work-directory-%s" jobCreateRequest.JobId
 
-            let auth = Microsoft.Azure.Storage.Auth.StorageCredentials(agentConfig.ResultsStorageAccount, agentConfig.ResultsStorageAccountKey)
-            let account = Microsoft.Azure.Storage.CloudStorageAccount(auth, true)
-            let sasUrl = account.ToString(true)
+            let getShare(shareName) =
+                let storageCredential = Azure.Storage.StorageSharedKeyCredential(agentConfig.ResultsStorageAccount, agentConfig.ResultsStorageAccountKey)
+                let builder = Azure.Storage.Files.Shares.ShareUriBuilder(agentConfig.ResultsStorageAccountUri, ShareName = shareName )
+                Azure.Storage.Files.Shares.ShareClient(builder.ToUri(), storageCredential)
 
             let makeToolConfig payload =
                 getToolConfiguration dockerConfigs toolsConfigs payload
 
-            let! shareName = createJobShareAndFolders logger containerGroupName sasUrl jobCreateRequest
+            let! shareName = createJobShareAndFolders logger containerGroupName getShare jobCreateRequest
 
             jobCreateRequest.JobDefinition.TestTasks.Tasks
             |> Array.countBy(fun task -> task.ToolName)
