@@ -19,20 +19,22 @@ def run(compile, test):
     }
     compile_job_config = RaftJobConfig(file_path=compile, substitutions=substitutions)
 
-    compile_task = compile_job_config.config['tasks'][0]
+    compile_task = compile_job_config.config['testtasks']['tasks'][0]
     #use first task as template and create 30 compile task
     compile_tasks = []
     for t in range(30):
         new_task = copy.deepcopy(compile_task)
         new_task['outputFolder'] = compile_task['outputFolder'] + f"-{t}"
+        new_task['toolConfiguration']['compileConfiguration'] = {}
         new_task['toolConfiguration']['compileConfiguration']['mutationsSeed'] = random.randint(0, 1000)
         compile_tasks.append(new_task)
 
-    compile_job_config.config['tasks'] = compile_tasks
+    compile_job_config.config['testtasks']['tasks'] = compile_tasks
 
     print('Compile')
     # create a new job with the Compile config and get new job ID
     # in compile_job
+    compile_json = json.dumps(compile_job_config.config)
     compile_job = cli.new_job(compile_job_config)
     # wait for a job with ID from compile_job to finish the run
     cli.poll(compile_job['jobId'])
@@ -42,8 +44,8 @@ def run(compile, test):
     print('Test')
     test_job_config = RaftJobConfig(file_path=test, substitutions=substitutions)
 
-    task_test_fuzz_lean = test_job_config.config['tasks'][0]
-    task_test = test_job_config.config['tasks'][1]
+    task_test_fuzz_lean = test_job_config.config['testtasks']['tasks'][0]
+    task_test = test_job_config.config['testtasks']['tasks'][1]
     test_tasks = []
     for t in range(30):
         new_task_test = copy.deepcopy(task_test)
@@ -58,11 +60,10 @@ def run(compile, test):
         test_tasks.append(new_task_test)
         test_tasks.append(new_task_test_fuzz_lean)
 
-    test_job_config.config['tasks'] = test_tasks
+    test_job_config.config['testtasks']['tasks'] = test_tasks
     test_job = cli.new_job(test_job_config)
     cli.poll(test_job['jobId'])
 
 if __name__ == "__main__":
-    host = sys.argv[1]
-run(os.path.join(cur_dir, "compile-60.json"),
-    os.path.join(cur_dir, "test-60.json"))
+    run(os.path.join(cur_dir, "compile-60.json"),
+        os.path.join(cur_dir, "test-60.json"))

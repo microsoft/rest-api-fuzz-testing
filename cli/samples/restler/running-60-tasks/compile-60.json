@@ -16,7 +16,8 @@
         "outputFolder": "RESTler-compile",
 
         "toolConfiguration": {
-          "task": "compile"            }
+          "task": "compile"            
+        }
       }
     ]
   }
