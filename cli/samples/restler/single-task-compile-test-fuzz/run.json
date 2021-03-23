@@ -6,14 +6,39 @@
   
   "testTasks": {
     "targetConfiguration" : {
+      "endpoint" : "https://petstore.swagger.io",
       "apiSpecifications": [
         "https://petstore.swagger.io/v2/swagger.json"
       ]
     },
     "tasks": [
       {
+        "targetConfiguration" : {
+          "endpoint" : "https://petstore3.swagger.io",
+          "apiSpecifications": [
+            "https://petstore3.swagger.io/api/v3/openapi.json"
+          ]
+        },
         "toolName": "RESTler",
-        "outputFolder": "restler-run",
+        "outputFolder": "restler-pestorev3",
+        "toolConfiguration": {
+          "tasks": [
+                {"task": "Compile"}, 
+                
+                {"task" : "Test"}, 
+                
+                {
+                    "task" : "Fuzz",
+                    "runConfiguration" : {
+                      "Duration" : "00:10:00"
+                    }
+                }
+            ]
+        }
+      },
+      {
+        "toolName": "RESTler",
+        "outputFolder": "restler-petstorev2",
         "toolConfiguration": {
           "tasks": [
                 {"task": "Compile"}, 

@@ -37,6 +37,12 @@ stages:
           vmImage: 'ubuntu-latest'
         steps:
           - template: steps/result-analyzer.yml
+
+      - job: RESTler2Postman
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - template: steps/restler2postman.yml
  
       - job: AzureAuthUtility
         pool:

@@ -7,7 +7,9 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "RestlerAgent", "RESTlerAgen
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "RaftResultAnalyzer", "RaftResultAnalyzer\RaftResultAnalyzer.fsproj", "{32475F74-7C03-4547-ACF2-C02B1BF6F85A}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "AzureAuth", "AzureAuth\AzureAuth.fsproj", "{8A202DC0-DBEC-425C-8504-BCF3FDD1AE4B}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "AzureAuth", "AzureAuth\AzureAuth.fsproj", "{8A202DC0-DBEC-425C-8504-BCF3FDD1AE4B}"
+EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "RESTler2Postman", "RESTler2Postman\RESTler2Postman.fsproj", "{9483A0A4-0FD0-4905-BDA9-72A8FE70D670}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -27,6 +29,10 @@ Global
 		{8A202DC0-DBEC-425C-8504-BCF3FDD1AE4B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8A202DC0-DBEC-425C-8504-BCF3FDD1AE4B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8A202DC0-DBEC-425C-8504-BCF3FDD1AE4B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9483A0A4-0FD0-4905-BDA9-72A8FE70D670}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9483A0A4-0FD0-4905-BDA9-72A8FE70D670}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9483A0A4-0FD0-4905-BDA9-72A8FE70D670}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9483A0A4-0FD0-4905-BDA9-72A8FE70D670}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -1,0 +1,24 @@
+steps: 
+  - task: NuGetToolInstaller@1
+    displayName: 'Use NuGet 5.8'
+    inputs:
+      versionSpec: 5.8
+
+  - task: NuGetCommand@2
+    displayName: 'NuGet restore'
+    inputs:
+      restoreSolution: '**\RESTlerAgent.sln'
+
+  - task: DotNetCoreCLI@2
+    displayName: 'RESTler To Postman'
+    inputs:
+      command: publish
+      publishWebProjects: false
+      projects: src/Agent/RESTler2Postman/RESTler2Postman.fsproj
+      arguments: '-c release /p:version=$(versionNumber)'
+      zipAfterPublish: false
+
+  - task: PublishPipelineArtifact@1
+    inputs:
+      targetPath: src/Agent/RESTler2Postman/bin/release/net5.0/publish/
+      artifactName: RESTler2Postman

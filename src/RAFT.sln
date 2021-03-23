@@ -21,6 +21,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Orchestrator", "Orchestrato
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "OrchestratorLogic", "Orchestrator\OrchestratorLogic\OrchestratorLogic.fsproj", "{BFE2B877-4015-4519-92D8-F6A633770B15}"
 EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "RESTler2Postman", "Agent\RESTler2Postman\RESTler2Postman.fsproj", "{3B83CE52-07BB-4CA6-9AA6-B0962E064330}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -63,6 +65,10 @@ Global
 		{BFE2B877-4015-4519-92D8-F6A633770B15}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BFE2B877-4015-4519-92D8-F6A633770B15}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BFE2B877-4015-4519-92D8-F6A633770B15}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3B83CE52-07BB-4CA6-9AA6-B0962E064330}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3B83CE52-07BB-4CA6-9AA6-B0962E064330}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3B83CE52-07BB-4CA6-9AA6-B0962E064330}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3B83CE52-07BB-4CA6-9AA6-B0962E064330}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
