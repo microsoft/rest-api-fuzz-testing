@@ -28,6 +28,8 @@ module private RESTlerInternal =
         let resultAnalyzer = 
             "/raft" ++ "result-analyzer" ++ "RaftResultAnalyzer.dll"
 
+        let postmanConverter =
+            "/raft" ++ "restler2postman" ++ "RESTler2Postman.dll"
 
     (*
     let SupportedCheckers =
@@ -85,24 +87,29 @@ module private RESTlerInternal =
             // buffer and waits for the parent to consume it, and the parent waits for the
             // child process to exit first.
             // Reference: https://stackoverflow.com/questions/139593/processstartinfo-hanging-on-waitforexit-why?lq=1
-            use stdOutFile =
-                match stdOutFilePath with
-                | Some path -> System.IO.File.CreateText(path) :> IO.TextWriter
-                | None -> IO.TextWriter.Null
-            use stdErrFile =
-                match stdErrFilePath with
-                | Some path -> System.IO.File.CreateText(path) :> IO.TextWriter
-                | None -> IO.TextWriter.Null
+            let stdOutFile =
+                lazy(
+                    match stdOutFilePath with
+                    | Some path -> System.IO.File.CreateText(path) :> IO.TextWriter
+                    | None -> IO.TextWriter.Null
+                )
+
+            let stdErrFile =
+                lazy(
+                    match stdErrFilePath with
+                    | Some path -> System.IO.File.CreateText(path) :> IO.TextWriter
+                    | None -> IO.TextWriter.Null
+                )
         
             let appendHandler
                     (endOfStreamEvent:System.Threading.AutoResetEvent)
-                    (aggregator:IO.TextWriter)
+                    (aggregator:Lazy<IO.TextWriter>)
                     (dataReceived:Diagnostics.DataReceivedEventArgs) =
                 if isNull dataReceived.Data then
                     if not endOfStreamEvent.SafeWaitHandle.IsClosed && not endOfStreamEvent.SafeWaitHandle.IsInvalid then
                         endOfStreamEvent.Set() |> ignore
                 else
-                    aggregator.WriteLine(dataReceived.Data) |> ignore
+                    aggregator.Value.WriteLine(dataReceived.Data) |> ignore
 
             instance.OutputDataReceived.Add(appendHandler noMoreOutput stdOutFile)
             instance.ErrorDataReceived.Add(appendHandler noMoreError stdErrFile)
@@ -123,17 +130,22 @@ module private RESTlerInternal =
                         None
 
                 try
-                    do! stdOutFile.FlushAsync() |> Async.AwaitTask
+                    if stdOutFile.IsValueCreated then
+                        do! stdOutFile.Value.FlushAsync() |> Async.AwaitTask
                 with ex -> 
                     printfn "Failed to flush stdoout due to %A" ex
 
                 try
-                    do! stdErrFile.FlushAsync() |> Async.AwaitTask
+                    if stdErrFile.IsValueCreated then
+                        do! stdErrFile.Value.FlushAsync() |> Async.AwaitTask
                 with ex ->
                     printfn "Failed to flush stderr due to %A" ex
 
-                stdOutFile.Close()
-                stdErrFile.Close()
+                if stdOutFile.IsValueCreated then
+                    stdOutFile.Value.Close()
+
+                if stdErrFile.IsValueCreated then
+                    stdErrFile.Value.Close()
 
                 return
                     {
@@ -317,6 +329,19 @@ module private RESTlerInternal =
         }
 
 
+    let convertBugBucketToPostmanCollection (useSsl: bool) (bugFilePath: string) =
+        async {
+            let! result =
+                startProcessAsync
+                    Runtime.DotNet
+                    (sprintf "\"%s\" %s %s" Paths.postmanConverter (if useSsl then "--use-ssl" else "") (sprintf "--restler-bug-bucket-path \"%s\"" bugFilePath))
+                    "."
+                    None
+                    (Some (sprintf "%s.convert.err.txt" bugFilePath))
+            return ()
+        }
+
+
     let test testType restlerRootDirectory workingDirectory (parameters: Raft.RESTlerTypes.Engine.EngineParameters) = 
         async {
             do!
@@ -461,7 +486,9 @@ let getListOfBugs workingDirectory (runStartTime: DateTime) =
 
 let bugFoundPollInterval = TimeSpan.FromSeconds (10.0)
 type OnBugFound = Map<string, string> -> Async<unit>
-let pollForBugFound workingDirectory (token: Threading.CancellationToken) (runStartTime: DateTime) (ignoreBugHashes: string Set) (onBugFound : OnBugFound) =
+type ConvertBugBucket = string -> Async<unit>
+
+let pollForBugFound workingDirectory (token: Threading.CancellationToken) (runStartTime: DateTime) (ignoreBugHashes: string Set) (onBugFound : OnBugFound) (convert: ConvertBugBucket) =
     let rec poll() =
         async {
             if token.IsCancellationRequested then
@@ -493,6 +520,7 @@ let pollForBugFound workingDirectory (token: Threading.CancellationToken) (runSt
                                 |> Seq.map (fun (KeyValue(bugHash, bugFile)) ->
                                     async {
                                         if not <| postedBugs.Contains bugHash then
+                                            do! convert (experiment.FullName ++ "bug_buckets" ++ bugFile.file_path)
                                             do! onBugFound (Map.empty.Add("Experiment", experiment.Name).Add("BugBucket", bugFile.file_path).Add("BugHash", bugHash))
                                         return bugHash
                                     }
@@ -524,7 +552,7 @@ let test (testType: string)
                     token.Cancel()
                 }
                 resultAnalyzer workingDirectory token.Token report (runStartTime, reportInterval)
-                pollForBugFound workingDirectory token.Token runStartTime ignoreBugHashes onBugFound
+                pollForBugFound workingDirectory token.Token runStartTime ignoreBugHashes onBugFound (RESTlerInternal.convertBugBucketToPostmanCollection parameters.UseSsl)
             ]
         return ()
     }
@@ -545,7 +573,7 @@ let fuzz (fuzzType: string)
                     token.Cancel()
                 }
                 resultAnalyzer workingDirectory token.Token report (runStartTime, reportInterval)
-                pollForBugFound workingDirectory token.Token runStartTime ignoreBugHashes onBugFound
+                pollForBugFound workingDirectory token.Token runStartTime ignoreBugHashes onBugFound (RESTlerInternal.convertBugBucketToPostmanCollection parameters.UseSsl)
             ]
         return ()
     }

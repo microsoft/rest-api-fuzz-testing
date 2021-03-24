@@ -16,6 +16,12 @@ steps:
       artifact: RaftResultAnalyzer
       path: $(Build.SourcesDirectory)/artifacts/RaftResultAnalyzer
 
+  - task: DownloadPipelineArtifact@2
+    displayName: 'Download Local pipeline artifact RESTler2Postman'
+    inputs:
+      artifact: RESTler2Postman
+      path: $(Build.SourcesDirectory)/artifacts/RESTler2Postman
+
 - ${{ if eq(parameters.BuildArtifactsLocation, 'production') }}:   
   - task: DownloadPipelineArtifact@2
     displayName: 'Download Production pipeline artifact RestlerAgent'
@@ -39,6 +45,17 @@ steps:
       artifact: RaftResultAnalyzer
       path: $(Build.SourcesDirectory)/artifacts/RaftResultAnalyzer
       runVersion: 'latest'
+
+  - task: DownloadPipelineArtifact@2
+    displayName: 'Download Production pipeline artifact RESTler2Postman'
+    inputs:
+      source: 'specific'
+      project: 'raft'
+      pipeline: $(build-production-pipeline-id)
+      artifact: RESTler2Postman
+      path: $(Build.SourcesDirectory)/artifacts/RESTler2Postman
+      runVersion: 'latest'
+
 
 # This authenticates against the service connection which is needed to pull the restler image
 # from the repository.
