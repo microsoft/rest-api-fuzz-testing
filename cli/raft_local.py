@@ -142,6 +142,7 @@ class RaftLocalCLI():
         docker_run_cmd = 'run -d -t --no-healthcheck --privileged --user="root"'
         if shell and run_cmd:
             docker_run_cmd += ' --entrypoint=""'
+            docker_run_cmd += ' --workdir="/"'
         if container_name:
             docker_run_cmd += f' --name {container_name}'
         if bridge_name:
@@ -218,6 +219,22 @@ class RaftLocalCLI():
                         post_run_seconds = self.time_span_to_seconds(service['postrun']['ExpectedRunDuration'])
                         post_run_wait = max(post_run_seconds, post_run_wait)
 
+                    # create work folder and mount it
+                    task_dir = os.path.join(job_dir, service['outputFolder'])
+                    os.mkdir(task_dir)
+
+                    if run_cmd:
+                        with open(os.path.join(task_dir, 'task-run.sh'), 'w') as tc:
+                            tc.write(run_cmd)
+                            run_cmd=f"{shell} {work_dir}/task-run.sh"
+
+                    if post_run_cmd:
+                        with open(os.path.join(task_dir, 'task-post-run.sh'), 'w') as tc:
+                            tc.write(post_run_cmd)
+                            post_run_cmd=f"{shell} {work_dir}/task-post-run.sh"
+
+                    mounts = self.mount_read_write(task_dir, work_dir)
+
                     env += self.env_variable('RAFT_RUN_CMD', run_cmd)
                     env += self.env_variable('RAFT_POST_RUN_COMMAND', post_run_cmd)
                     env += self.env_variable('RAFT_CONTAINER_SHELL', shell)
@@ -228,10 +245,6 @@ class RaftLocalCLI():
                         for e in service_environment_variables:
                             env += self.env_variable(e, service_environment_variables[e])
 
-                    # create work folder and mount it
-                    task_dir = os.path.join(job_dir, service['outputFolder'])
-                    os.mkdir(task_dir)
-                    mounts = self.mount_read_write(task_dir, work_dir)
 
                     expose_ports = ''
                     ports = service.get('Ports')
@@ -300,8 +313,15 @@ class RaftLocalCLI():
                     run_cmd = cmd
                     startup_delay = test_services_startup_delay
 
+                task_dir = os.path.join(job_dir, tt['outputFolder'])
+                os.mkdir(task_dir)
+
+                with open(os.path.join(task_dir, 'task-run.sh'), 'w') as tc:
+                    tc.write(run_cmd)
+                    run_cmd = f"{shell} {work_dir}/task-run.sh"
+
                 env += self.env_variable('RAFT_STARTUP_DELAY', startup_delay)
-                env += self.env_variable('RAFT_RUN_CMD', cmd)
+                env += self.env_variable('RAFT_RUN_CMD', run_cmd)
                 env += self.env_variable('RAFT_TOOL_RUN_DIRECTORY', self.tool_paths[tt['toolName']])
                 env += self.env_variable('RAFT_POST_RUN_COMMAND', '')
                 env += self.env_variable('RAFT_CONTAINER_SHELL', shell)
@@ -312,9 +332,6 @@ class RaftLocalCLI():
                             secret = secret_file.read()
                             env += self.env_variable(f'RAFT_{s}', secret.strip())
                 # create work folder and mount it
-
-                task_dir = os.path.join(job_dir, tt['outputFolder'])
-                os.mkdir(task_dir)
 
                 # create task_config json, and save it to task_dir
                 with open(os.path.join(task_dir, 'task-config.json'), 'w') as tc:
@@ -362,6 +379,7 @@ class RaftLocalCLI():
 
     def wait_for_container_termination(self, containers, duration):
         saved_duration = duration
+        print('Waiting for containers: ' + '; '.join(containers))
         while(len(containers) > 0):
             container_info = docker('container inspect ' + ' '.join(containers))
             infos = json.loads(container_info)
