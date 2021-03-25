@@ -159,24 +159,20 @@ module private RESTlerInternal =
     let getRunExperimentFolder (fuzzingWorkingDirectory) (runStartTime: DateTime) =
         let restlerResults = IO.DirectoryInfo(fuzzingWorkingDirectory ++ "RestlerResults")
         if restlerResults.Exists then
-            let experiments = restlerResults.EnumerateDirectories("experiment*")
-            if Seq.isEmpty experiments then
-                None
-            else
-                try
+            try
+                let experiments = restlerResults.EnumerateDirectories("experiment*")
+                if Seq.isEmpty experiments then
+                    None
+                else
                     let startedExperiments =
                         experiments 
                         |> Seq.filter ( fun e -> e.CreationTimeUtc >= runStartTime)
                         |> Seq.sortByDescending ( fun e -> e.CreationTimeUtc )
-
-                    if (Seq.length startedExperiments > 1) then
-                        printfn "There are : %d [%A] that have been create past %A. Using one closest to start time of this run." 
-                                    (Seq.length startedExperiments) startedExperiments runStartTime
                     startedExperiments |> Seq.tryHead
-                with
-                | :? System.IO.IOException as ioex ->
-                    printfn "Getting experiment folder interrupted due to : %s" ioex.Message
-                    None
+            with
+            | :? System.IO.IOException as ioex ->
+                printfn "Getting experiment folder interrupted due to : %s" ioex.Message
+                None
         else
             None
  
@@ -261,8 +257,7 @@ module private RESTlerInternal =
             | None ->
                 printfn "RESTler engine did not produce exit code"
 
-            let engineError = IO.FileInfo(engineStdErr)
-            if engineError.Length > 0L then
+            if IO.File.Exists(engineStdErr) then
                 failwithf "RESTler engined failed. See RESTler error log %s for more information." engineStdErr
         }
 

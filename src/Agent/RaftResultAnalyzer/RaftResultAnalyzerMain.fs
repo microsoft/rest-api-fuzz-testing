@@ -251,8 +251,8 @@ let main argv =
         | Some b ->
             let bugBuckets = IO.FileInfo b
             if bugBuckets.Exists then
-                let textStream = bugBuckets.OpenText()
                 try
+                    use textStream = bugBuckets.OpenText()
                     let rec parseBugBuckets () =
                         let line = textStream.ReadLine()
                         if line.StartsWith stopWhenHit then
@@ -265,9 +265,8 @@ let main argv =
                             parseBugBuckets()
 
                     parseBugBuckets()
-
                 finally
-                    textStream.Close()
+                    ()
             else
                 summary
 
