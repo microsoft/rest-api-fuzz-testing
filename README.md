@@ -7,11 +7,29 @@ baked into your CI/CD pipeline developers can launch fuzz jobs against their ser
 Following Swagger/OpenAPI tools are currently supported by RAFT
 
 | Tool     | Description |
-|----------|----------|
+|----------|-------------|
 | [RESTler](https://github.com/microsoft/restler-fuzzer) | RAFT has first class integration with this Microsoft Research tool - the first stateful fuzzing tool designed to automatically test your REST API's driven by your swagger/OpenApi specification. |
 | [ZAP](https://www.zaproxy.org/) | RAFT supports Swagger/OpenAPI scanning functionality provided by ZAP|
 | [Dredd](https://github.com/apiaryio/dredd) | RAFT supports Swagger/OpenAPI scanning functionality provided by Dredd|
 | [Schemathesis](https://github.com/schemathesis/schemathesis) | RAFT supports Swagger/OpenAPI scanning functionality provided by Schemathesis|
+
+##### RAFT key features
+- Secret management via Azure Keyvault
+- Webhook notifications: JobStatus (Job Created, Job Completed, Job Error) and BugFound for tools that produce bugs during run
+- Ability to deploy RAFT jobs into a pre-provisioned Azure VNET
+- Consistent Job Definition that works across all test tools
+- Consistent Authentication mechanism for service under test across all test tools
+- Long-term job results and logs storage via Azure Storage
+- Ability to use the same RAFT job definitions locally using [Docker](https://www.docker.com) as in the Azure
+- Ability to deploy dockerized service under test as well as any companion dockerized services part of a RAFT job definition for fully encapsulated testing
+
+##### RAFT RESTler value add:
+- Real Time RESTler fuzzing progress: HTTP Status code totals, number of bugs found
+- Conversion of bugs found by RESTler to [Postman](https://www.postman.com) collections
+- RESTler run definitions to Compile, Test and Fuzz in a single run definition
+- Multi-step run definitions, to allow multiple parallel Test/Fuzz runs consume output of single Compile step
+- Pre-populating RESTler fuzzing dictionary based on `mutationSeed`
+- Avoid triggering BugFound events for bug hashes via `ignoreBugHashes` configured by user
 
 As a platform, RAFT is designed to host any API fuzzers that are packaged into a docker container. 
 These can be configured and used in the system via configuration files and require no code changes to integrate.
