@@ -248,21 +248,26 @@ class RaftServiceCLI():
            f' --scope "{scope}"')
 
     def create_keyvault_event_subscription(self):
-        print('Creating Key Vault event subscription')
+        try:
+            kvsubscription = az('eventgrid event-subscription create'
+              f' --name OnSecretChanged'
+              f' --source-resource-id /subscriptions/{self.definitions.subscription}'
+              f'/resourceGroups/{self.definitions.resource_group}'
+              f'/providers/Microsoft.KeyVault'
+              f'/vaults/{self.definitions.key_vault}'
+              f' --endpoint /subscriptions/{self.definitions.subscription}'
+              f'/resourceGroups/{self.definitions.resource_group}'
+              f'/providers/Microsoft.Web/sites/{self.definitions.orchestrator}'
+              f'/functions/OnSecretChanged'
+              f' --endpoint-type azurefunction'
+              f' --included-event-types Microsoft.KeyVault.SecretNewVersionCreated'
+            )
+        except:
+            # Wait a bit for the service to start
+            print('    waiting for orchestrator to start')
+            time.sleep(2.0)
+            self.create_keyvault_event_subscription()
 
-        kvsubscription = az('eventgrid event-subscription create'
-          f' --name OnSecretChanged'
-          f' --source-resource-id /subscriptions/{self.definitions.subscription}'
-          f'/resourceGroups/{self.definitions.resource_group}'
-          f'/providers/Microsoft.KeyVault'
-          f'/vaults/{self.definitions.key_vault}'
-          f' --endpoint /subscriptions/{self.definitions.subscription}'
-          f'/resourceGroups/{self.definitions.resource_group}'
-          f'/providers/Microsoft.Web/sites/{self.definitions.orchestrator}'
-          f'/functions/OnSecretChanged'
-          f' --endpoint-type azurefunction'
-          f' --included-event-types Microsoft.KeyVault.SecretNewVersionCreated'
-        )
     def assign_resource_group_roles(self, sp_app_id):
         print('Assigning Resource Group roles')
         try:
@@ -949,7 +954,7 @@ class RaftServiceCLI():
             json.dump(defaults, d, indent=4)
 
     def test_az_version(self):
-        supported_versions = ['2.20.0']
+        supported_versions = ['2.20.0', '2.21.0']
         # az sometimes reports the version with an asterisk.
         # Perhaps when a new version of the CLI is available.
         tested_az_cli_versions = (
@@ -1171,6 +1176,7 @@ class RaftServiceCLI():
         self.wait_for_service_to_start()
         
         # The orchestrator *must* be running for this to succeed.
+        print('Creating Key Vault event subscription')
         self.create_keyvault_event_subscription()
         print('Deployment Complete')
 
