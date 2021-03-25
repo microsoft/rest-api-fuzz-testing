@@ -2,6 +2,6 @@
     "name" : "@nsv/raft-msal",
     "version" : "1.0.0",
     "dependencies" : {
-        "@azure/msal-node": "^1.0.0-alpha.9"
+        "@azure/msal-node": "^1.0.1"
     }
 }

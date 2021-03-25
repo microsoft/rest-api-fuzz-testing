@@ -46,11 +46,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Azure.Core" Version="1.10.0" />
+    <PackageReference Include="Azure.Core" Version="1.11.0" />
     <PackageReference Include="Azure.Storage.Files.Shares" Version="12.6.0" />
     <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.17.0" />
     <PackageReference Include="Microsoft.ApplicationInsights.PerfCounterCollector" Version="2.17.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.AzureAD.UI" Version="5.0.4" />
+    <PackageReference Include="Microsoft.AspNetCore.Http" Version="2.2.2" />
     <PackageReference Include="Microsoft.Azure.Cosmos.Table" Version="1.0.8" />
     <PackageReference Include="Microsoft.Azure.EventGrid" Version="3.2.0" />
     <PackageReference Include="Microsoft.Azure.Management.EventGrid" Version="6.0.0" />
@@ -61,7 +62,7 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="5.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="5.0.0" />
     <PackageReference Include="Microsoft.FSharpLu.Json" Version="0.11.6" />
-    <PackageReference Include="Microsoft.Identity.Web" Version="1.8.1" />
+    <PackageReference Include="Microsoft.Identity.Web" Version="1.8.2" />
     <PackageReference Include="Microsoft.OpenApi.Readers" Version="1.2.3" />
     <PackageReference Include="Swashbuckle.AspNetCore.Annotations" Version="6.1.1" />
     <PackageReference Include="Swashbuckle.AspNetCore.Filters" Version="6.1.0" />
@@ -69,6 +70,7 @@
     <PackageReference Include="Swashbuckle.AspNetCore.Swagger" Version="6.1.1" />
     <PackageReference Include="Swashbuckle.AspNetCore.SwaggerGen" Version="6.1.1" />
     <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="6.1.1" />
+    <PackageReference Include="System.Text.Encodings.Web" Version="5.0.1" />
     <PackageReference Include="TaskBuilder.fs" Version="2.1.0" />
   </ItemGroup>
 
