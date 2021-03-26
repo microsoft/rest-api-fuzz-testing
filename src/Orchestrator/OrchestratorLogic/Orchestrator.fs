@@ -1312,7 +1312,7 @@ module ContainerInstances =
         g.State = ContainerGroupStates.Stopped
 
     let isJobProvisioningFailed (g:IContainerGroup) =
-        g.State = ContainerGroupStates.Failed || g.ProvisioningState = ContainerGroupStates.Failed
+        g.ProvisioningState = ContainerGroupStates.Failed
 
     let stopJob (containerGroup : IContainerGroup) =
         async {
@@ -1320,13 +1320,13 @@ module ContainerInstances =
                 do! containerGroup.StopAsync().ToAsync
         }
 
-
     /// Get a sequence of containers that terminated due to error
     let getContainersExitedWithError (g: IContainerGroup) =
         g.Containers |> Seq.filter(fun (KeyValue(_, v)) ->
             if not <| isNull v.InstanceView then
                 let currentState = v.InstanceView.CurrentState
-                currentState.DetailStatus = ContainerInstancesStates.Error
+                currentState.DetailStatus = ContainerInstancesStates.Error ||
+                (currentState.State = ContainerInstancesStates.Terminated && currentState.ExitCode <> Nullable<int>(0))
             else false)
         |> Seq.map (fun (KeyValue(_, v)) -> v)
 
@@ -1635,6 +1635,7 @@ module ContainerInstances =
                             // if stopped it cannot be expired
                             false
                         else if isJobExpired logger containerGroup then
+                            logInfo "Job Expired : %s" containerGroupName
                             true
                         else
                             false
@@ -1657,6 +1658,7 @@ module ContainerInstances =
 
                         let state, details =
                             if containerGroupFailedToProvision then
+                                logInfo "Container group failed to provision : %s" containerGroupName
                                 JobState.Error, 
                                     (Map.empty, containerGroup.Events |> List.ofSeq)
                                     ||> List.fold( fun details v ->
@@ -1666,12 +1668,15 @@ module ContainerInstances =
                                             .Add("Type", v.Type)
                                     )
                             else if isExpired then
+                                logInfo "Job Expired : %s" containerGroupName
                                 JobState.TimedOut, Map.empty
                             else if jobManuallyStopped then
+                                logInfo "Job Manually stopped : %s" containerGroupName
                                 JobState.ManuallyStopped, Map.empty
                             else if Seq.isEmpty instancesExitedWithError then
                                 JobState.Completed, Map.empty
                             else
+                                logInfo "At least one instance exited with an error : %s" containerGroupName
                                 //There is at least one container that terminated with an error
                                 JobState.Error, 
                                     (Map.empty, instancesExitedWithError |> List.ofSeq)
@@ -1692,7 +1697,7 @@ module ContainerInstances =
                         for v in instancesExitedWithError do
                             let! failedContainerLogs = containerGroup.GetLogContentAsync(v.Name).ToAsync
     
-                            logInfo "[%s][%s][State:%A][DetailStatus: %A][ExitCode: %A] failed logs: %s\nEvents: %A" 
+                            logInfo "Instance Exited with Error: [%s][%s][State:%A][DetailStatus: %A][ExitCode: %A] failed logs: %s\nEvents: %A" 
                                         containerGroup.Name v.Name 
                                         v.InstanceView.CurrentState.State
                                         v.InstanceView.CurrentState.DetailStatus 
