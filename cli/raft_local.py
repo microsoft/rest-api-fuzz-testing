@@ -9,9 +9,11 @@ import pathlib
 import json
 import datetime
 import time
+import requests
+from dateutil import parser as DateParser
 from subprocess import PIPE
 from raft_sdk.raft_common import RaftDefinitions, RaftJsonDict, get_version
-from raft_sdk.raft_service import RaftJobConfig, RaftJobError
+from raft_sdk.raft_service import RaftJobConfig, RaftJobError, print_status
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 json_hook = RaftJsonDict.raft_json_object_hook
@@ -81,7 +83,72 @@ def init_local(work_directory):
     if not os.path.exists(storage):
         os.mkdir(storage)
 
-    return storage, secrets_path
+    events_sink = os.path.join(work_directory, 'events_sink')
+    if  not os.path.exists(events_sink):
+        os.mkdir(events_sink)
+
+    return storage, secrets_path, events_sink
+
+# convert string time-span to seconds
+def time_span_to_seconds(time_span):
+    if time_span:
+        try:
+            t = time.strptime(time_span, '%d.%H:%M:%S')
+        except ValueError:
+            t = time.strptime(time_span, '%H:%M:%S')
+        seconds = (
+                int(datetime.timedelta(
+                        hours=t.tm_hour,
+                        minutes=t.tm_min,
+                        seconds=t.tm_sec).total_seconds()))
+        return seconds
+    else:
+        return 0
+
+def parse_utc_time(t):
+    return DateParser.parse(t)
+
+def process_job_events_sink(job_events_path):
+    bugs = []
+    job_status = {}
+    for root_folder_path, dirs, files in os.walk(job_events_path):
+        for file_name in files:
+            file_path = os.path.join(root_folder_path, file_name)
+            status = open(file_path, 'r')
+            try:
+                j = json.load(status, object_hook=RaftJsonDict.raft_json_object_hook)
+                status.close()
+                os.remove(file_path) 
+                if j['EventType'] == 'BugFound':
+                    bugs.append(j) 
+                elif j['EventType'] == 'JobStatus':
+                    js = job_status.get(j['Message']['AgentName']) 
+                    if js:
+                        if parse_utc_time(j['Message']['UtcEventTime']) > parse_utc_time(js['Message']['UtcEventTime']):
+                            job_status[j['Message']['AgentName']] = j
+                    else:
+                        job_status[j['Message']['AgentName']] = j
+            except Exception as ex:
+                print(f"FAILED TO PROCESS STATUS MESSAGE: {file_path} due to {ex}")
+
+    return job_status, bugs
+
+def trigger_webhook(url, data, metadata=None):
+    for d in data:
+        d['Subject'] = d['EventType']
+        d['Id'] = f'{uuid.uuid4()}'
+        d['Data'] = d.pop('message')
+        if metadata:
+            d['Data']['Metadata'] = metadata
+        d['Data']['ResultsUrl'] = ''
+        d['Topic'] = ''
+        d['EventTime'] = f'{datetime.datetime.utcnow()}'
+        d['DataVersion'] = '1.0'
+        d['metadataVersion'] = '1'
+
+    response = requests.post(url, json=data)
+    return response
+        
 
 class RaftLocalCLI():
     def __init__(self, work_directory):
@@ -91,7 +158,7 @@ class RaftLocalCLI():
 
         if not os.path.exists(self.work_directory):
             os.mkdir(self.work_directory)
-        self.storage, self.secrets_path = init_local(work_directory)
+        self.storage, self.secrets_path, self.events_sink = init_local(work_directory)
 
     # generate container name
     def container_name(self, job_id, tool_name):
@@ -160,22 +227,6 @@ class RaftLocalCLI():
             docker_run_cmd += f' {run_cmd}'
         return docker_run_cmd
 
-    # convert string time-span to seconds
-    def time_span_to_seconds(self, time_span):
-        if time_span:
-            try:
-                t = time.strptime(time_span, '%d.%H:%M:%S')
-            except ValueError:
-                t = time.strptime(time_span, '%H:%M:%S')
-            seconds = (
-                    int(datetime.timedelta(
-                            hours=t.tm_hour,
-                            minutes=t.tm_min,
-                            seconds=t.tm_sec).total_seconds()))
-            return seconds
-        else:
-            return 0
-
     def start_test_targets(self, job_config, job_id, work_dir, job_dir, bridge_name):
         task_index = 0
         test_services_startup_delay = 0
@@ -192,7 +243,7 @@ class RaftLocalCLI():
                 for service in services:
                     d = service.get('ExpectedDurationUntilReady')
                     if d:
-                        test_services_startup_delay = self.time_span_to_seconds(d)
+                        test_services_startup_delay = time_span_to_seconds(d)
 
                 for service in services:
                     env = self.common_environment_variables(job_id, work_dir)
@@ -216,7 +267,7 @@ class RaftLocalCLI():
                     if service.get('PostRun'):
                         args = map(lambda a: f'"{a}"', service['postrun']['shellArguments'])
                         post_run_cmd = f"{shell} {' '.join(args)}"
-                        post_run_seconds = self.time_span_to_seconds(service['postrun']['ExpectedRunDuration'])
+                        post_run_seconds = time_span_to_seconds(service['postrun']['ExpectedRunDuration'])
                         post_run_wait = max(post_run_seconds, post_run_wait)
 
                     # create work folder and mount it
@@ -274,7 +325,7 @@ class RaftLocalCLI():
 
         return task_index, test_services_startup_delay, test_target_container_names, post_run_wait
 
-    def start_test_tasks(self, job_config, task_index, test_services_startup_delay, job_id, work_dir, job_dir, bridge_name):
+    def start_test_tasks(self, job_config, task_index, test_services_startup_delay, job_id, work_dir, job_dir, job_events, bridge_name):
         testTasks = job_config.config.get('testTasks')
         if testTasks.get('tasks'):
             for tt in testTasks['tasks']:
@@ -315,6 +366,8 @@ class RaftLocalCLI():
 
                 task_dir = os.path.join(job_dir, tt['outputFolder'])
                 os.mkdir(task_dir)
+                task_events = os.path.join(job_events, tt['outputFolder'])
+                os.mkdir(task_events)
 
                 with open(os.path.join(task_dir, 'task-run.sh'), 'w') as tc:
                     tc.write(run_cmd)
@@ -344,6 +397,7 @@ class RaftLocalCLI():
                     json.dump(tt, tc, indent=4)
 
                 mounts = self.mount_read_write(task_dir, work_dir)
+                mounts += self.mount_read_write(task_events, '/raft-events-sink')
                 mounts += self.mount_read_only((os.path.join(script_dir, "raft-tools")), "/raft-tools")
 
                 if job_config.config.get("readonlyFileShareMounts"):
@@ -377,7 +431,7 @@ class RaftLocalCLI():
 
         return test_tasks_container_names
 
-    def wait_for_container_termination(self, containers, duration):
+    def wait_for_container_termination(self, containers, job_events_path, duration, metadata, job_status_webhook_url, bug_found_webhook_url):
         saved_duration = duration
         print('Waiting for containers: ' + '; '.join(containers))
         while(len(containers) > 0):
@@ -401,13 +455,26 @@ class RaftLocalCLI():
                             })
                 return exit_infos
             else:
-                print('Waiting for tool containers to exit')
-                time.sleep(10.0)
+                job_status, bugs = process_job_events_sink(job_events_path)
+
+                if bug_found_webhook_url:
+                    for bug in bugs:
+                        trigger_webhook(bug_found_webhook_url, [bug], metadata)
+
+                for k in job_status:
+                    print_status([job_status[k]['Message']])
+
+                if job_status_webhook_url:
+                    for k in job_status:
+                        trigger_webhook(job_status_webhook_url, [job_status[k]], metadata)
+
+                time.sleep(1.0)
                 if duration:
                     duration = duration - 10
                     if duration <= 0:
                         print(f'Job run exceeded duration of {saved_duration} seconds. Exiting...')
                         return None
+
 
     def post_run(self, containers):
         container_info = docker('container inspect ' + ' '.join(containers))
@@ -427,7 +494,7 @@ class RaftLocalCLI():
                 stdout = docker(f'container exec -t --user="root" --privileged {container} ' + pr)
                 print(stdout)
 
-    def new_job(self, job_config):
+    def new_job(self, job_config, job_status_webhook_url, bug_found_webhook_url):
         job_id = f'{uuid.uuid4()}'
         print(f'creating job {job_id}')
 
@@ -438,6 +505,9 @@ class RaftLocalCLI():
             job_dir = os.path.join(rootFileShare, job_id)
         else:
             job_dir = os.path.join(self.storage,  job_id)
+
+        job_events = os.path.join(self.events_sink, job_id)
+        os.mkdir(job_events)
 
         os.mkdir(job_dir)
         work_dir = '/work_dir_' + job_id
@@ -450,13 +520,18 @@ class RaftLocalCLI():
             # and therefore we are testing something deployed externally
             bridge_name = None
 
-        test_task_container_names = self.start_test_tasks(job_config, task_index, test_services_startup_delay, job_id, work_dir, job_dir, bridge_name)
+        test_task_container_names = self.start_test_tasks(job_config, task_index, test_services_startup_delay, job_id, work_dir, job_dir, job_events, bridge_name)
 
         duration = None
         if job_config.config.get('duration'):
-            duration = self.time_span_to_seconds(job_config.config.get('duration'))
+            duration = time_span_to_seconds(job_config.config.get('duration'))
 
-        stats = self.wait_for_container_termination(test_task_container_names, duration)
+        metadata = None
+        if 'webhook' in job_config.config:
+            if 'metadata' in job_config.config['webhook']:
+                metadata = job_config.config['webhook']['metadata']
+
+        stats = self.wait_for_container_termination(test_task_container_names, job_events, duration, metadata, job_status_webhook_url, bug_found_webhook_url)
         if stats:
             print(stats)
         else:
@@ -469,12 +544,12 @@ class RaftLocalCLI():
 
         self.docker_stop_containers(test_target_container_names)
 
-        for c in test_task_container_names:
-            print(f"-------------------------- LOGS for [{c}] -------------------")
-            print()
-            print()
-            stdout = docker(f'logs {c} --tail 32')
-            print(stdout)
+        #for c in test_task_container_names:
+        #    print(f"-------------------------- LOGS for [{c}] -------------------")
+        #    print()
+        #    print()
+        #    stdout = docker(f'logs {c} --tail 32')
+        #    print(stdout)
 
         print("Job finished, cleaning up job conatiners")
         self.docker_remove_containers(test_task_container_names)
@@ -516,7 +591,7 @@ def run(args):
         if duration:
             job_config.config['duration'] = duration
 
-        cli.new_job(job_config)
+        cli.new_job(job_config, args.get('jobStatusWebhookUrl'), args.get('bugFoundWebhookUrl'))
 
 
 if __name__ == "__main__":
@@ -562,6 +637,18 @@ Dictionary of values to find and replace in the --file.
 Should be in the form {"find1":"replace1", "find2":"replace2"}
 This parameter is only valid with the create and update commands
     '''))
+
+    job_parser.add_argument(
+        '--bugFoundWebhookUrl',
+        help=textwrap.dedent('''\
+Post to the Webhook on bug found
+        '''))
+
+    job_parser.add_argument(
+        '--jobStatusWebhookUrl',
+        help=textwrap.dedent('''\
+Post to the Webhook on job status change
+        '''))
 
     args = parser.parse_args()
     run(vars(args))

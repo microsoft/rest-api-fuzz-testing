@@ -55,6 +55,60 @@ class RaftJobError(Exception):
         self.message = message
 
 
+def print_status(status):
+    '''
+        Prints status object to standard output in a readable format
+
+        Parameters:
+            status: status object returned by the service
+    '''
+    for s in status:
+        if s['agentName'] == s['jobId']:
+            print(f"{s['jobId']} {s['state']}")
+            if s.get('utcEventTime'):
+                print(f'UtcEventTime: {s["utcEventTime"]}')
+            if s.get('resultsUrl'):
+                print(f'Results: {s["resultsUrl"]}')
+            if s.get('details'):
+                print("Details:")
+                for k in s['details']:
+                    print(f"{k} : {s['details'][k]}")
+
+    for s in status:
+        if s['agentName'] != s['jobId']:
+            agent_status = (
+                f"Agent: {s['agentName']}"
+                f"    Tool: {s['tool']}"
+                f"    State: {s['state']}")
+
+            if 'metrics' in s:
+                metrics = s['metrics']
+                total_request_counts = metrics.get('totalRequestCount')
+                if total_request_counts and total_request_counts > 0:
+                    print(f"{agent_status}"
+                            "     Total Request Count:"
+                            f" {total_request_counts}")
+                    response_code_counts = []
+                    for key in metrics['responseCodeCounts']:
+                        response_code_counts.append(
+                            [key, metrics['responseCodeCounts'][key]])
+                    table = tabulate.tabulate(
+                        response_code_counts,
+                        headers=['Response Code', 'Count'])
+                    print(table)
+                    print()
+            else:
+                print(agent_status)
+
+            if s.get('details'):
+                print("Details:")
+                for k in s['details']:
+                    print(f"{k} : {s['details'][k]}")
+
+            print('======================')
+
+
+
 class RaftCLI():
     def __init__(self, context=None):
         if context:
@@ -259,56 +313,7 @@ class RaftCLI():
             raise RaftApiException(response.text, response.status_code)
 
     def print_status(self, status):
-        '''
-            Prints status object to standard output in a readable format
-
-            Parameters:
-                status: status object returned by the service
-        '''
-        for s in status:
-            if s['agentName'] == s['jobId']:
-                print(f"{s['jobId']} {s['state']}")
-                if s.get('utcEventTime'):
-                    print(f'UtcEventTime: {s["utcEventTime"]}')
-                if s.get('resultsUrl'):
-                    print(f'Results: {s["resultsUrl"]}')
-                if s.get('details'):
-                    print("Details:")
-                    for k in s['details']:
-                        print(f"{k} : {s['details'][k]}")
-
-        for s in status:
-            if s['agentName'] != s['jobId']:
-                agent_status = (
-                    f"Agent: {s['agentName']}"
-                    f"    Tool: {s['tool']}"
-                    f"    State: {s['state']}")
-
-                if 'metrics' in s:
-                    metrics = s['metrics']
-                    total_request_counts = metrics.get('totalRequestCount')
-                    if total_request_counts and total_request_counts > 0:
-                        print(f"{agent_status}"
-                              "     Total Request Count:"
-                              f" {total_request_counts}")
-                        response_code_counts = []
-                        for key in metrics['responseCodeCounts']:
-                            response_code_counts.append(
-                                [key, metrics['responseCodeCounts'][key]])
-                        table = tabulate.tabulate(
-                            response_code_counts,
-                            headers=['Response Code', 'Count'])
-                        print(table)
-                        print()
-                else:
-                    print(agent_status)
-
-                if s.get('details'):
-                    print("Details:")
-                    for k in s['details']:
-                        print(f"{k} : {s['details'][k]}")
-
-                print('======================')
+        print_status(status)
 
     def is_completed(self, status):
         for s in status:

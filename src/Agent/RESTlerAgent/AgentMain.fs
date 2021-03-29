@@ -48,13 +48,16 @@ type RaftMessageSender(sas : string option ) =
 
     member inline __.SendRaftJobEvent (jobId: string) (message : ^T when ^T : (static member EventType : string)) =
         async {
+            let raftJobEvent = Raft.Message.RaftEvent.createJobEvent message
             match __.Sender with
             | Some s ->
-                let raftJobEvent = Raft.Message.RaftEvent.createJobEvent message
                 let message = ServiceBus.Message(RaftEvent.serializeToBytes raftJobEvent, SessionId = jobId.ToString())
                 do! s.SendAsync(message).ToAsync
                 return ()
-            | None -> return ()
+            | None ->
+                let json = RaftEvent.serializeToJson raftJobEvent
+                System.IO.File.WriteAllText(sprintf "/raft-events-sink/%A.json" (System.Guid.NewGuid()), json)
+                return ()
         }
 
 
