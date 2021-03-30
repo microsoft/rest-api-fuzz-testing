@@ -243,7 +243,7 @@ class RaftLocalCLI():
                 for service in services:
                     d = service.get('ExpectedDurationUntilReady')
                     if d:
-                        test_services_startup_delay = time_span_to_seconds(d)
+                        test_services_startup_delay = max(test_services_startup_delay, time_span_to_seconds(d))
 
                 for service in services:
                     env = self.common_environment_variables(job_id, work_dir)
