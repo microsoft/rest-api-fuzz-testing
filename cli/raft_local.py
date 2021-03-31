@@ -551,7 +551,7 @@ class RaftLocalCLI():
         #    stdout = docker(f'logs {c} --tail 32')
         #    print(stdout)
 
-        print("Job finished, cleaning up job conatiners")
+        print("Job finished, cleaning up job containers")
         self.docker_remove_containers(test_task_container_names)
         self.docker_remove_containers(test_target_container_names)
 
