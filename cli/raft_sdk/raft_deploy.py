@@ -362,6 +362,36 @@ class RaftServiceCLI():
         return (f"TableEndpoint=https://{storage_account}"
                 f".table.core.windows.net/;SharedAccessSignature={sas_url}")
 
+    def cleanup_function_secret_snapshots(self, storage_account, function_name):
+        container_exists = az_json(
+            'storage container exists'
+            f' --account-name {storage_account}'
+            ' --name "azure-webjobs-secrets"'
+        )
+
+        if container_exists['exists'] == True:
+            snapshots = az_json(
+                'storage blob list'
+                f' --account-name {storage_account}'
+                ' --container-name "azure-webjobs-secrets"'
+                f' --prefix "{function_name}/host.snapshot"') 
+
+            for snapshot in snapshots:
+                name = snapshot['name']
+                try:
+                    az(
+                        'storage blob delete'
+                        f' --account-name {storage_account}'
+                        f' --container-name {snapshot["container"]}'
+                        f' --name "{name}"'
+                        ' --delete-snapshots include'
+                    ) 
+                except RaftAzCliException as ex:
+                    if ex.error_message.startswith("WARNING:"):
+                        pass
+                    else:
+                        raise
+
     def container_image_name(self, registry_image_name):
         return (
              f"{self.context['registry']}"
@@ -1152,6 +1182,8 @@ class RaftServiceCLI():
             container_registry_username,
             container_registry_password,
             tools_file_share)
+
+        self.cleanup_function_secret_snapshots(self.definitions.storage_utils, self.definitions.orchestrator)
 
         self.upload_utils(tools_file_share)
 
