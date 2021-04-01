@@ -1334,4 +1334,4 @@ class RaftServiceCLI():
                 new_info = old_info
                 time.sleep(3)
                 sys.stdout.write('.')
-                sys.stdout.flush()
+                sys.stdout.flush() 
