@@ -78,7 +78,7 @@ let parseRequest (x: string) =
     //from r.[1] to end, but if "" line and not last one -> then next one is body
     let rec collectHeaders (headers: Map<string, string>) (rs: string list) =
         let parseHeader (h: string) =
-            match h.Split(':') with
+            match h.Split(": ") with
             | [|k; v|] -> Some(k.Trim(), v.Trim())
             | _ -> None
 
