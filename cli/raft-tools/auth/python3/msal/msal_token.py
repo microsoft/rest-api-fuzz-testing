@@ -5,16 +5,19 @@ import sys
 
 class RaftJsonDict(dict):
     def __init__(self):
-        pass
+        super(RaftJsonDict, self).__init__()
 
     def __getitem__(self, key):
-        return super(RaftJsonDict, self).__getitem__(key.lower())
+        for k in self.keys():
+            if k.lower() == key.lower():
+                break
+        return super(RaftJsonDict, self).__getitem__(key)
 
     def get(self, key):
-    	return super(RaftJsonDict, self).get(key.lower())
-
-    def __setitem__(self, key, value):
-        return super(RaftJsonDict, self).__setitem__(key.lower(), value)
+        for k in self.keys():
+            if k.lower() == key.lower():
+                break
+        return super(RaftJsonDict, self).get(key)
 
     @staticmethod
     def raft_json_object_hook(x):
