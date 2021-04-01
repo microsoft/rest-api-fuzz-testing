@@ -83,7 +83,7 @@ let parseRequest (x: string) =
             | _ -> None
 
         match rs with
-        | "" :: body :: "" :: [] -> headers, Some body
+        | "" :: body :: "" :: [] | "" :: body :: [] -> headers, Some body
         | r :: "" :: [] -> 
             match parseHeader r with
             | Some(k, v) ->
@@ -99,8 +99,11 @@ let parseRequest (x: string) =
     let body =
         match body with
         | Some s ->
-            let b = Json.Compact.deserialize(s.Replace("\\n", ""))
-            Some(b.ToString())
+            if  String.IsNullOrWhiteSpace s then
+                None
+            else
+                let b = Json.Compact.deserialize(s.Replace("\\n", ""))
+                Some(b.ToString())
         | None -> None
 
     {|
