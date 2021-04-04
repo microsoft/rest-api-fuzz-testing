@@ -19,7 +19,7 @@ to an Azure subscription.
 ## Step One: Pick the Tool and Target
 
 RAFT was built to streamline the execution of security tools against web sites and services.
-RAFT comes with two registered tools:
+RAFT comes with three registered tools:
 
 - [RESTler](https://github.com/microsoft/restler-fuzzer), a stateful REST API fuzzer from [NSV at Microsoft Research](https://www.microsoft.com/en-us/research/group/new-security-ventures/)
 - [ZAP](https://www.zaproxy.org/), a web scanner from the [OWASP Foundation](https://owasp.org/) that is
