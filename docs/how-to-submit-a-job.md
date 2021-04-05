@@ -19,12 +19,12 @@ to an Azure subscription.
 ## Step One: Pick the Tool and Target
 
 RAFT was built to streamline the execution of security tools against web sites and services.
-RAFT comes with three registered tools:
+RAFT comes with four registered tools:
 
 - [RESTler](https://github.com/microsoft/restler-fuzzer), a stateful REST API fuzzer from [NSV at Microsoft Research](https://www.microsoft.com/en-us/research/group/new-security-ventures/)
-- [ZAP](https://www.zaproxy.org/), a web scanner from the [OWASP Foundation](https://owasp.org/) that is
-configured to test REST API's.
+- [ZAP](https://www.zaproxy.org/), a web scanner from the [OWASP Foundation](https://owasp.org/) that is configured to test REST API's.
 - [Dredd](https://github.com/apiaryio/dredd), is a language-agnostic command-line tool for validating API description document against backend implementation of the API.
+- [Schemathesis](https://github.com/schemathesis/schemathesis), a modern API testing tool built with Open API and GraphQL specifications. Schemathesis reads your application schema and generates test cases, validating compliance against its own schema.
 
 To register additional tools, please see please see the
 [Onboarding a Tool](how-to-onboard-a-tool.md) page.
