@@ -581,7 +581,13 @@ let main argv =
             match agentConfiguration.SiteHash with
             | None -> "NotSet"
             | Some h -> h
-        use telemetryClient = new Restler.Telemetry.TelemetryClient(siteHash, if agentConfiguration.TelemetryOptOut then "" else Restler.Telemetry.InstrumentationKey)
+
+
+        let telemetryTag = 
+            match System.Environment.GetEnvironmentVariable("RAFT_LOCAL") |> Option.ofObj with
+            | None -> "RAFT"
+            | Some _ -> "RAFT-LOCAL"
+        use telemetryClient = new Restler.Telemetry.TelemetryClient(siteHash, (if agentConfiguration.TelemetryOptOut then "" else Restler.Telemetry.InstrumentationKey), telemetryTag)
 
         if not <| IO.Directory.Exists workDirectory then
             appInsights.TrackTrace((sprintf "Workd directory does not exist: %s" workDirectory),
