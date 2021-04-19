@@ -48,12 +48,21 @@ class RaftJsonDict(dict):
     def __getitem__(self, key):
         for k in self.keys():
             if k.lower() == key.lower():
+                key = k
                 break
         return super(RaftJsonDict, self).__getitem__(key)
+
+    def pop(self, key):
+        for k in self.keys():
+            if k.lower() == key.lower():
+                key = k
+                break
+        return super(RaftJsonDict, self).pop(key)
 
     def get(self, key):
         for k in self.keys():
             if k.lower() == key.lower():
+                key = k
                 break
         return super(RaftJsonDict, self).get(key)
 
