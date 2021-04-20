@@ -182,7 +182,15 @@ class RaftLocalCLI():
         env += self.env_variable('RAFT_APP_INSIGHTS_KEY', '00000000-0000-0000-0000-000000000000')
         env += self.env_variable('RAFT_SITE_HASH', '0')
         env += self.env_variable('RAFT_SB_OUT_SAS', 'dummy_sas')
-        env += self.env_variable('RAFT_LOCAL', '1')
+        
+        # If we are running in a github action (or some other unique environment)
+        # we will set this value before running
+        # to distinquish between the different environments.
+        customLocal = os.getenv("RAFT_LOCAL")
+        if customLocal is None:
+            env += self.env_variable('RAFT_LOCAL', 'Developer')
+        else:
+            env += self.env_variable('RAFT_LOCAL', customLocal)
         return env
 
     def docker_create_bridge(self, job_id):

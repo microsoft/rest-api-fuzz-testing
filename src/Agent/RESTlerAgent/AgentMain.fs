@@ -586,7 +586,7 @@ let main argv =
         let telemetryTag = 
             match System.Environment.GetEnvironmentVariable("RAFT_LOCAL") |> Option.ofObj with
             | None -> "RAFT"
-            | Some _ -> "RAFT-LOCAL"
+            | Some t -> sprintf "RAFT-LOCAL(%s)" t
         use telemetryClient = new Restler.Telemetry.TelemetryClient(siteHash, (if agentConfiguration.TelemetryOptOut then "" else Restler.Telemetry.InstrumentationKey), telemetryTag)
 
         if not <| IO.Directory.Exists workDirectory then
