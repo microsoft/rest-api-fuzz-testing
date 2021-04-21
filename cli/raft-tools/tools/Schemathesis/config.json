@@ -3,7 +3,7 @@
 	"shell" : "/bin/sh",
 	"run" : {
 		"shellArguments" : ["-c", 
-		"cd /;  python3 $RAFT_TOOL_RUN_DIRECTORY/run.py install; sleep $RAFT_STARTUP_DELAY; python3 $RAFT_TOOL_RUN_DIRECTORY/run.py" ]
+		"sleep $RAFT_STARTUP_DELAY; python3 $RAFT_TOOL_RUN_DIRECTORY/run.py" ]
 	},
 	"idle" : {
 		"shellArguments" : ["-c", "echo DebugMode; while true; do sleep 100000; done;"]

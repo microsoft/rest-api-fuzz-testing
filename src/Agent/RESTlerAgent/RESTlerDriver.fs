@@ -7,7 +7,7 @@ open System
 open Microsoft.FSharpLu
 
 module RESTler =
-    let version = "7.3.0"
+    let version = "7.4.0"
 
 module private RESTlerInternal =
     let inline (++) (path1: string) (path2 : string) = IO.Path.Join(path1, path2)
@@ -314,7 +314,7 @@ module private RESTlerInternal =
     let validateAuthentication workingDirectory (tokenOptions : RESTlerTypes.Engine.RefreshableTokenOptions) =
         async {
             printfn "Validating authentication configuration"
-            let cmd, args = "/bin/sh", sprintf "-c \"%s\"" tokenOptions.RefreshCommand
+            let cmd, args = tokenOptions.RefreshExec , tokenOptions.RefreshArgs
 
             let! r = startProcessAsync cmd args "." None (Some(workingDirectory ++ "stderr-auth.txt"))
             match r.ExitCode with
@@ -439,7 +439,7 @@ let resultAnalyzer workingDirectory (token: Threading.CancellationToken) (report
     analyze()
 
 let isBugFile (file: IO.FileInfo) =
-    file.Name <> "bug_buckets.txt" && file.Name <> "bug_buckets.json"
+    file.Name <> "bug_buckets.txt" && file.Name <> "bug_buckets.json" && not (file.Name.EndsWith(".postman.json"))
 
 let loadTestRunSummary workingDirectory runStartTime =
     match RESTlerInternal.getRunExperimentFolder workingDirectory runStartTime with

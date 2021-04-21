@@ -12,7 +12,7 @@ import raft
 zap_dir = '/zap'
 sys.path.append(zap_dir)
 
-raftUtils = raft.RaftUtils("ZAP")
+raftUtils = raft.RaftUtils('ZAP')
 
 class StatusReporter(StreamHandler):
     def __init__(self, details):
@@ -100,7 +100,7 @@ def run(target_index, targets_total, host, target, token):
         raftUtils.report_status_created()
         return run_zap(target_index, targets_total, host, target, token)
     except Exception as ex:
-        raftUtils.log_exception()
+        raftUtils.log_exception(ex)
         raftUtils.report_status_error({"Error" : f"{ex}"})
         raise
     finally:

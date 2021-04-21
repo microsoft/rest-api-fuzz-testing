@@ -61,6 +61,7 @@ namespace OrchestratorFunc
         private static OrchestratorLogic.ContainerInstances.AgentConfig agentConfig;
         private static OrchestratorLogic.ContainerInstances.CommunicationClients communicationClients;
         private static IDictionary<string, Microsoft.FSharp.Core.FSharpResult<Tuple<string, OrchestratorLogic.ContainerInstances.ToolConfig>, string>> toolConfigs;
+        private static OrchestratorLogic.ContainerInstances.AgentUtilities agentUtilities;
 
         private static IEnumerable<Tuple<string, OrchestratorLogic.ContainerInstances.DockerConfig>> dockerConfigs;
         private static IDictionary<string, string> secrets;
@@ -181,7 +182,8 @@ namespace OrchestratorFunc
 
                 var tools = OrchestratorLogic.ContainerInstances.initializeTools(agentConfig);
                 tools.Wait();
-                toolConfigs = tools.Result;
+                agentUtilities = tools.Result.Item1;
+                toolConfigs = tools.Result.Item2;
             }
             catch (Exception ex) {
                 Raft.Telemetry.Central.Telemetry.TrackError(Raft.Telemetry.TelemetryValues.NewException(ex));
@@ -212,6 +214,7 @@ namespace OrchestratorFunc
                 context.GetLogger("JobCreate"),
                 secrets,
                 dockerConfigs,
+                agentUtilities,
                 toolConfigs,
                 azure,
                 agentConfig,

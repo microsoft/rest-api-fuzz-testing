@@ -1,17 +1,20 @@
 variables:
   - name: version.major
-    value: 3
+    value: 4
   - name: version.minor
-    value: 2
+    value: 0
   - name: version.revision
     value: 0
   - name: imageTag
-    value: 'v3.2.0'
+    value: 'v4.0.0'
   - name: imageTagLatest
-    value: 'v3.latest'
+    value: 'v4.latest'
   - name: devRevision
     value: 0
   - name: imageTagWithBuildDate
     value : $(imageTag)-$(Build.BuildNumber)
+  # The pipeline value is the pipeline definition id.
+  # You can find it by looking at the url for the status badge.
+  # In this case it's the pipeline named 'build-production'
   - name: build-production-pipeline-id
     value : 2925

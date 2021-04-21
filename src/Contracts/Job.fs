@@ -3,12 +3,6 @@
 
 namespace Raft.Job
 
-module Authentication =
-    type TokenRefresh =
-        | CommandLine of string
-        | MSAL of string
-        | TxtToken of string
-
 type ApiSpecification = string
 
 type GpuConfig =
@@ -86,7 +80,7 @@ type RaftTask =
         //list of names of secrets in Keyvault that payload allowed to access
         KeyVaultSecrets : string array option
 
-        AuthenticationMethod : Authentication.TokenRefresh option
+        AuthenticationMethod : Map<string, string> option
 
         ToolConfiguration : Newtonsoft.Json.Linq.JObject
     }

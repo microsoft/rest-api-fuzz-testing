@@ -1,0 +1,4 @@
+{
+	"container" : "{PrivateRegistryRestler}/restapifuzztesting/agent-utilities:v4.latest",
+	"port" : 8085
+}

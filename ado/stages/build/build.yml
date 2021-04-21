@@ -19,6 +19,12 @@ stages:
           vmImage: 'ubuntu-latest'
         steps:
           - template: steps/restleragent.yml
+
+      - job: AgentUtilities
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - template: steps/agent-utilities.yml
  
       - job: Orchestrator
         pool:
@@ -43,10 +49,4 @@ stages:
           vmImage: 'ubuntu-latest'
         steps:
           - template: steps/restler2postman.yml
- 
-      - job: AzureAuthUtility
-        pool:
-          vmImage: 'ubuntu-latest'
-        steps:
-          - template: steps/azure-auth-utility.yml
  

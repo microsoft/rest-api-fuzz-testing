@@ -2,7 +2,7 @@
 	"container" : "apiaryio/dredd:stable",
 	"shell" : "/bin/sh",
 	"run" : {
-		"shellArguments" : ["-c", "sleep $RAFT_STARTUP_DELAY; apk add ca-certificates; npm install $RAFT_TOOL_RUN_DIRECTORY; node $RAFT_TOOL_RUN_DIRECTORY/index.js"]
+		"shellArguments" : ["-c", "sleep $RAFT_STARTUP_DELAY; node $RAFT_TOOL_RUN_DIRECTORY/index.js"]
 	},
 	"idle" : {
 		"shellArguments" : ["-c", "echo DebugMode; while true; do sleep 100000; done;"]

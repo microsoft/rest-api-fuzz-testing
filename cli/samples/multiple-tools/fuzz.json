@@ -83,7 +83,7 @@
         }
       },
       {
-        "duration": "00:10:00",
+        "duration": "00:08:00",
         "toolName": "RESTler",
         "targetConfiguration" : {
           "endpoint": "https://petstore.swagger.io"

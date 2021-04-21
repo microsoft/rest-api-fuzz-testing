@@ -28,10 +28,7 @@ steps:
     inputs:
       source: 'specific'
       project: 'raft'
-      # The pipeline value is the pipeline definition id.
-      # You can find it by looking at the url for the status badge.
-      # In this case it's the pipeline named 'build-production'
-      pipeline: 2925
+      pipeline: $(build-production-pipeline-id)
       artifact: RestlerAgent
       path: $(Build.SourcesDirectory)/artifacts/RestlerAgent
       runVersion: 'latest'

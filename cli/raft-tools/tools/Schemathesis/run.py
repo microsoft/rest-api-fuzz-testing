@@ -10,42 +10,40 @@ sys.path.append(raft_libs_dir)
 import raft
 
 if __name__ == "__main__":
-    if len(sys.argv) == 2 and sys.argv[1] == "install":
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "--no-cache-dir", "--root", "/tmp", "-r", os.path.join(raft_libs_dir, "requirements.txt")])
-        raft.auth_token(True, pip_root_dir='/tmp')
-    else:
-        sys.path.append('/tmp/usr/local/lib/python3.9/site-packages')
-        raft.install_certificates()
-        token = raft.auth_token(False)
+    #sys.path.append('/tmp/usr/local/lib/python3.9/site-packages')
+    #raft.install_certificates()
+    token = raft.auth_token()
+    config = raft.task_config()
 
-        work_directory = os.environ['RAFT_WORK_DIRECTORY']
-        config = raft.task_config()
-        raft = raft.RaftUtils('schemathesis')
+    raft = raft.RaftUtils('schemathesis')
+    raft.wait_for_agent_utilities()
 
-        i = 0
-        test_target_config = config['targetConfiguration']
-        endpoint = test_target_config.get('endpoint')
+    work_directory = os.environ['RAFT_WORK_DIRECTORY']
 
-        n_targets = len(test_target_config.get("apiSpecifications"))
-        for t in test_target_config.get("apiSpecifications"):
-            print(f'Starting schemathesis for target {t}')
-            args = ["schemathesis", "run", "--stateful", "links", "--checks", "all"]
-            if token:
-                args.extend(["-H", f"Authorization: {token}"])
+    i = 0
+    test_target_config = config['targetConfiguration']
+    endpoint = test_target_config.get('endpoint')
 
-            if endpoint:
-                args.extend(['--base-url', endpoint])
+    n_targets = len(test_target_config.get("apiSpecifications"))
+    for t in test_target_config.get("apiSpecifications"):
+        print(f'Starting schemathesis for target {t}')
+        args = ["schemathesis", "run", "--stateful", "links", "--checks", "all"]
+        if token:
+            args.extend(["-H", f"Authorization: {token}"])
 
-            cassette = f'cassette-{i}.yaml'
+        if endpoint:
+            args.extend(['--base-url', endpoint])
 
-            args.extend(["--store-network-log", f'{work_directory}/{cassette}', t])
-            print(f'Running with args: {args}')
-            raft.report_status_running({"endpoint" : endpoint})
-            result = subprocess.run(args)
-            if (result.returncode == 1):
-                raft.report_bug({"cassette": f'config.outputFolder/cassette'})
-            print(f'Finished run on API specification: {t}')
-            i = i + 1 
+        cassette = f'cassette-{i}.yaml'
 
-        raft.report_status_completed()
-        raft.flush()
+        args.extend(["--store-network-log", f'{work_directory}/{cassette}', t])
+        print(f'Running with args: {args}')
+        raft.report_status_running({"endpoint" : endpoint})
+        result = subprocess.run(args)
+        if (result.returncode == 1):
+            raft.report_bug({"cassette": f'config.outputFolder/cassette'})
+        print(f'Finished run on API specification: {t}')
+        i = i + 1 
+
+    raft.report_status_completed()
+    raft.flush()

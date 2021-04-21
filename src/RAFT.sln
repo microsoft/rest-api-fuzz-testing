@@ -9,8 +9,6 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "APIService", "APIService\Ap
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "RestlerAgent", "Agent\RESTlerAgent\RestlerAgent.fsproj", "{A0C08B1C-9741-4EF0-8822-15B74C2E2C69}"
 EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "AzureAuth", "Agent\AzureAuth\AzureAuth.fsproj", "{28C9E068-8EF7-4D57-AD79-AF64D3B5638A}"
-EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "APIServiceTests", "APIService\ApiService\APIServiceTests\APIServiceTests.fsproj", "{19F65C0B-7818-4F56-B428-4FF79F945B91}"
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "TestInfraLogic", "Test\TestInfraLogic\TestInfraLogic.fsproj", "{50DC6F9C-30B8-4A2A-B539-EB71F5FC6D6F}"
@@ -22,6 +20,8 @@ EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "OrchestratorLogic", "Orchestrator\OrchestratorLogic\OrchestratorLogic.fsproj", "{BFE2B877-4015-4519-92D8-F6A633770B15}"
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "RESTler2Postman", "Agent\RESTler2Postman\RESTler2Postman.fsproj", "{3B83CE52-07BB-4CA6-9AA6-B0962E064330}"
+EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "AgentUtilities", "AgentUtilities\AgentUtilities\AgentUtilities.fsproj", "{ED824F37-338D-4A3A-92C1-193067A98CF3}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -41,10 +41,6 @@ Global
 		{A0C08B1C-9741-4EF0-8822-15B74C2E2C69}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A0C08B1C-9741-4EF0-8822-15B74C2E2C69}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A0C08B1C-9741-4EF0-8822-15B74C2E2C69}.Release|Any CPU.Build.0 = Release|Any CPU
-		{28C9E068-8EF7-4D57-AD79-AF64D3B5638A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{28C9E068-8EF7-4D57-AD79-AF64D3B5638A}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{28C9E068-8EF7-4D57-AD79-AF64D3B5638A}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{28C9E068-8EF7-4D57-AD79-AF64D3B5638A}.Release|Any CPU.Build.0 = Release|Any CPU
 		{19F65C0B-7818-4F56-B428-4FF79F945B91}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{19F65C0B-7818-4F56-B428-4FF79F945B91}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{19F65C0B-7818-4F56-B428-4FF79F945B91}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -69,6 +65,10 @@ Global
 		{3B83CE52-07BB-4CA6-9AA6-B0962E064330}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3B83CE52-07BB-4CA6-9AA6-B0962E064330}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3B83CE52-07BB-4CA6-9AA6-B0962E064330}.Release|Any CPU.Build.0 = Release|Any CPU
+		{ED824F37-338D-4A3A-92C1-193067A98CF3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{ED824F37-338D-4A3A-92C1-193067A98CF3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{ED824F37-338D-4A3A-92C1-193067A98CF3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{ED824F37-338D-4A3A-92C1-193067A98CF3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

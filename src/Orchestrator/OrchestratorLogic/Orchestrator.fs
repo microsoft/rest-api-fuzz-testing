@@ -68,6 +68,8 @@ module ContainerInstances =
 
     let [<Literal>] TestTarget = "test-target"
 
+    let [<Literal>] AgentUtilities = "agent-utilities"
+
     type System.Threading.Tasks.Task with
         member x.ToAsync = Async.AwaitTask(x)
 
@@ -235,6 +237,12 @@ module ContainerInstances =
             EnvironmentVariables : Map<string, string> option
         }
 
+    type AgentUtilities =
+        {
+            Container : string
+            Port : int
+        }
+
     let getStorageKey (azure: IAzure) (resourceGroup: string, storageAccount: string) =
         async {
             let! storage = azure.StorageAccounts.GetByResourceGroupAsync(resourceGroup, storageAccount).ToAsync
@@ -247,13 +255,13 @@ module ContainerInstances =
     let getStorageKeyTask (azure: IAzure) (resourceGroup: string, storageAccount: string) =
         getStorageKey azure (resourceGroup, storageAccount) |> Async.StartAsTask
 
+
     let initializeTools (agentConfig: AgentConfig) =
         async {
             let storageCredential = Azure.Storage.StorageSharedKeyCredential(agentConfig.UtilsStorageAccount, agentConfig.UtilsStorageAccountKey)
             let builder = Azure.Storage.Files.Shares.ShareUriBuilder(agentConfig.UtilsStorageAccountUri, ShareName = agentConfig.UtilsFileShare )
             let share = Azure.Storage.Files.Shares.ShareClient(builder.ToUri(), storageCredential)
             let directoryClient = share.GetDirectoryClient("tools")
-
             let asyncEnum = directoryClient.GetFilesAndDirectoriesAsync().GetAsyncEnumerator()
 
             let rec loadAllConfigs(allConfigs) =
@@ -274,8 +282,18 @@ module ContainerInstances =
                         return allConfigs
                 }
 
+            let loadAgentUtilities() =
+                async {
+                    let agentUtilitiesClient = share.GetDirectoryClient("agent-utilities")
+                    let fileClient = agentUtilitiesClient.GetFileClient("config.json")
+                    let! file = fileClient.DownloadAsync().ToAsync
+                    let agentUtilitiesConfig : AgentUtilities = Microsoft.FSharpLu.Json.Compact.deserializeStream(file.Value.Content)
+                    return agentUtilitiesConfig
+                }
+
             let! configs = loadAllConfigs []
-            return dict configs
+            let! agentUtilities = loadAgentUtilities()
+            return agentUtilities, (dict configs)
         } |> Async.StartAsTask
 
 
@@ -313,6 +331,18 @@ module ContainerInstances =
             return secrets, privateRegistries
         } |> Async.StartAsTask
 
+
+    let patchContainerRegistry (dockerConfigs: (string*DockerConfig) seq) (container: string) =
+        dockerConfigs
+        |> Seq.tryPick( fun (k, v) ->
+            let t = sprintf"{%s}" k
+            if container.Contains(t, StringComparison.OrdinalIgnoreCase) then
+                Some (container.Replace(t, v.Registry, StringComparison.OrdinalIgnoreCase))
+            else
+                None
+        ) |> Option.defaultValue container
+
+
     let getToolConfiguration 
         (dockerConfigs: (string*DockerConfig) seq)
         (toolsConfigs : IDictionary<string, Result<string * ToolConfig, string>>)
@@ -320,17 +350,7 @@ module ContainerInstances =
             async {
                 match toolsConfigs.TryGetValue(task.ToolName) with
                 | true, Result.Ok(runDirectory, c) ->
-                    let container =
-                        dockerConfigs
-                        |> Seq.tryPick( fun (k, v) ->
-                            let t = sprintf"{%s}" k
-                            if c.Container.Contains(t, StringComparison.OrdinalIgnoreCase) then
-                                Some (c.Container.Replace(t, v.Registry, StringComparison.OrdinalIgnoreCase))
-                            else
-                                None
-                        )
-                        |> Option.defaultValue c.Container
-
+                    let container = patchContainerRegistry dockerConfigs c.Container
                     return runDirectory,
                         {
                             Tool = task.ToolName
@@ -455,15 +475,29 @@ module ContainerInstances =
                 )
             | None -> cg
 
+
+        type ResourcesInternal =
+            {
+                Cores : float
+                MemoryGBs : float
+                GPU : GpuConfig option
+            }
+
+            static member FromResources (r : Resources) =
+                {
+                    Cores = float r.Cores
+                    MemoryGBs = float r.MemoryGBs
+                    GPU = r.GPU
+                }
         
         let configureTasksContainerInstances
-                (cg: Choice<ContainerGroup.Definition.IWithVolume, ContainerGroup.Definition.IWithNextContainerInstance>) (resources: Resources)
+                (cg: Choice<ContainerGroup.Definition.IWithVolume, ContainerGroup.Definition.IWithNextContainerInstance>) (resources: ResourcesInternal)
                 (toolContainerRunsWithSecrets: (ContainerToolRun * IDictionary<string, string> * IDictionary<string, string>) array)
                 (workDirectory, workVolume) (readOnlyShares, readWriteShares) networkProfileName =
 
             let numberOfTasks = Array.length toolContainerRunsWithSecrets
-            let cores = float resources.Cores
-            let mem = float resources.MemoryGBs
+            let cores = resources.Cores
+            let mem = resources.MemoryGBs
 
             let cpu = System.Math.Round(cores / float numberOfTasks, 2, MidpointRounding.ToZero)
             let ram = System.Math.Round(mem / float numberOfTasks, 1, MidpointRounding.ToZero)
@@ -505,7 +539,7 @@ module ContainerInstances =
                                 else
                                     // When deploying into a vnet a port *must* be defined
                                     // This number is in the dynamic range. We will document
-                                    // it's what we do. 
+                                    // it's what we do.
                                     (b1.WithExternalTcpPort 55555)
                                        .WithCpuCoreCount(cpu), true
                             | Some p ->
@@ -713,6 +747,7 @@ module ContainerInstances =
             (logger:ILogger)
             (azure: IAzure)
             (secrets : IDictionary<string, string>)
+            (agentUtilities: AgentUtilities)
             (agentConfig: AgentConfig)
             (dockerConfigs: (string * DockerConfig) seq, toolsConfigs : IDictionary<string, Result<string * ToolConfig, string>>)
             (jobCreateRequest: Raft.Job.CreateJobRequest)
@@ -794,7 +829,7 @@ module ContainerInstances =
                             else
                                 (ts.Services |> Array.maxBy (fun t -> t.ExpectedDurationUntilReady)).ExpectedDurationUntilReady
 
-                    let setupContainerEnvironment (i : int) (config: ContainerToolRun) =
+                    let setupContainerEnvironment (agentUtilitiesUrl : string option) (i : int) (config: ContainerToolRun) =
                         let secrets =
                             match config.ContainerConfiguration.Secrets with
                             | Some toolSecrets ->
@@ -825,7 +860,6 @@ module ContainerInstances =
                                 "RAFT_TASK_INDEX", sprintf "%d" i
                                 "RAFT_CONTAINER_GROUP_NAME", containerGroupName
                                 "RAFT_CONTAINER_NAME", config.ContainerName
-                                "RAFT_APP_INSIGHTS_KEY", agentConfig.AppInsightsKey
                                 "RAFT_SITE_HASH", agentConfig.SiteHash
                             ]
                             @ (match config.ContainerConfiguration.Run with Some r -> ["RAFT_RUN_CMD", getContainerRunCommandString (getShell()) r.ShellArguments ] | None -> [])
@@ -833,14 +867,14 @@ module ContainerInstances =
                             @ (match config.RunDirectory with Some rd -> ["RAFT_TOOL_RUN_DIRECTORY", rd] | None -> [])
                             @ (match config.ContainerConfiguration.PostRun with Some pr -> ["RAFT_POST_RUN_COMMAND", getContainerRunCommandString (getShell()) pr.ShellArguments] | None -> [])
                             @ (match config.ContainerConfiguration.Shell with Some pr -> ["RAFT_CONTAINER_SHELL", pr] | None -> [])
+                            @ (match agentUtilitiesUrl with Some url -> ["RAFT_AGENT_UTILITIES_URL", url] | None -> [])
                             @ (Map.toList (Option.defaultValue Map.empty config.ContainerConfiguration.UserDefinedEnvironmentVariables)))
 
-                        let secretsDict = dict (Array.append secrets [|"RAFT_SB_OUT_SAS", agentConfig.OutputSas|])
-                        config, secretsDict, predefinedEnvironmentVariablesDict
+                        config, (dict secrets), predefinedEnvironmentVariablesDict
 
                     let containerToolRunsConfigurationsWithSecrets =
                         containerToolRunsConfigurations
-                        |> Array.mapi setupContainerEnvironment
+                        |> Array.mapi (setupContainerEnvironment (Some (sprintf "http://localhost:%d" agentUtilities.Port)))
 
                     let readOnlyFileShares =
                         Some(
@@ -859,14 +893,82 @@ module ContainerInstances =
                                     MemoryGBs = jobCreateRequest.JobDefinition.Resources.MemoryGBs - t.Resources.MemoryGBs
                             }
 
+                    let agentUtilsRun =
+                        let agentUtilsConfig =
+                            {
+                                ContainerName = AgentUtilities
+                                RunDirectory = None
+                                WorkDirectory = None
+                                ContainerConfiguration = {
+                                    Tool = AgentUtilities
+                                    Container = agentUtilities.Container |> patchContainerRegistry dockerConfigs
+                                    Ports = Some [|agentUtilities.Port|]
+                                    IsIdling = false
+                                    Run = None
+                                    Idle = None
+                                    PostRun = None
+                                    Shell = None
+                                    Secrets = 
+                                        let allSecrets =
+                                            containerToolRunsConfigurations
+                                            |> Array.collect(fun c -> match c.ContainerConfiguration.Secrets with Some s -> s | None -> [||])
+                                        if Array.isEmpty allSecrets then
+                                            None
+                                        else
+                                            Some allSecrets
+                                    UserDefinedEnvironmentVariables = Some (Map.empty.Add("ASPNETCORE_URLS", sprintf "http://*:%d" agentUtilities.Port))
+                                }
+                            }
+
+                        let toolRun, secrets, environmentVariables = setupContainerEnvironment None 0 agentUtilsConfig
+                        let secrets = 
+                            let r = System.Collections.Generic.Dictionary(secrets)
+                            r.Add("RAFT_SB_OUT_SAS", agentConfig.OutputSas)
+                            r :> IDictionary<_, _>
+
+                        let environmentVariables =
+                            let r = System.Collections.Generic.Dictionary(environmentVariables)
+                            r.Add("RAFT_APP_INSIGHTS_KEY", agentConfig.AppInsightsKey)
+                            r :> IDictionary<_, _>
+                        toolRun, secrets, environmentVariables
+
+
+                    let agentUtilsResources, remainingTaskResources =
+                        let n = containerToolRunsConfigurationsWithSecrets.Length
+                        let r : RaftContainerGroup.ResourcesInternal =
+                            {
+                                Cores = float((n/10) + 1) * 0.1
+                                MemoryGBs = float((n/10) + 1) * 0.1
+                                GPU = None
+                            }
+                        let rr : RaftContainerGroup.ResourcesInternal =
+                            {
+                                Cores = (float taskResources.Cores) - r.Cores
+                                MemoryGBs = (float taskResources.MemoryGBs) - r.MemoryGBs
+                                GPU = taskResources.GPU
+                            }
+                        r, rr
+
                     let _4 = RaftContainerGroup.configureTasksContainerInstances
-                                (Choice1Of2 _3) taskResources
+                                (Choice1Of2 _3) agentUtilsResources
+                                [| agentUtilsRun |]
+                                (workDirectory, workVolume)
+                                ((Some utilsFileShares), None)
+                                agentConfig.NetworkProfileName
+
+                    let agentUtilsContainerInstance =
+                        match _4 with
+                        | Choice1Of2 (_), _ -> failwithf "No agent utilites container configured"
+                        | Choice2Of2(cg), _ -> cg
+
+                    let _5 = RaftContainerGroup.configureTasksContainerInstances
+                                (Choice2Of2 agentUtilsContainerInstance) remainingTaskResources
                                 containerToolRunsConfigurationsWithSecrets
                                 (workDirectory, workVolume)
                                 (readOnlyFileShares, jobCreateRequest.JobDefinition.ReadWriteFileShareMounts)
                                 agentConfig.NetworkProfileName
 
-                    match _4 with
+                    match _5 with
                     | Choice1Of2 (_), _ ->
                         return failwithf "No container instances configured for container group: %s" containerGroupName
                     
@@ -900,12 +1002,12 @@ module ContainerInstances =
                                                 Secrets = target.KeyVaultSecrets
                                                 UserDefinedEnvironmentVariables = target.EnvironmentVariables
                                             }
-                                        } |> setupContainerEnvironment i
+                                        } |> setupContainerEnvironment None i
                                     )
 
                                 match RaftContainerGroup.configureTasksContainerInstances
                                         (Choice2Of2 cg)
-                                        t.Resources targetRuns
+                                        (RaftContainerGroup.ResourcesInternal.FromResources t.Resources) targetRuns
                                         (workDirectory, workVolume)
                                         (readOnlyFileShares, jobCreateRequest.JobDefinition.ReadWriteFileShareMounts) agentConfig.NetworkProfileName with
                                 | Choice1Of2 _, _ -> failwith "Not possible"
@@ -951,7 +1053,7 @@ module ContainerInstances =
                                     let! _ =
                                         w
                                             .WithTags(newTags)
-                                            .WithRestartPolicy(Models.ContainerGroupRestartPolicy.Never)                                        
+                                            .WithRestartPolicy(Models.ContainerGroupRestartPolicy.Never)
                                             .CreateAsync()
                                             .ToAsync
                                     ()
@@ -966,7 +1068,7 @@ module ContainerInstances =
                                         w
                                             .WithNetworkProfileId(azure.SubscriptionId, vnetRG, agentConfig.NetworkProfileName)
                                             .WithTags(newTags)
-                                            .WithRestartPolicy(Models.ContainerGroupRestartPolicy.Never)                                        
+                                            .WithRestartPolicy(Models.ContainerGroupRestartPolicy.Never)
                                             .CreateAsync()
                                             .ToAsync
                                     ()
@@ -1178,7 +1280,7 @@ module ContainerInstances =
     let createJob
             (logger:ILogger)
             (secrets : IDictionary<string, string>)
-            (dockerConfigs: (string * DockerConfig) seq, toolsConfigs: IDictionary<string, Result<string * ToolConfig, string>>,
+            (dockerConfigs: (string * DockerConfig) seq, agentUtilitiesConfig: AgentUtilities, toolsConfigs: IDictionary<string, Result<string * ToolConfig, string>>,
                 azure: IAzure, agentConfig: AgentConfig, communicationClients: CommunicationClients)
             (message: string) =
         async {
@@ -1249,7 +1351,7 @@ module ContainerInstances =
                     logInfo "Message for job %A will not be reposted initial container group creation did not succeed" decodedMessage.Message.JobId
                 else
                     do! postStatus JobState.Creating None None
-                    match! createContainerGroupInstance containerGroupName logger azure secrets agentConfig (dockerConfigs, toolsConfigs) decodedMessage.Message reportDeploymentError with
+                    match! createContainerGroupInstance containerGroupName logger azure secrets agentUtilitiesConfig agentConfig (dockerConfigs, toolsConfigs) decodedMessage.Message reportDeploymentError with
                     | Result.Ok () ->
                         //this is newly created container. Poll until it is fully running and then update job status
                         do! rePostJobCreate communicationClients.JobCreationSender decodedMessage
@@ -1502,7 +1604,8 @@ module ContainerInstances =
                     |> Seq.forall (fun (KeyValue(_, v)) ->
                         not <| isNull v.InstanceView &&
                             v.InstanceView.CurrentState.State = ContainerInstancesStates.Terminated ||
-                            v.Name.StartsWith(TestTarget, StringComparison.InvariantCultureIgnoreCase)
+                            v.Name.StartsWith(TestTarget, StringComparison.InvariantCultureIgnoreCase) ||
+                            0 = String.Compare(v.Name, AgentUtilities, true)
                     )
                 )
             )

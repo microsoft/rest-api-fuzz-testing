@@ -9,12 +9,9 @@ cur_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(cur_dir, '..', '..', '..'))
 from raft_sdk.raft_service import RaftCLI, RaftJobConfig
 
-def run(compile, fuzz, sample_host):
+def run(cli, compile, fuzz):
     # instantiate RAFT CLI
-    cli = RaftCLI()
-    substitutions = {
-        '{sample.host}' : sample_host
-    }
+    substitutions = { }
     # Create compilation step job configuratin
     compile_job_config = RaftJobConfig(file_path = compile, substitutions=substitutions)
     # add webhook metadata that will be included in every triggered webhook by Compile job
@@ -40,11 +37,11 @@ def run(compile, fuzz, sample_host):
     cli.poll(fuzz_job['jobId'])
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print('Please provide host under test as an argument that will be used to \
-substitute {sample.host} in compile.json and fuzz.json config files')
+    if '--local' in sys.argv:
+        from raft_local import RaftLocalCLI
+        cli = RaftLocalCLI(network='bridge')
     else:
-        host = sys.argv[1]
-    run(os.path.join(cur_dir, "compile.json"),
-        os.path.join(cur_dir, "fuzz.json"),
-        host)
+        cli = RaftCLI()
+
+    run(cli, os.path.join(cur_dir, "compile.json"),
+        os.path.join(cur_dir, "fuzz.json"))

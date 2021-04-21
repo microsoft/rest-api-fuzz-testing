@@ -13,8 +13,7 @@ cur_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(cur_dir, '..', '..', '..'))
 from raft_sdk.raft_service import RaftCLI, RaftJobConfig
 
-def run(compile, test):
-    cli = RaftCLI()
+def run(cli, n_tasks, compile, test):
     substitutions = {
     }
     compile_job_config = RaftJobConfig(file_path=compile, substitutions=substitutions)
@@ -47,7 +46,7 @@ def run(compile, test):
     task_test_fuzz_lean = test_job_config.config['testtasks']['tasks'][0]
     task_test = test_job_config.config['testtasks']['tasks'][1]
     test_tasks = []
-    for t in range(30):
+    for t in range(n_tasks):
         new_task_test = copy.deepcopy(task_test)
         new_task_test_fuzz_lean = copy.deepcopy(task_test_fuzz_lean)
 
@@ -65,5 +64,16 @@ def run(compile, test):
     cli.poll(test_job['jobId'])
 
 if __name__ == "__main__":
-    run(os.path.join(cur_dir, "compile-60.json"),
+    if '--local' in sys.argv:
+        #fails due to command being too long.
+        #Until this is addressed - do 20 tasks
+        from raft_local import RaftLocalCLI
+        cli = RaftLocalCLI(network='bridge')
+        n = 10
+    else:
+        #actullay running 59 tasks
+        #58 fuzzing tasks, and one "agent-utilities proxy" task
+        cli = RaftCLI()
+        n = 29
+    run(cli, n, os.path.join(cur_dir, "compile-60.json"),
         os.path.join(cur_dir, "test-60.json"))
