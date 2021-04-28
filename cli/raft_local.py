@@ -75,6 +75,9 @@ def init_tools(tools_path):
     return tools, tool_paths
 
 def init_local(work_directory):
+    if not os.path.exists(work_directory):
+        os.mkdir(work_directory)
+
     secrets_path = os.path.join(work_directory, 'secrets')
     if not os.path.exists(secrets_path):
         os.mkdir(secrets_path)
@@ -574,9 +577,10 @@ def run(args):
 
     work_dir = os.path.join(script_dir, 'local')
     if local_action == 'init':
-        storage, secrets = init_local(work_dir)
+        storage, secrets, event_sink = init_local(work_dir)
         print(f'Created results storage folder: {storage}')
         print(f'Created secrets folder: {secrets}')
+        print(f'Created events_sink folder: {event_sink}')
 
     if job_action == 'create':
         cli = RaftLocalCLI(work_dir)
