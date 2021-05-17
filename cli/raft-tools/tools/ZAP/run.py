@@ -10,29 +10,28 @@ sys.path.append(raft_libs_dir)
 import raft
 
 if __name__ == "__main__":
-    if len(sys.argv) == 2 and sys.argv[1] == "install":
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", os.path.join(raft_libs_dir, "requirements.txt")])
-        raft.auth_token(True)
-    else:
-        token = raft.auth_token(False)
+    config = raft.task_config()
 
-        work_directory = os.environ['RAFT_WORK_DIRECTORY']
-        config = raft.task_config()
+    raft_utils = raft.RaftUtils('ZAP')
+    raft_utils.wait_for_agent_utilities()
 
-        i = 0
-        test_target_config = config['targetConfiguration']
-        endpoint = test_target_config.get('endpoint')
+    token = raft.auth_token()
+    work_directory = os.environ['RAFT_WORK_DIRECTORY']
 
-        n_targets = len(test_target_config.get("apiSpecifications"))
-        for t in test_target_config.get("apiSpecifications"):
-            print(f'Starting zap for target {t}')
-            args = [sys.executable, "scan.py", f"{i}", f"{n_targets}", '--target', t]
-            if token:
-                args.extend(['--token', token])
+    i = 0
+    test_target_config = config['targetConfiguration']
+    endpoint = test_target_config.get('endpoint')
 
-            if endpoint:
-                url = urlparse(endpoint)
-                args.extend(['--host', url.netloc])
+    n_targets = len(test_target_config.get("apiSpecifications"))
+    for t in test_target_config.get("apiSpecifications"):
+        print(f'Starting zap for target {t}')
+        args = [sys.executable, "scan.py", f"{i}", f"{n_targets}", '--target', t]
+        if token:
+            args.extend(['--token', token])
 
-            subprocess.check_call(args)
-            i = i + 1
+        if endpoint:
+            url = urlparse(endpoint)
+            args.extend(['--host', url.netloc])
+
+        subprocess.check_call(args)
+        i = i + 1

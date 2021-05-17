@@ -11,10 +11,9 @@ cur_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(cur_dir, '..', '..', '..'))
 from raft_sdk.raft_service import RaftCLI, RaftJobConfig
 
-def run(compile, test, fuzz):
-    cli = RaftCLI()
+def run(cli, compile, test, fuzz):
     substitutions = {
-        '{defaults.deploymentName}': cli.definitions.deployment
+        '{defaults.deploymentName}': (RaftCLI().definitions.deployment)
     }
     compile_job_config = RaftJobConfig(file_path=compile, substitutions=substitutions)
     print('Compile')
@@ -38,6 +37,12 @@ def run(compile, test, fuzz):
 
 
 if __name__ == "__main__":
-    run(os.path.join(cur_dir, "compile.json"),
+    if "--local" in sys.argv:
+        from raft_local import RaftLocalCLI
+        cli = RaftLocalCLI(network='bridge')
+    else:
+        cli = RaftCLI()
+
+    run(cli, os.path.join(cur_dir, "compile.json"),
         os.path.join(cur_dir, "test.json"),
         os.path.join(cur_dir, "fuzz.json"))

@@ -44,17 +44,16 @@ def get_token(client_id, tenant_id, secret, scopes, authority_uri, audience):
     return app.acquire_token_for_client(scopes)
 
 def token_from_env_variable(env_variable_name):
-    auth_params = os.environ.get(f"RAFT_{env_variable_name}") or os.environ.get(env_variable_name)
+    auth_params = os.environ.get(env_variable_name)
     if auth_params:
         auth = json.loads(auth_params, object_hook=RaftJsonDict.raft_json_object_hook)
-        print("Getting MSAL token")
+        #print("Getting MSAL token")
         token = get_token(auth['client'], auth['tenant'], auth['secret'], auth.get('scopes'), auth.get('authorityUri'), auth.get('audience'))
-        print("Token created")
+        #print("Token created")
         return f'{token["token_type"]} {token["access_token"]}'
     else:
-        print(f"Authentication parameters are not set in environment variable {env_variable_name}")
-        return None
+        raise Exception(f"Authentication parameters are not set in environment variable {env_variable_name}")
 
 if __name__ == "__main__":
-    token = token_from_env_variable(sys.argv[1])
+    token = token_from_env_variable(sys.argv[1].strip())
     print(token)

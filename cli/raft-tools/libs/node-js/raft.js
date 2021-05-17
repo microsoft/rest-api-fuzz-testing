@@ -1,15 +1,14 @@
 'use strict';
 
+const http = require('http');
+const querystring = require('querystring');
 const fs = require('fs');
 const path = require('path'); 
-const url = require('url');
 const { exec } = require('child_process');
 
-const appInsights = require('applicationinsights');
-const serviceBus = require('@azure/service-bus');
-
-const toolDirectory = process.env.RAFT_TOOL_RUN_DIRECTORY;
 const workDirectory = process.env.RAFT_WORK_DIRECTORY;
+const agentUtilitiesUrl = process.env.RAFT_AGENT_UTILITIES_URL;
+console.log(`AgentUtilitiesURL: ${agentUtilitiesUrl}`);
 
 const rawdata = fs.readFileSync(workDirectory + '/task-config.json');
 const config = JSON.parse(rawdata);
@@ -25,21 +24,27 @@ function jsonGet(jo, keys) {
     return d;
 }
 
+const timer = ms => new Promise(res => setTimeout(res, ms));
+function waitForEndpoint(url, callback) {
+    http.get(url,
+        function(res) {
+            if (res.statusCode !== 200) {
+                timer(1000).then( _ => waitForEndpoint(url, callback));
+            } else {
+                callback(null, null);
+            }
+        }
+    ).on("error", function(err) {
+            console.log(`Failed to establish connection to ${url} due to ${err}. Trying again...`);
+            timer(1000).then( _ => waitForEndpoint(url, callback));
+        }
+    )
+}
+
+
+
 class RaftUtils {
     constructor(toolName) {
-
-        this.running_local = process.env['RAFT_LOCAL'];
-
-        if (this.running_local) {
-            this.serviceBus = null;
-            this.sbSender = null;
-            this.telemetryClient = null;
-        } else {
-            this.telemetryClient = new appInsights.TelemetryClient(process.env['RAFT_APP_INSIGHTS_KEY']);
-            this.serviceBus = new serviceBus.ServiceBusClient(process.env.RAFT_SB_OUT_SAS);
-            this.sbSender = this.serviceBus.createSender(this.serviceBus._connectionContext.config.entityPath);
-        }
-
         this.jobId = process.env['RAFT_JOB_ID'];
         this.agentName = process.env['RAFT_CONTAINER_NAME'];
         this.traceProperties =
@@ -49,59 +54,89 @@ class RaftUtils {
                 containerName : this.agentName
             };
         this.toolName = toolName;
+
+        this.agentUtilitiesUrl = new URL(agentUtilitiesUrl);
+    }
+
+    post(path, data) {
+        var postData = JSON.stringify(data);
+        const opts = {
+            host : this.agentUtilitiesUrl.hostname,
+            port : this.agentUtilitiesUrl.port,
+            path : path,
+            method : 'POST',
+            headers : {
+                'Content-Type': 'application/json',
+                'Content-Length' : Buffer.byteLength(postData)
+            }
+        };
+
+        return new Promise(function(resolve, reject) {
+                var post = http.request(opts, res => {
+                    res.on('data', d => {
+                        let rawData = '';
+                        res.on('data', (chunk) => { rawData += chunk; });
+                        res.on('end', () => {
+                            try {
+                                const parsedData = JSON.parse(rawData);
+                                resolve(parsedData['token']);
+                            } catch (e) {
+                                reject(e);
+                            }
+                        }).on('error', (e) => {
+                            reject(e);
+                        });
+                    });
+                });
+
+                post.on('error', e => {
+                    console.error(`Posting ${postData} to ${path} failed with ${e}`);
+                    reject(e);
+                });
+
+                post.write(postData);
+                post.end();
+            }
+        );
+    }
+
+    waitForAgentUtilities(callback) {
+        const readinessUrl = agentUtilitiesUrl + '/readiness/ready';
+        return waitForEndpoint(readinessUrl, callback);
+    }
+
+    postEvent (eventName, eventData) {
+        return this.post(('/messaging/event/' + eventName), eventData);
     }
 
     reportBug(bugDetails) {
-        if (this.running_local) {
-            return new Promise(function(resolve, reject) {resolve();});
-        } else {
-            console.log('Sending bug found event: ' + bugDetails.name);
-            this.sbSender.sendMessages(
-                {
-                    body: {
-                        eventType : 'BugFound',
-                        message : {
-                            tool : this.toolName,
-                            jobId : this.jobId,
-                            agentName : this.agentName,
-                            bugDetails : bugDetails
-                        }
-                    },
-                    sessionId : this.jobId 
-                }
-            );
-        }
+        var bugData = {
+            tool : this.toolName,
+            jobId : this.jobId,
+            agentName : this.agentName,
+            bugDetails : bugDetails
+        };
+        return this.postEvent('bugFound', bugData);
     }
 
     reportStatus(state, details) {
-        if (this.running_local) {
-            return new Promise(function(resolve, reject) {resolve();});
-        } else {
-            console.log('Sending job status event: ' + state);
-            return this.sbSender.sendMessages(
-                {
-                    body: {
-                        eventType: 'JobStatus', 
-                        message : {
-                            tool: this.toolName,
-                            jobId : this.jobId,
-                            agentName : this.agentName,
-                            details : details,
-                            utcEventTime : (new Date()).toUTCString(),
-                            state : state
-                        }
-                    }, 
-                    sessionId : this.jobId 
-                }); 
-        }
+        var jobStatusData = {
+            tool: this.toolName,
+            jobId : this.jobId,
+            agentName : this.agentName,
+            details : details,
+            utcEventTime : (new Date()).toUTCString(),
+            state : state
+        };
+        return this.postEvent('jobStatus', jobStatusData);
     }
 
     reportStatusCreated(details){
-        this.reportStatus('Created', details);
+        return this.reportStatus('Created', details);
     }
 
     reportStatusRunning(details){
-        this.reportStatus('Running', details);
+        return this.reportStatus('Running', details);
     }
 
     reportStatusCompleted(details){
@@ -113,22 +148,15 @@ class RaftUtils {
     }
 
     logTrace(traceMessage) {
-        if (!this.running_local) {
-            this.telemetryClient.trackTrace({message: traceMessage, properties: this.traceProperties});
-        }
+        return this.post('/messaging/trace', {message: traceMessage, tags : this.traceProperties, severity : 'Information'});
     }
 
     logException(exception) {
-        if (!this.running_local) {
-            this.telemetryClient.trackException({exception: exception, properties: this.traceProperties});
-        }
+        return this.post('/messaging/trace', {message: exception, tags : this.traceProperties, severity : 'Error'});
     }
 
     flush(){
-        if (!this.running_local) {
-            this.telemetryClient.flush();
-            this.serviceBus.close();
-        }
+        return this.post('/messaging/flush');
     }
 }
 function getAuthHeader(callback) {
@@ -144,35 +172,27 @@ function getAuthHeader(callback) {
         } else {
             const authMethod = authMethods[0];
             console.log("Authentication Method: " + authMethod);
-            switch (authMethod.toLowerCase()) {
-                case 'msal':
-                    const msalDirectory = toolDirectory + "/../../auth/node-js/msal";
-                    exec("npm install " + msalDirectory, (error, _) => {
-                            if (error) {
-                                callback(error);
-                            } else {
-                                const raftMsal = require(msalDirectory + '/msal_token.js')
-                                raftMsal.tokenFromEnvVariable(authenticationMethod[authMethod], (error, result) => {
-                                        callback(error, result);
-                                    }
-                                );
+            const authUrl = agentUtilitiesUrl + `/auth/${authMethod}/${authenticationMethod[authMethod]}`
+            http.get(authUrl,
+                function(res) {
+                    if (res.statusCode !== 200) {
+                        callback(new Error(`Request to ${authUrl} failed with status code ${res.statusCode}`), null);
+                    } else {
+                        let rawData = '';
+                        res.on('data', (chunk) => { rawData += chunk; });
+                        res.on('end', () => {
+                            try {
+                                const parsedData = JSON.parse(rawData);
+                                callback(null, parsedData['token']);
+                            } catch (e) {
+                                callback(e, null);
                             }
-                        }
-                    );
-                    break;
-                case 'txttoken':
-                    callback(null, process.env['RAFT_' + authenticationMethod[authMethod]] || process.env[authenticationMethod[authMethod]] );
-                    break;
-                case 'commandline':
-                    exec(authenticationMethod[authMethod], (error, result) => {
-                            callback(error, result);
-                        }
-                    );
-                    break;
-                default:
-                    callback(new Error("Unhandled authentication method: " + authenticationMethod), null);
-                    break;
-            }
+                        }).on('error', (e) => {
+                            callback(e, null);
+                        });
+                    }
+                }
+            );
         }
     }
 }

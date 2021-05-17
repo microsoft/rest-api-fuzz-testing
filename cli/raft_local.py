@@ -17,7 +17,10 @@ from raft_sdk.raft_service import RaftJobConfig, RaftJobError, print_status
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 json_hook = RaftJsonDict.raft_json_object_hook
+work_directory = os.path.join(script_dir, 'local')
 
+class RaftLocalException(Exception):
+    pass
 
 class RaftLocalCliDockerException(Exception):
     def __init__(self, error_message, args):
@@ -74,7 +77,7 @@ def init_tools(tools_path):
                     tool_paths[tool_folder] = f"/raft-tools/tools/{tool_folder}"
     return tools, tool_paths
 
-def init_local(work_directory):
+def init_local():
     if not os.path.exists(work_directory):
         os.mkdir(work_directory)
 
@@ -111,31 +114,6 @@ def time_span_to_seconds(time_span):
 def parse_utc_time(t):
     return DateParser.parse(t)
 
-def process_job_events_sink(job_events_path):
-    bugs = []
-    job_status = {}
-    for root_folder_path, dirs, files in os.walk(job_events_path):
-        for file_name in files:
-            file_path = os.path.join(root_folder_path, file_name)
-            status = open(file_path, 'r')
-            try:
-                j = json.load(status, object_hook=RaftJsonDict.raft_json_object_hook)
-                status.close()
-                os.remove(file_path) 
-                if j['EventType'] == 'BugFound':
-                    bugs.append(j) 
-                elif j['EventType'] == 'JobStatus':
-                    js = job_status.get(j['Message']['AgentName']) 
-                    if js:
-                        if parse_utc_time(j['Message']['UtcEventTime']) > parse_utc_time(js['Message']['UtcEventTime']):
-                            job_status[j['Message']['AgentName']] = j
-                    else:
-                        job_status[j['Message']['AgentName']] = j
-            except Exception as ex:
-                print(f"FAILED TO PROCESS STATUS MESSAGE: {file_path} due to {ex}")
-
-    return job_status, bugs
-
 def trigger_webhook(url, data, metadata=None):
     for d in data:
         d['Subject'] = d['EventType']
@@ -154,18 +132,22 @@ def trigger_webhook(url, data, metadata=None):
         
 
 class RaftLocalCLI():
-    def __init__(self, work_directory):
+    def __init__(self, network='host'):
+        self.bugs = []
+        self.status = []
+
+        self.network = network
         self.work_directory = work_directory
-        self.tools, self.tool_paths = (
-            init_tools(os.path.join(script_dir, 'raft-tools', 'tools')))
+        self.tools, self.tool_paths =\
+            init_tools(os.path.join(script_dir, 'raft-tools', 'tools'))
+
+        self.container_utils, self.container_utils_paths =\
+            init_tools(os.path.join(script_dir, 'raft-tools'))
 
         if not os.path.exists(self.work_directory):
             os.mkdir(self.work_directory)
-        self.storage, self.secrets_path, self.events_sink = init_local(work_directory)
-
-    # generate container name
-    def container_name(self, job_id, tool_name):
-        return tool_name + '-' + job_id
+        self.storage, self.secrets_path, self.events_sink =\
+            init_local()
 
     def mount_read_write(self, source, target):
         return f'--mount type=bind,source="{source}",target="{target}" '
@@ -182,10 +164,8 @@ class RaftLocalCLI():
         env += self.env_variable('RAFT_JOB_ID', job_id)
         env += self.env_variable('RAFT_CONTAINER_GROUP_NAME', job_id)
         env += self.env_variable('RAFT_WORK_DIRECTORY', work_dir)
-        env += self.env_variable('RAFT_APP_INSIGHTS_KEY', '00000000-0000-0000-0000-000000000000')
         env += self.env_variable('RAFT_SITE_HASH', '0')
-        env += self.env_variable('RAFT_SB_OUT_SAS', 'dummy_sas')
-        
+
         # If we are running in a github action (or some other unique environment)
         # we will set this value before running
         # to distinquish between the different environments.
@@ -196,17 +176,53 @@ class RaftLocalCLI():
             env += self.env_variable('RAFT_LOCAL', customLocal)
         return env
 
-    def docker_create_bridge(self, job_id):
-        # docker(f'network create --driver bridge {job_id}')
-        # return job_id
-        # use host bridge since we are trying to replicate behaviour of
-        # Azure Container Instances and Azure Container Instances communicate to each
-        # other over local host.
-        return 'host'
+    def process_job_events_sink(self, job_events_path):
+        bugs = []
+        job_status = {}
+        for root_folder_path, dirs, files in os.walk(job_events_path):
+            for file_name in files:
+                file_path = os.path.join(root_folder_path, file_name)
+                status = open(file_path, 'r')
+                try:
+                    j = json.load(status,\
+                            object_hook=RaftJsonDict.raft_json_object_hook)
+                    status.close()
+                    os.remove(file_path) 
+                    if j['EventType'] == 'BugFound':
+                        bugs.append(j) 
+                    elif j['EventType'] == 'JobStatus':
+                        js = job_status.get(j['Message']['AgentName']) 
+                        if js:
+                            if parse_utc_time(j['Message']['UtcEventTime']) >\
+                                parse_utc_time(js['Message']['UtcEventTime']):
+                                job_status[j['Message']['AgentName']] = j
+                        else:
+                            job_status[j['Message']['AgentName']] = j
+                except Exception as ex:
+                    print(f"FAILED TO PROCESS STATUS MESSAGE:\
+                            {file_path} due to {ex}")
 
-    # since host bridge is persistent - this is not needed
-    # def docker_remove_bridge(self, bridge_name):
-    #    docker(f'network rm {bridge_name}')
+        if len(job_status) > 0:
+            status = []
+            for s in job_status:
+                status.append(job_status[s]['Message'])
+            self.status = status
+        if len(bugs) > 0:
+            self.bugs = bugs
+
+    def docker_create_bridge(self, network, job_id):
+        if network == 'host':
+            return 'host'
+        elif network == 'bridge':
+            bridge = 'raft-' + job_id.replace('-', '')
+            docker(f'network create --driver bridge {bridge}')
+            return bridge
+        else:
+            raise RaftLocalException('Unhandled docker network driver: ' + network)
+
+    def docker_remove_bridge(self, bridge_name):
+        if bridge_name != 'none' and bridge_name != 'host':
+            docker(f'network rm {bridge_name}')
 
     def docker_stop_containers(self, container_names):
         if len(container_names) > 0:
@@ -216,7 +232,8 @@ class RaftLocalCLI():
         if len(container_names) > 0:
             docker(f'container rm {" ".join(container_names)}')
 
-    def docker_run_cmd(self, container, container_name, mounts, ports, environment_variables, shell, run_cmd, bridge_name):
+    def docker_run_cmd(self, container, container_name, mounts, ports,\
+            environment_variables, shell, run_cmd, bridge_name):
         docker_run_cmd = 'run -d -t --no-healthcheck --privileged --user="root"'
         if shell and run_cmd:
             docker_run_cmd += ' --entrypoint=""'
@@ -227,9 +244,8 @@ class RaftLocalCLI():
             docker_run_cmd += f' --network {bridge_name}'
         if mounts:
             docker_run_cmd += f' {mounts}'
-        # ports config is not needed if 'host' bridge is used
-        # if ports:
-        #    docker_run_cmd += f' {ports}'
+        if ports and bridge_name != 'host':
+            docker_run_cmd += f' {ports}'
         if environment_variables:
             docker_run_cmd += f' {environment_variables}'
         if container:
@@ -238,7 +254,42 @@ class RaftLocalCLI():
             docker_run_cmd += f' {run_cmd}'
         return docker_run_cmd
 
-    def start_test_targets(self, job_config, job_id, work_dir, job_dir, bridge_name):
+
+    def start_agent_utils(self, bridge_name, job_id, job_events, secrets):
+        config = self.container_utils['agent-utilities']
+        std_out = docker('pull ' + config['container'])
+        print(std_out)
+
+        env = self.env_variable( 'ASPNETCORE_URLS', f'http://*:{config["port"]}')
+        for s in secrets:
+            with open(os.path.join(self.secrets_path, s), 'r') as secret_file:
+                secret = secret_file.read()
+                env += self.env_variable(f'RAFT_{s}', secret.strip())
+
+        container_name = f'raft-agent-utilities-{job_id}'
+        mounts = self.mount_read_only((os.path.join(script_dir, "raft-tools")), "/raft-tools")
+        mounts += self.mount_read_write(job_events, '/raft-events-sink')
+
+        cmd = self.docker_run_cmd(
+                container=config['container'],
+                container_name=container_name,
+                mounts=mounts,
+                ports=None,
+                environment_variables=env,
+                shell=None,
+                run_cmd=None,
+                bridge_name=bridge_name)
+
+        print(f"Running docker with command : {cmd}")
+        out = docker(cmd)
+        print(out)
+        if bridge_name == 'host':
+            return container_name, 'localhost', config['port']
+        else:
+            return container_name, container_name, config['port']
+
+    def start_test_targets(self, job_config, job_id, work_dir,\
+            job_dir, bridge_name):
         task_index = 0
         test_services_startup_delay = 0
         testTargets = job_config.config.get('testTargets')
@@ -254,12 +305,14 @@ class RaftLocalCLI():
                 for service in services:
                     d = service.get('ExpectedDurationUntilReady')
                     if d:
-                        test_services_startup_delay = max(test_services_startup_delay, time_span_to_seconds(d))
+                        test_services_startup_delay =\
+                            max(test_services_startup_delay, time_span_to_seconds(d))
 
                 for service in services:
                     env = self.common_environment_variables(job_id, work_dir)
                     env += self.env_variable('RAFT_TASK_INDEX', task_index)
-                    env += self.env_variable('RAFT_CONTAINER_NAME', f'{job_id}_{task_index}')
+                    env += self.env_variable('RAFT_CONTAINER_NAME',\
+                                            f'{job_id}_{task_index}')
 
                     shell = service['shell']
 
@@ -278,7 +331,8 @@ class RaftLocalCLI():
                     if service.get('PostRun'):
                         args = map(lambda a: f'"{a}"', service['postrun']['shellArguments'])
                         post_run_cmd = f"{shell} {' '.join(args)}"
-                        post_run_seconds = time_span_to_seconds(service['postrun']['ExpectedRunDuration'])
+                        post_run_seconds =\
+                            time_span_to_seconds(service['postrun']['ExpectedRunDuration'])
                         post_run_wait = max(post_run_seconds, post_run_wait)
 
                     # create work folder and mount it
@@ -307,18 +361,21 @@ class RaftLocalCLI():
                         for e in service_environment_variables:
                             env += self.env_variable(e, service_environment_variables[e])
 
-
-                    expose_ports = ''
-                    ports = service.get('Ports')
-                    if ports:
-                        for port in ports:
-                            expose_ports += f'--publish 127.0.0.1:{port}:{port}/tcp '
+                    expose_ports = None
+                    #when using bridge networking - no need to expose ports,
+                    #since those are accessible from within the network to other
+                    #containers
+                    #expose_ports = ''
+                    #ports = service.get('Ports')
+                    #if ports:
+                    #    for port in ports:
+                    #        expose_ports += f'--publish {port}:{port}/tcp '
 
                     if not run_cmd:
                         run_cmd = None
                         shell = None
 
-                    container_name = f'service-{job_id}-{task_index}'
+                    container_name = f'raft-service-{job_id}-{task_index}'
                     cmd = self.docker_run_cmd(
                             container=service['container'],
                             container_name=container_name,
@@ -334,9 +391,25 @@ class RaftLocalCLI():
                     print(out)
                     task_index += 1
 
-        return task_index, test_services_startup_delay, test_target_container_names, post_run_wait
+        return task_index, test_services_startup_delay,\
+                test_target_container_names, post_run_wait
 
-    def start_test_tasks(self, job_config, task_index, test_services_startup_delay, job_id, work_dir, job_dir, job_events, bridge_name):
+
+    def secrets_to_import(self, job_config):
+        secrets = []
+        testTasks = job_config.config.get('testTasks')
+        if testTasks.get('tasks'):
+            for tt in testTasks['tasks']:
+                if tt.get('keyVaultSecrets'):
+                    for s in tt['keyVaultSecrets']:
+                        secrets.append(s)
+        return secrets
+
+
+    def start_test_tasks(self, job_config, task_index,\
+            test_services_startup_delay, job_id, work_dir,\
+            job_dir, job_events, bridge_name, agent_utilities_url):
+
         testTasks = job_config.config.get('testTasks')
         if testTasks.get('tasks'):
             for tt in testTasks['tasks']:
@@ -359,6 +432,7 @@ class RaftLocalCLI():
                     for e in config['environmentVariables']:
                         env += self.env_variable(e, config['environmentVariables'][e])
 
+                env += self.env_variable('RAFT_AGENT_UTILITIES_URL', agent_utilities_url)
                 env += self.env_variable('RAFT_TASK_INDEX', task_index)
                 env += self.env_variable('RAFT_CONTAINER_NAME', f'{job_id}_{task_index}')
 
@@ -411,15 +485,15 @@ class RaftLocalCLI():
                 mounts += self.mount_read_write(task_events, '/raft-events-sink')
                 mounts += self.mount_read_only((os.path.join(script_dir, "raft-tools")), "/raft-tools")
 
-                if job_config.config.get("readonlyFileShareMounts"):
-                    for v in job_config.config.get("readonlyFileShareMounts"):
-                        mounts += self.mount_read_only(v['FileShareName'], v['MountPath'])
+                if job_config.config.get("readOnlyFileShareMounts"):
+                    for v in job_config.config.get("readOnlyFileShareMounts"):
+                        mounts += self.mount_read_only(os.path.join(self.storage, v['FileShareName']), v['MountPath'])
 
                 if job_config.config.get("readWriteFileShareMounts"):
                     for v in job_config.config.get("readWriteFileShareMounts"):
-                        mounts += self.mount_read_write(v['FileShareName'], v['MountPath'])
+                        mounts += self.mount_read_write(os.path.join(self.storage, v['FileShareName']), v['MountPath'])
 
-                container_name = f'{tt["toolName"]}-{job_id}-{task_index}'
+                container_name = f'raft-{tt["toolName"]}-{job_id}-{task_index}'
 
                 # add command to execute
                 cmd = self.docker_run_cmd(
@@ -442,18 +516,53 @@ class RaftLocalCLI():
 
         return test_tasks_container_names
 
-    def wait_for_container_termination(self, containers, job_events_path, duration, metadata, job_status_webhook_url, bug_found_webhook_url):
-        saved_duration = duration
-        print('Waiting for containers: ' + '; '.join(containers))
-        while(len(containers) > 0):
+
+    def check_containers_exited(self, containers):
+        if len(containers) == 0:
+            return True, True, []
+        else:
             container_info = docker('container inspect ' + ' '.join(containers))
             infos = json.loads(container_info)
             all_exited = True
+            any_exited = False
             for j in infos:
                 if j['State']['Running']:
                     all_exited = False
-                    break
+                else:
+                    any_exited = True
+            return all_exited, any_exited, infos
+                
+    def print_logs(self, containers):
+        for c in containers:
+            print(f"-------------------------- LOGS for [{c}] -------------------")
+            print()
+            print()
+            stdout = docker(f'logs {c} --tail 64')
+            print(stdout)
 
+    def wait_for_container_termination(self, containers, service_containers,\
+        raft_utilities,\
+        job_events_path, duration, metadata, job_status_webhook_url,\
+        bug_found_webhook_url):
+        saved_duration = duration
+        print('Waiting for containers: ' + '; '.join(containers))
+        wait_seconds = 5
+        while(True):
+            if service_containers and len(service_containers) > 0:
+                _, service_any_exited, _ = self.check_containers_exited(service_containers)
+                if service_any_exited:
+                    self.print_logs(service_containers)
+                    raise RaftLocalException("At least one service container exited\
+                                            before the end of the job run")
+
+            if raft_utilities and len(raft_utilities) > 0:
+                _, raft_utilities_any_exited, _ = self.check_containers_exited(raft_utilities)
+                if raft_utilities_any_exited:
+                    self.print_logs(raft_utilities)
+                    raise RaftLocalException("At least one RAFT utilities container exited\
+                                            before the end of the job run")
+
+            all_exited, _, infos = self.check_containers_exited(containers)
             if all_exited:
                 exit_infos = []
                 for j in infos:
@@ -466,26 +575,29 @@ class RaftLocalCLI():
                             })
                 return exit_infos
             else:
-                job_status, bugs = process_job_events_sink(job_events_path)
+                self.process_job_events_sink(job_events_path)
 
                 if bug_found_webhook_url:
-                    for bug in bugs:
+                    for bug in self.bugs:
                         trigger_webhook(bug_found_webhook_url, [bug], metadata)
 
-                for k in job_status:
-                    print_status([job_status[k]['Message']])
+                print_status(self.status)
 
                 if job_status_webhook_url:
-                    for k in job_status:
-                        trigger_webhook(job_status_webhook_url, [job_status[k]], metadata)
+                    for k in self.status:
+                        trigger_webhook(job_status_webhook_url, [{'Message' : k}], metadata)
 
-                time.sleep(1.0)
+                time.sleep(wait_seconds)
                 if duration:
-                    duration = duration - 10
+                    duration = duration - wait_seconds
                     if duration <= 0:
                         print(f'Job run exceeded duration of {saved_duration} seconds. Exiting...')
                         return None
 
+    def job_status(self, job_id):
+        job_events_path = os.path.join(self.events_sink, job_id)
+        self.process_job_events_sink(job_events_path)
+        return self.status
 
     def post_run(self, containers):
         container_info = docker('container inspect ' + ' '.join(containers))
@@ -505,7 +617,8 @@ class RaftLocalCLI():
                 stdout = docker(f'container exec -t --user="root" --privileged {container} ' + pr)
                 print(stdout)
 
-    def new_job(self, job_config, job_status_webhook_url, bug_found_webhook_url):
+
+    def new_job(self, job_config, job_status_webhook_url=None, bug_found_webhook_url=None):
         job_id = f'{uuid.uuid4()}'
         print(f'creating job {job_id}')
 
@@ -521,50 +634,87 @@ class RaftLocalCLI():
         os.mkdir(job_events)
 
         os.mkdir(job_dir)
+        print(f"------------------------  Job results: {job_dir}")
         work_dir = '/work_dir_' + job_id
+        test_task_container_names = []
+        test_target_container_names = []
+        agent_utils = None
+        try:
+            bridge_name = self.docker_create_bridge(self.network, job_id)
+            agent_utils, agent_utils_endpoint, agent_utils_port = self.start_agent_utils(bridge_name, job_id,\
+                job_events, self.secrets_to_import(job_config))
 
-        bridge_name = self.docker_create_bridge(job_id)
-        task_index, test_services_startup_delay, test_target_container_names, post_run_wait = (
-            self.start_test_targets(job_config, job_id, work_dir, job_dir, bridge_name))
-        if len(test_target_container_names) == 0:
-            # no bridge needed, since there are not "services under test" deployed
-            # and therefore we are testing something deployed externally
-            bridge_name = None
+            task_index, test_services_startup_delay, test_target_container_names, post_run_wait =\
+                self.start_test_targets(job_config, job_id,\
+                work_dir, job_dir, bridge_name)
 
-        test_task_container_names = self.start_test_tasks(job_config, task_index, test_services_startup_delay, job_id, work_dir, job_dir, job_events, bridge_name)
+            test_task_container_names =\
+                self.start_test_tasks(job_config, task_index,\
+                test_services_startup_delay, job_id, work_dir,\
+                job_dir, job_events, bridge_name, f'http://{agent_utils_endpoint}:{agent_utils_port}')
 
-        duration = None
-        if job_config.config.get('duration'):
-            duration = time_span_to_seconds(job_config.config.get('duration'))
+            duration = None
+            if job_config.config.get('duration'):
+                duration = time_span_to_seconds(job_config.config.get('duration'))
 
-        metadata = None
-        if 'webhook' in job_config.config:
-            if 'metadata' in job_config.config['webhook']:
-                metadata = job_config.config['webhook']['metadata']
+            metadata = None
+            if 'webhook' in job_config.config:
+                if 'metadata' in job_config.config['webhook']:
+                    metadata = job_config.config['webhook']['metadata']
 
-        stats = self.wait_for_container_termination(test_task_container_names, job_events, duration, metadata, job_status_webhook_url, bug_found_webhook_url)
-        if stats:
-            print(stats)
-        else:
-            self.docker_stop_containers(test_task_container_names)
+            stats = self.wait_for_container_termination(test_task_container_names,\
+                        test_target_container_names, [agent_utils],\
+                        job_events, duration, metadata,\
+                        job_status_webhook_url, bug_found_webhook_url)
+            if stats:
+                print(stats)
+        finally:
+            if len(test_task_container_names) > 0:
+                self.docker_stop_containers(test_task_container_names)
 
-        if len(test_target_container_names) > 0:
-            self.post_run(test_target_container_names)
-            print(f'Waiting for Post-Run command to finish {post_run_wait} seconds')
-            time.sleep(post_run_wait)
+            if len(test_target_container_names) > 0:
+                self.post_run(test_target_container_names)
+                print(f'Waiting for Post-Run command to finish {post_run_wait} seconds')
+                time.sleep(post_run_wait)
 
-        self.docker_stop_containers(test_target_container_names)
+            try:
+                self.docker_stop_containers(test_target_container_names)
+            except Exception as ex:
+                print(f'Failed to stop test target containers due to {ex}')
 
-        #for c in test_task_container_names:
-        #    print(f"-------------------------- LOGS for [{c}] -------------------")
-        #    print()
-        #    print()
-        #    stdout = docker(f'logs {c} --tail 32')
-        #    print(stdout)
+            try:
+                if agent_utils:
+                    self.docker_stop_containers([agent_utils])
+            except Exception as ex:
+                print(f'Failed to stop agent utilities due to {ex}')
 
-        print("Job finished, cleaning up job containers")
-        self.docker_remove_containers(test_task_container_names)
-        self.docker_remove_containers(test_target_container_names)
+            #self.print_logs([agent_utils])
+            #self.print_logs(test_task_container_names)
+
+            print("Job finished, cleaning up job containers")
+            print(f"------------------------  Job results: {job_dir}")
+            try:
+                self.docker_remove_containers(test_task_container_names)
+            except Exception as ex:
+                print(f'Failed to remove test task containers due to : {ex}')
+
+            try:
+                self.docker_remove_containers(test_target_container_names)
+            except Exception as ex:
+                print(f'Faeild to remove test target containers due to: {ex}')
+
+            try:
+                self.docker_remove_bridge(bridge_name)
+            except Exception as ex:
+                print(f'Failed to remove bridge {bridge_name} due to {ex}')
+        return {'jobId' : job_id}
+
+    def poll(self, job_id):
+        '''
+        No implementation required since new_job is synchronous
+        Having this to keep consistent with RAFT Azure CLI
+        '''
+        pass
 
 
 def run(args):
@@ -575,15 +725,14 @@ def run(args):
     job_action = args.get('job-action')
     local_action = args.get('local-action')
 
-    work_dir = os.path.join(script_dir, 'local')
     if local_action == 'init':
-        storage, secrets, event_sink = init_local(work_dir)
+        storage, secrets, event_sink = init_local()
         print(f'Created results storage folder: {storage}')
         print(f'Created secrets folder: {secrets}')
         print(f'Created events_sink folder: {event_sink}')
 
     if job_action == 'create':
-        cli = RaftLocalCLI(work_dir)
+        cli = RaftLocalCLI(network=args.get('network'))
         json_config_path = args.get('file')
         if json_config_path is None:
             ArgumentRequired('--file')
@@ -660,6 +809,21 @@ Post to the Webhook on bug found
         '--jobStatusWebhookUrl',
         help=textwrap.dedent('''\
 Post to the Webhook on job status change
+        '''))
+
+    job_parser.add_argument(
+        '--network',
+        choices=['host', 'bridge'],
+        default='host',
+        help=textwrap.dedent('''\
+Select docker network driver. If not set then 'Host' is used.
+
+host - Use localhost networking.
+Works on Linux for accessing locahost service running on a dev box.
+On Windows you can use WSL2 (https://docs.microsoft.com/en-us/windows/wsl/compare-versions).
+
+bridge - create a network-bridge with a random name.
+This allows running of multiple jobs in parallel on the same device.
         '''))
 
     args = parser.parse_args()

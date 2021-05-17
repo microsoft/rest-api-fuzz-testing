@@ -13,7 +13,7 @@
   ],
   "testTasks": {
     "targetConfiguration" : {
-      "endpoint": "https://petstore.swagger.io/"
+      "endpoint": "https://petstore3.swagger.io"
     },
     "tasks": [
       {

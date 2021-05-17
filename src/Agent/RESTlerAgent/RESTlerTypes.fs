@@ -15,7 +15,9 @@ module Engine =
 
             /// The command that, when run, generates a new token in the form required
             /// by the API (e.g. 'Header : <value>')
-            RefreshCommand : string
+            RefreshExec : string
+
+            RefreshArgs : string
         }
 
 
@@ -238,7 +240,7 @@ module Engine =
                 match p.RefreshableTokenOptions with
                 | None -> None, None
                 | Some options ->
-                    (Some options.RefreshInterval), (Some options.RefreshCommand)
+                    (Some options.RefreshInterval), (Some (sprintf "%s %s" options.RefreshExec options.RefreshArgs))
             {
                 Settings.Default with
                     host = p.Host

@@ -9,10 +9,7 @@ cur_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(cur_dir, '..', '..', '..'))
 from raft_sdk.raft_service import RaftCLI, RaftJobConfig
 
-def run(compile, fuzz):
-    # instantiate RAFT CLI
-    cli = RaftCLI()
-
+def run(cli, compile, fuzz):
     # will replace {sample.host} with the value of host variable
     # see sample.restler.compile.json and sample.restler.fuzz.json
     subs = {
@@ -45,5 +42,10 @@ def run(compile, fuzz):
 
 
 if __name__ == "__main__":
-    run(os.path.join(cur_dir, "compile.json"),
+    if '--local' in sys.argv:
+        from raft_local import RaftLocalCLI
+        cli = RaftLocalCLI(network='bridge')
+    else:
+        cli = RaftCLI()
+    run(cli, os.path.join(cur_dir, "compile.json"),
         os.path.join(cur_dir, "fuzz.json"))

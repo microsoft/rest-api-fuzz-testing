@@ -81,7 +81,7 @@ def print_status(status):
                 f"    Tool: {s['tool']}"
                 f"    State: {s['state']}")
 
-            if 'metrics' in s:
+            if s.get('metrics'):
                 metrics = s['metrics']
                 total_request_counts = metrics.get('totalRequestCount')
                 if total_request_counts and total_request_counts > 0:

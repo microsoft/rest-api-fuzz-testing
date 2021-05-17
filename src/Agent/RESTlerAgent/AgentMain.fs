@@ -3,12 +3,10 @@
 module RESTlerAgent
 
 open System
-open Microsoft.Azure
-open Raft.Message
 open Newtonsoft
 open Microsoft.FSharpLu
-open Microsoft.ApplicationInsights
 open RESTlerAgentConfigTypes
+open System.Collections.Generic
 
 let inline (++) (path1: string) (path2 : string) = IO.Path.Join(path1, path2)
 
@@ -20,45 +18,64 @@ type System.Threading.Tasks.Task<'T> with
 
 let globalRunStartTime = DateTime.UtcNow
 
-type ServiceBus.Core.MessageSender with
-    member inline x.SendRaftJobEvent (jobId: string) (message : ^T when ^T : (static member EventType : string)) =
+
+type RaftAgentUtilities(agentUtilitiesUrl : System.Uri) =
+    let httpClient = new System.Net.Http.HttpClient(BaseAddress = agentUtilitiesUrl)
+
+    member _.WaitForUtilitiesToBeReady() =
+        let rec wait() =
+            async {
+                try
+                    let! r = httpClient.GetAsync("/readiness/ready").ToAsync
+                    if r.IsSuccessStatusCode then
+                        return ()
+                    else
+                        do! Async.Sleep(1000)
+                        return! wait()
+                with
+                | ex ->
+                    printfn "Trying again since connection failed due to : %A" ex.Message
+                    do! Async.Sleep(10000)
+                    return! wait()
+            }
+        wait()
+
+    member _.SendJobStatus (jobStatus : Raft.JobEvents.JobStatus) =
         async {
-            let raftJobEvent = Raft.Message.RaftEvent.createJobEvent message
-            let message = ServiceBus.Message(RaftEvent.serializeToBytes raftJobEvent, SessionId = jobId.ToString())
-            do! x.SendAsync(message).ToAsync
+            use s = new System.Net.Http.StringContent(Json.Compact.Strict.serialize jobStatus)
+            let! _ = httpClient.PostAsync("/messaging/event/jobStatus", s).ToAsync
+            return ()
         }
 
-
-type RaftMessageSender(sas : string option ) =
-
-    let sender =
-        match sas with
-        | Some sas ->
-            Some (ServiceBus.Core.MessageSender(ServiceBus.ServiceBusConnectionStringBuilder(sas), ServiceBus.RetryPolicy.Default))
-        | None -> None
-
-    member __.Sender = sender
-
-    member __.CloseAsync() =
+    member _.SendBugFound(bugFound: Raft.JobEvents.BugFound) =
         async {
-            match sender with
-            | Some s -> return! s.CloseAsync().ToAsync
-            | None -> return ()
+            use s = new System.Net.Http.StringContent(Json.Compact.Strict.serialize bugFound)
+            let! _ = httpClient.PostAsync("/messaging/event/bugFound", s).ToAsync
+            return ()
         }
 
-    member inline __.SendRaftJobEvent (jobId: string) (message : ^T when ^T : (static member EventType : string)) =
+    member _.Flush() =
         async {
-            let raftJobEvent = Raft.Message.RaftEvent.createJobEvent message
-            match __.Sender with
-            | Some s ->
-                let message = ServiceBus.Message(RaftEvent.serializeToBytes raftJobEvent, SessionId = jobId.ToString())
-                do! s.SendAsync(message).ToAsync
-                return ()
-            | None ->
-                let json = RaftEvent.serializeToJson raftJobEvent
-                System.IO.File.WriteAllText(sprintf "/raft-events-sink/%A.json" (System.Guid.NewGuid()), json)
-                return ()
+            use empty = new System.Net.Http.StringContent("")
+            let! _ = httpClient.PostAsync("/messaging/flush", empty).ToAsync
+            return ()
         }
+
+    member _.Trace(message: string, severity: string, tags: IDictionary<string, string>) =
+        async {
+            use trace =
+                let json =
+                    {|Message = message; Severity=severity; Tags=tags|}
+                    |> Json.Compact.Strict.serialize
+                new System.Net.Http.StringContent(json)
+
+            let! _ = httpClient.PostAsync("/messaging/trace", trace).ToAsync
+            return ()
+        }
+
+    interface IDisposable with
+        member _.Dispose() =
+            httpClient.Dispose()
 
 
 module Arguments =
@@ -69,10 +86,9 @@ module Arguments =
             JobId: string option
             TaskConfigPath : string option
 
-            JobEventTopicSAS: string option
+            AgentUtilitiesUrl: System.Uri option
             RestlerPath: string option
             WorkDirectory: string option
-            AppInsightsInstrumentationKey: string option
 
             SiteHash : string option
             TelemetryOptOut : bool
@@ -83,10 +99,9 @@ module Arguments =
                 AgentName = None
                 JobId = None
                 TaskConfigPath = None
-                JobEventTopicSAS = None
+                AgentUtilitiesUrl = None
                 RestlerPath = None
                 WorkDirectory = None
-                AppInsightsInstrumentationKey = None
 
                 SiteHash = System.Environment.GetEnvironmentVariable("RAFT_SITE_HASH") |> Option.ofObj
                 TelemetryOptOut = 
@@ -99,8 +114,7 @@ module Arguments =
     let [<Literal>] AgentName = "--agent-name"
     let [<Literal>] JobId = "--job-id"
     let [<Literal>] TaskConfigFilePath = "--task-config-path"
-    let [<Literal>] JobEventTopicSas = "--output-sas"
-    let [<Literal>] AppInsights = "--app-insights-instrumentation-key"
+    let [<Literal>] AgentUtilsUrl = "--agent-utilities-url"
     let [<Literal>] RESTlerPath = "--restler-path"
     let [<Literal>] WorkDirectory = "--work-directory"
 
@@ -109,8 +123,7 @@ module Arguments =
             sprintf "%s <Agent name to use for this task when reporting status>" AgentName
             sprintf "%s <String identifying the job>" JobId
             sprintf "%s <Path to the task config file>" TaskConfigFilePath
-            sprintf "%s <SAS URL to output status Service Bus topic>" JobEventTopicSas
-            sprintf "%s <AppInsights instrumentation key>" AppInsights
+            sprintf "%s <URL to agent utilities service container>" AgentUtilsUrl
             sprintf "%s <Path to RESTler tools>" RESTlerPath
             sprintf "%s <Path to working directory>" WorkDirectory
         ] |> (fun args -> String.Join("\n", args))
@@ -135,17 +148,13 @@ module Arguments =
                 printfn "Path to the input job-config: %s" path
                 parse { currentConfig with TaskConfigPath = Some (path) } rest
 
-            | JobEventTopicSas :: sas :: rest -> 
-                printfn "Sas to job-queue: %s" sas
-                parse { currentConfig with JobEventTopicSAS = Some (sas) } rest
+            | AgentUtilsUrl :: url :: rest ->
+                printfn "Agent Utilities URL:: %s" url
+                parse { currentConfig with AgentUtilitiesUrl = Some (System.Uri(url)) } rest
 
             | RESTlerPath :: path :: rest ->
                 printfn "Path to RESTler : %s" path
                 parse { currentConfig with RestlerPath = Some path } rest
-
-            | AppInsights :: key :: rest ->
-                printfn "App Insights key: %s" key
-                parse { currentConfig with AppInsightsInstrumentationKey = Some ( key )} rest
 
             | WorkDirectory :: path :: rest ->
                 printfn "Path to RAFT Agent work directory: %s" path
@@ -212,7 +221,7 @@ let createRESTlerEngineParameters
     (workDirectory: string)
     (grammarFilePath: string) (mutationsFilePath: string)
     (task: Raft.Job.RaftTask) (checkerOptions:(string*string) list)
-    (runConfiguration: RunConfiguration) : Raft.RESTlerTypes.Engine.EngineParameters =
+    (runConfiguration: RunConfiguration) (authenicationUrl: System.Uri) : Raft.RESTlerTypes.Engine.EngineParameters =
     
     let host, ip, port =
         match task.TargetConfiguration with
@@ -249,21 +258,22 @@ let createRESTlerEngineParameters
         RefreshableTokenOptions =
             match task.AuthenticationMethod with
             | Some c ->
-                let authConfig : Raft.RESTlerTypes.Engine.RefreshableTokenOptions =
-                    {
-                        RefreshInterval = Option.defaultValue (int <| TimeSpan.FromHours(1.0).TotalSeconds) runConfiguration.AuthenticationTokenRefreshIntervalSeconds
-                        RefreshCommand =
-                            match c with
-                            | Raft.Job.Authentication.TokenRefresh.CommandLine cmd -> cmd
-
-                            | Raft.Job.Authentication.TokenRefresh.MSAL secret ->
-                                (sprintf "dotnet /raft-tools/auth/dotnet-5.0/AzureAuth.dll msal --secret \"%s\" --prepend-line \"{u'user1':{}}\"" secret)
-
-                            | Raft.Job.Authentication.TokenRefresh.TxtToken secret ->
-                                (sprintf "dotnet /raft-tools/auth/dotnet-5.0/AzureAuth.dll token --secret \"%s\" --prepend-line \"{u'user1':{}}\"" secret)
-                    }
-                printfn "Refreshable token configuration : %A" authConfig
-                Some authConfig
+                if c.IsEmpty then
+                    None
+                else
+                    let authConfig : Raft.RESTlerTypes.Engine.RefreshableTokenOptions =
+                        {
+                            RefreshInterval = Option.defaultValue (int <| TimeSpan.FromHours(1.0).TotalSeconds) runConfiguration.AuthenticationTokenRefreshIntervalSeconds
+                            RefreshExec = "python3"
+                            RefreshArgs =
+                                let url =
+                                    let auth = Seq.head c
+                                    let authType, authSecretName = auth.Key, auth.Value
+                                    System.Uri(authenicationUrl, sprintf "auth/%s/%s" authType authSecretName)
+                                sprintf """-c "import requests; import json; r=requests.get('%s'); assert r.ok, r.text; print(\"{u'user1':{}}\nAuthorization: \" + json.loads(r.text)['token'])"  """ url.AbsoluteUri
+                        }
+                    printfn "Refreshable token configuration : %A" authConfig
+                    Some authConfig
             | None -> None
 
         /// The delay in seconds after invoking an API that creates a new resource
@@ -545,11 +555,6 @@ let copyDir srcDir destDir (doNotOverwriteFilePaths: string Set) =
 let main argv =
     printfn "Arguments: %A" argv
     let agentConfiguration = Arguments.parseCommandLine argv
-    let appInsights =
-        match agentConfiguration.AppInsightsInstrumentationKey with
-        | None -> failwith "AppInsights configuration is not set"
-        | Some instrumentationKey ->
-            Microsoft.ApplicationInsights.TelemetryClient(new Extensibility.TelemetryConfiguration(instrumentationKey), InstrumentationKey = instrumentationKey)
 
     let jobId =
         match agentConfiguration.JobId with
@@ -568,13 +573,12 @@ let main argv =
 
     multiplexConsole workDirectory jobId agentName
 
-    let jobEventSender =
-        match agentConfiguration.JobEventTopicSAS with
-        | None -> failwith "Job status connection is not set"
-        | Some sas ->
-            match System.Environment.GetEnvironmentVariable("RAFT_LOCAL") |> Option.ofObj with
-            | None -> RaftMessageSender(Some sas)
-            | Some _ -> RaftMessageSender(None)
+    let agentUtilitiesUrl =
+        match agentConfiguration.AgentUtilitiesUrl with
+        | None -> failwith "Agent Utilities URL is not set"
+        | Some url -> url
+
+    use agentUtilities = new RaftAgentUtilities(agentUtilitiesUrl)
 
     async {
         let siteHash =
@@ -590,9 +594,7 @@ let main argv =
         use telemetryClient = new Restler.Telemetry.TelemetryClient(siteHash, (if agentConfiguration.TelemetryOptOut then "" else Restler.Telemetry.InstrumentationKey), telemetryTag)
 
         if not <| IO.Directory.Exists workDirectory then
-            appInsights.TrackTrace((sprintf "Workd directory does not exist: %s" workDirectory),
-                DataContracts.SeverityLevel.Error,
-                dict ["jobId", jobId; "agentName", agentName])
+            do! agentUtilities.Trace((sprintf "Work directory does not exist: %s" workDirectory), "Error", dict ["jobId", jobId; "agentName", agentName])
             failwithf "Failing since work directory does not exist: %s" workDirectory
 
         let taskConfigurationPath = 
@@ -619,8 +621,11 @@ let main argv =
                 let payloads: RESTlerPayloads = Json.Compact.deserialize (task.ToolConfiguration.ToString())
                 payloads.tasks
 
-        do! jobEventSender.SendRaftJobEvent jobId
-                ({
+
+        do! agentUtilities.WaitForUtilitiesToBeReady()
+
+        do! agentUtilities.SendJobStatus
+                {
                     AgentName = agentName
                     Metadata = None
                     Tool = "RESTler"
@@ -631,7 +636,7 @@ let main argv =
                     UtcEventTime = System.DateTime.UtcNow
                     Details = None
                     ResultsUrl = None
-                }: Raft.JobEvents.JobStatus)
+                }
 
         printfn "Got job configuration message: %A" restlerPayloads
 
@@ -665,6 +670,7 @@ let main argv =
                                                         else
                                                             fn + ".json"
 
+                                                    printfn "Downloading API specifications from %s" apiSpecificationLocation
                                                     let! apiSpecification = downloadFile workDirectory fileName apiSpecificationLocation
                                                     printfn "Downloaded apiSpecification spec to :%s" apiSpecification
                                                     return apiSpecification
@@ -673,9 +679,10 @@ let main argv =
 
                                         }
 
-                                    match validateJsonFile apiSpecification with
-                                    | Result.Ok () -> ()
-                                    | Result.Error (err) -> failwithf "File %s is not a valid JSON file due to %s" apiSpecification err
+                                    if IO.FileInfo(apiSpecification).Extension.ToLower() = ".json" then
+                                        match validateJsonFile apiSpecification with
+                                        | Result.Ok () -> ()
+                                        | Result.Error (err) -> failwithf "File %s is not a valid JSON file due to %s" apiSpecification err
 
                                     return apiSpecification
                                 }
@@ -703,15 +710,15 @@ let main argv =
                     bugDetails.Add("jobId", jobId).Add("outputFolder", task.OutputFolder)
 
                 printfn "OnBugFound %A" bugDetails
-                do! jobEventSender.SendRaftJobEvent jobId
-                                        ({
+                do! agentUtilities.SendBugFound
+                                        {
                                             Tool = "RESTler"
                                             JobId = jobId
                                             AgentName = agentName
                                             Metadata = None
                                             BugDetails = Some bugDetails
                                             ResultsUrl = None
-                                        } : Raft.JobEvents.BugFound)
+                                        }
             }
         
 
@@ -735,19 +742,19 @@ let main argv =
                         | Some e -> Map.empty.Add("Experiment", e)
                         | None -> Map.empty
 
-                    do! jobEventSender.SendRaftJobEvent jobId
-                                                    ({
-                                                        AgentName = agentName
-                                                        Metadata = None
-                                                        Tool = "RESTler"
-                                                        JobId = jobId
-                                                        State = state
+                    do! agentUtilities.SendJobStatus
+                                                {
+                                                    AgentName = agentName
+                                                    Metadata = None
+                                                    Tool = "RESTler"
+                                                    JobId = jobId
+                                                    State = state
 
-                                                        Metrics = summary
-                                                        UtcEventTime = System.DateTime.UtcNow
-                                                        Details = Some( details.Add("numberOfBugsFound", sprintf "%d" bugsListLen))
-                                                        ResultsUrl = None
-                                                    } : Raft.JobEvents.JobStatus)
+                                                    Metrics = summary
+                                                    UtcEventTime = System.DateTime.UtcNow
+                                                    Details = Some( details.Add("numberOfBugsFound", sprintf "%d" bugsListLen))
+                                                    ResultsUrl = None
+                                                }
                 }
 
             let getResultReportingInterval() =
@@ -772,7 +779,7 @@ let main argv =
                 async {
                     let resultAnalyzerReportInterval = getResultReportingInterval()
                     do! installCertificatesIfNeeded task
-                    let engineParameters = createRESTlerEngineParameters workDirectory grammarPy dictJson task checkerOptions jobConfiguration
+                    let engineParameters = createRESTlerEngineParameters workDirectory grammarPy dictJson task checkerOptions jobConfiguration agentUtilitiesUrl
                     printfn "Starting RESTler test task"
 
                     let ignoreBugHashes =
@@ -787,7 +794,7 @@ let main argv =
                 async {
                     let resultAnalyzerReportInterval = getResultReportingInterval()
                     do! installCertificatesIfNeeded task
-                    let engineParameters = createRESTlerEngineParameters workDirectory grammarPy dictJson task checkerOptions jobConfiguration
+                    let engineParameters = createRESTlerEngineParameters workDirectory grammarPy dictJson task checkerOptions jobConfiguration agentUtilitiesUrl
                     printfn "Starting RESTler fuzz task"
 
                     let ignoreBugHashes =
@@ -817,7 +824,7 @@ let main argv =
                         | _ -> task
 
                     do! installCertificatesIfNeeded task
-                    let engineParameters = createRESTlerEngineParameters workDirectory grammarPy dictJson task [] jobConfiguration
+                    let engineParameters = createRESTlerEngineParameters workDirectory grammarPy dictJson task [] jobConfiguration agentUtilitiesUrl
                     printfn "Starting RESTler replay task"
                     return! Raft.RESTlerDriver.replay restlerPath workDirectory replayLogFile engineParameters
                 }
@@ -845,6 +852,7 @@ let main argv =
                         let restlerCompatibleMutations = 
                             createRESTlerCompilerMutations compileConfiguration.MutationsSeed compileConfiguration.CustomDictionary
 
+                        printfn "Saving custom mutations to : %s" customDictionaryPath
                         restlerCompatibleMutations |> Json.Compact.serializeToFile customDictionaryPath
 
                         match compileConfiguration.InputFolderPath with
@@ -1000,8 +1008,8 @@ let main argv =
                                         | None -> bug.Name
                                         | Some h -> h
                                     replaySummaryDetails.Add(bugKey, summary)
-                                    do! jobEventSender.SendRaftJobEvent jobId
-                                                ({
+                                    do! agentUtilities.SendJobStatus
+                                                {
                                                     AgentName = agentName
                                                     Metadata = None
                                                     Tool = "RESTler"
@@ -1011,7 +1019,7 @@ let main argv =
                                                     UtcEventTime = System.DateTime.UtcNow
                                                     Details = Some (Map.ofSeq replaySummaryDetails)
                                                     ResultsUrl = None
-                                                } : Raft.JobEvents.JobStatus)
+                                                }
 
                                 return replaySummaryDetails
                             }
@@ -1082,8 +1090,8 @@ let main argv =
             | Some s -> combinedMetrics := Raft.JobEvents.RunSummary.Combine(!combinedMetrics, s)
             | None -> ()
 
-            do! jobEventSender.SendRaftJobEvent jobId
-                        ({
+            do! agentUtilities.SendJobStatus
+                        {
                             AgentName = agentName
                             Metadata = None
                             Tool = "RESTler"
@@ -1093,7 +1101,7 @@ let main argv =
                             UtcEventTime = System.DateTime.UtcNow
                             Details = details
                             ResultsUrl = None
-                        } : Raft.JobEvents.JobStatus)
+                        }
 
 
             // Sending RESTler metrics event as "completed", since from RESTler point of view RESTler run is finished.
@@ -1109,8 +1117,8 @@ let main argv =
 
             incr taskIndex
 
-        do! jobEventSender.SendRaftJobEvent jobId
-                    ({
+        do! agentUtilities.SendJobStatus
+                    {
                         AgentName = agentName
                         Metadata = None
                         Tool = "RESTler"
@@ -1120,7 +1128,7 @@ let main argv =
                         UtcEventTime = System.DateTime.UtcNow
                         Details = None
                         ResultsUrl = None
-                    } : Raft.JobEvents.JobStatus)
+                    }
 
         return 0
     } 
@@ -1133,11 +1141,11 @@ let main argv =
                     | Choice1Of2 r ->
                         return r
                     | Choice2Of2 ex ->
-                        eprintf "Raft.Agent failed due to: %A" ex
-                        appInsights.TrackException(ex, dict ["JobId", sprintf "%A" jobId; "AgentName", agentName])
+                        eprintfn "Raft.Agent failed due to: %A" ex
+                        do! agentUtilities.Trace(ex.Message, "Error", dict ["JobId", sprintf "%A" jobId; "AgentName", agentName])
 
-                        do! jobEventSender.SendRaftJobEvent jobId
-                                ({
+                        do! agentUtilities.SendJobStatus
+                                {
                                     AgentName = agentName
                                     Metadata = None
                                     Tool = "RESTler"
@@ -1147,14 +1155,13 @@ let main argv =
                                     UtcEventTime = System.DateTime.UtcNow
                                     Details = Some (Map.empty.Add("Error", ex.Message))
                                     ResultsUrl = None
-                                } : Raft.JobEvents.JobStatus)
+                                }
 
                         do! System.Console.Error.FlushAsync().ToAsync
                         do! System.Console.Out.FlushAsync().ToAsync
                         return 2
                 }
-            appInsights.Flush()
-            do! jobEventSender.CloseAsync()
+            do! agentUtilities.Flush()
             do! Console.Out.FlushAsync() |> Async.AwaitTask
             do! Console.Error.FlushAsync() |> Async.AwaitTask
             return res

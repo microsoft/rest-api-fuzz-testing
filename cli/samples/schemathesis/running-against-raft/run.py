@@ -9,15 +9,20 @@ import urllib.parse
 
 cur_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(cur_dir, '..', '..', '..'))
-from raft_sdk.raft_service import RaftCLI, RaftJobConfig
+from raft_sdk.raft_service import RaftJobConfig, RaftCLI
 
-def run(run_zap):
-    cli = RaftCLI()
-    run_zap_config = RaftJobConfig(file_path=run_zap,
-                        substitutions={'{defaults.deploymentName}' : cli.definitions.deployment})
-    zap_job = cli.new_job(run_zap_config)
-    print(zap_job)
-    cli.poll(zap_job['jobId'])
+def run(cli, run_file):
+    run_config = RaftJobConfig(file_path=run_file,
+                        substitutions={'{defaults.deploymentName}' : (RaftCLI().definitions.deployment)})
+    job = cli.new_job(run_config)
+    print(job)
+    cli.poll(job['jobId'])
 
 if __name__ == "__main__":
-    run(os.path.join(cur_dir, "schemathesis.json"))
+    if '--local' in sys.argv:
+        from raft_local import RaftLocalCLI
+        cli = RaftLocalCLI()
+    else:
+        cli = RaftCLI()
+    
+    run(cli, os.path.join(cur_dir, "schemathesis.json"))

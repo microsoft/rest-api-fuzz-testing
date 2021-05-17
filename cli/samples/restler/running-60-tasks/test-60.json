@@ -12,17 +12,12 @@
 
   "testTasks": {
     "targetConfiguration" : {
-      "endpoint": "https://petstore.swagger.io"
+      "endpoint" : "https://petstore3.swagger.io"
     },
     "tasks": [
       {
         "toolName": "RESTler",
         "outputFolder": "RESTLer-test-fuzz-lean",
-        "keyVaultSecrets": [ "RaftServicePrincipal" ],
-        "authenticationMethod": {
-          "MSAL": "RaftServicePrincipal"
-        },
-
         "toolConfiguration": {
           "task": "TestFuzzLean",
           "runConfiguration": {
@@ -34,10 +29,6 @@
       {
         "toolName": "RESTler",
         "outputFolder": "RESTler-test",
-        "keyVaultSecrets": [ "RaftServicePrincipal" ],
-        "authenticationMethod": {
-          "MSAL": "RaftServicePrincipal"
-        },
         "toolConfiguration": {
           "task": "Test",
           "runConfiguration": {

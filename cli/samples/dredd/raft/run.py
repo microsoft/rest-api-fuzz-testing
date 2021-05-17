@@ -11,10 +11,9 @@ cur_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(cur_dir, '..', '..', '..'))
 from raft_sdk.raft_service import RaftCLI, RaftJobConfig
 
-def run(run_config):
-    cli = RaftCLI()
+def run(cli, run_config):
     substitutions = {
-        '{defaults.deploymentName}': cli.definitions.deployment
+        '{defaults.deploymentName}': (RaftCLI()).definitions.deployment
     }
     run_job_config = RaftJobConfig(file_path=run_config, substitutions=substitutions)
     run_job = cli.new_job(run_job_config)
@@ -23,4 +22,9 @@ def run(run_config):
 
 
 if __name__ == "__main__":
-    run(os.path.join(cur_dir, "dredd.json"))
+    if '--local' in sys.argv:
+        from raft_local import RaftLocalCLI
+        cli = RaftLocalCLI(network='host')
+    else:
+        cli = RaftCLI()
+    run(cli, os.path.join(cur_dir, "dredd.json"))

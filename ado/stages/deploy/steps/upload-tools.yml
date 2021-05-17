@@ -11,27 +11,6 @@ steps:
   - script: pip3 install -r cli/requirements.txt
     displayName: Install CLI Python requirements
 
-  - task: DownloadPipelineArtifact@2
-    displayName: 'Download Local pipeline artifact'
-    condition: and(succeeded(), eq('${{parameters.BuildArtifactsLocation}}', 'current')) 
-    inputs:
-      artifact: AzureAuth
-      path: $(Build.SourcesDirectory)/cli/raft-tools/auth/dotnet-5.0
-    
-  - task: DownloadPipelineArtifact@2
-    displayName: 'Download Production pipeline artifact'
-    condition: and(always(), eq('${{parameters.BuildArtifactsLocation}}', 'production')) 
-    inputs:
-      source: 'specific'
-      project: 'raft'
-      # The pipeline value is the pipeline definition id.
-      # You can find it by looking at the url for the status badge.
-      # In this case it's the pipeline named 'build-production'
-      pipeline: 2925
-      artifact: AzureAuth
-      path: $(Build.SourcesDirectory)/cli/raft-tools/auth/dotnet-5.0
-      runVersion: 'latest'
-
   - task: AzureCLI@2
     continueOnError: false
     displayName: "Upload service utilities"

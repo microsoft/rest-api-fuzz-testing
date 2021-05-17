@@ -29,9 +29,10 @@
       "tasks": [
         {
           "toolName" : "Dredd",
+          "isIdling" : false,
           "outputFolder" : "dredd",
           "toolConfiguration" : {
-            "dry-run" : true,
+            "dry-run" : false,
             "only" : [],
             "header" : [],
             "hookfiles" : [],

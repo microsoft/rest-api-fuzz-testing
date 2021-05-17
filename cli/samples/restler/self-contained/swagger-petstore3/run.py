@@ -29,15 +29,18 @@ if __name__ == "__main__":
         if sys.argv[1] == '--build':
             build_id = sys.argv[2].replace(".", "-")
         print(f"BUILD ID : {build_id}")
+        if "--local" in sys.argv:
+            from raft_local import RaftLocalCLI
+            cli = RaftLocalCLI(network='host')
 
-        with open(os.path.join(cli_dir, 'defaults.json'), 'r') as defaults_json:
-            defaults = json.load(defaults_json, object_hook=RaftJsonDict.raft_json_object_hook)
-            if len(sys.argv) > 3 and sys.argv[3] == '--secret':
-                defaults['secret'] = sys.argv[4]
+        else:
+            with open(os.path.join(cli_dir, 'defaults.json'), 'r') as defaults_json:
+                defaults = json.load(defaults_json, object_hook=RaftJsonDict.raft_json_object_hook)
+                if len(sys.argv) > 3 and sys.argv[3] == '--secret':
+                    defaults['secret'] = sys.argv[4]
 
-        # instantiate RAFT CLI
-        cli = RaftCLI(defaults)
-        defs = RaftDefinitions(defaults)
+            # instantiate RAFT CLI
+            cli = RaftCLI(defaults)
 
         compile_job_id = None
         subs = {
@@ -45,16 +48,15 @@ if __name__ == "__main__":
             "{build-url}" : os.environ['SYSTEM_COLLECTIONURI'] if os.environ.get('SYSTEM_COLLECTIONURI') else "",
             "{build-id}" : os.environ['BUILD_BUILDID'] if os.environ.get('BUILD_BUILDID') else ""
         }
-        for arg in sys.argv[1:]:
-            if arg == 'compile':
-                compile_job_id = run(cli, os.path.join(cur_dir, 'compile.json'), subs)
-                subs['{compile.jobId}'] = compile_job_id
+        if 'compile' in sys.argv:
+            compile_job_id = run(cli, os.path.join(cur_dir, 'compile.json'), subs)
+            subs['{compile.jobId}'] = compile_job_id
 
-            if arg == 'test':
-                run(cli, os.path.join(cur_dir, "test.json"), subs), 
+        if 'test' in sys.argv:
+            run(cli, os.path.join(cur_dir, "test.json"), subs), 
 
-            if arg == 'test-fuzz-lean':
-                run(cli, os.path.join(cur_dir, "test-fuzz-lean.json"), subs), 
+        if 'test-fuzz-lean' in sys.argv:
+            run(cli, os.path.join(cur_dir, "test-fuzz-lean.json"), subs), 
 
     except RaftJobError as ex:
         print(f'ERROR: {ex.message}')

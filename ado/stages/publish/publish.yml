@@ -29,6 +29,14 @@ stages:
             parameters: 
               BuildArtifactsLocation: ${{ parameters.BuildArtifactsLocation }}
 
+      - job: AgentUtilities
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - template: steps/agent-utilities.yml
+            parameters: 
+              BuildArtifactsLocation: ${{ parameters.BuildArtifactsLocation }}
+
       - job: TestInfra
         pool:
           vmImage: 'ubuntu-latest'

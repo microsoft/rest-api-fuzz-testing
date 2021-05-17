@@ -9,9 +9,7 @@ cur_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(cur_dir, '..', '..', '..', '..'))
 from raft_sdk.raft_service import RaftCLI, RaftJobConfig, RaftJobError
 
-def run(compile, test, fuzz, replay):
-    # instantiate RAFT CLI
-    cli = RaftCLI()
+def run(cli, compile, test, fuzz, replay):
     # Create compilation job configuration
     compile_job_config = RaftJobConfig(file_path=compile)
     print('Compile')
@@ -43,12 +41,13 @@ def run(compile, test, fuzz, replay):
 
     status = cli.job_status(fuzz_job['jobId'])
     experiment = None
-    for s in status:
-        if (s['agentName'] != s['jobId']):
-            if (int(s['details']['numberOfBugsFound']) > 0):
-                experiment = s['details']['experiment']
-            else:
-                print("Did not find any bugs")
+    for message in status:
+        if (message['agentName'] != message['jobId']):
+            if message.get('details') and message['details'].get('numberOfBugsFound'):
+                if (int(message['details']['numberOfBugsFound']) > 0):
+                    experiment = message['details']['experiment']
+                else:
+                    print("Did not find any bugs")
 
     subs['{experiment}'] = experiment
     subs['{jobId}'] = fuzz_job['jobId']
@@ -59,8 +58,13 @@ def run(compile, test, fuzz, replay):
 
 
 if __name__ == "__main__":
+    if '--local' in sys.argv:
+        from raft_local import RaftLocalCLI
+        cli = RaftLocalCLI(network='host')
+    else:
+        cli = RaftCLI()
     try:
-        run(os.path.join(cur_dir, "restler.compile.json"),
+        run(cli, os.path.join(cur_dir, "restler.compile.json"),
             os.path.join(cur_dir, "restler.test.json"), 
             os.path.join(cur_dir, "restler.fuzz.json"),
             os.path.join(cur_dir, "restler.replay-all-fuzz-bugs.json"))
