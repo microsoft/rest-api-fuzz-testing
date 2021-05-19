@@ -10,4 +10,5 @@ allows for up to 60 containers to run. In this sample the python script spawns p
 
 This sample shows you how simple it is to create multiple tasks configured on the fly.
 
-You can run the sample by executing `python run.py`.
+You can run the sample in your Azure RAFT deployment by executing `python run.py`. 
+You can run the sample in your local docker service by executing `python run.py --local`.
