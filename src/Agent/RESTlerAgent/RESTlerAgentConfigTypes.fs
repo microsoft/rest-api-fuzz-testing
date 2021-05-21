@@ -59,6 +59,7 @@ type CompileConfiguration =
 
         DiscoverExamples : bool
         ExamplesDirectory : string option
+        ExampleConfigFilePath : string option
 
         DataFuzzing : bool
         ResolveQueryDependencies: bool
@@ -79,6 +80,7 @@ type CompileConfiguration =
             CustomDictionary = None
             DiscoverExamples = true
             ExamplesDirectory = None
+            ExampleConfigFilePath = None
             DataFuzzing = true
             ResolveQueryDependencies = true
             ResolveBodyDependencies = true

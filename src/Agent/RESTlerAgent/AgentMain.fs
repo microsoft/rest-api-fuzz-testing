@@ -364,6 +364,8 @@ let createRESTlerCompilerConfiguration (workDirectory: string) (grammar: Grammar
         /// If 'discoverExamples' is false, every time an example is used in the
         /// Swagger file, RESTler will first look for it in this directory.
         ExamplesDirectory = match compileConfig.ExamplesDirectory with None -> workDirectory ++ "Examples" | Some d -> d
+
+        ExampleConfigFilePath = compileConfig.ExampleConfigFilePath
     
         /// Perform data fuzzing
         DataFuzzing = compileConfig.DataFuzzing

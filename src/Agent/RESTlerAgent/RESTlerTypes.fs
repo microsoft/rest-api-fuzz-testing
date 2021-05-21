@@ -302,6 +302,8 @@ module Compiler =
             /// When set to 'true', discovers examples and outputs them to a directory next to the grammar.
             /// If an existing directory exists, does not over-write it.
             DiscoverExamples : bool
+
+            ExampleConfigFilePath : string option
     
             /// The directory where the compiler should look for examples.
             /// If 'discoverExamples' is true, this directory will contain the
