@@ -348,32 +348,32 @@ let createRESTlerCompilerConfiguration (workDirectory: string) (grammar: Grammar
         // If specified, update the engine settings with hints derived from the grammar.
         EngineSettingsFilePath = None
     
-        IncludeOptionalParameters = true
+        IncludeOptionalParameters = compileConfig.IncludeOptionalParameters
     
-        UseQueryExamples = true
+        UseQueryExamples = compileConfig.UseQueryExamples
     
-        UseBodyExamples = true
+        UseBodyExamples = compileConfig.UseBodyExamples
     
         /// When set to 'true', discovers examples and outputs them to a directory next to the grammar.
         /// If an existing directory exists, does not over-write it.
-        DiscoverExamples = true
+        DiscoverExamples = compileConfig.DiscoverExamples
     
         /// The directory where the compiler should look for examples.
         /// If 'discoverExamples' is true, this directory will contain the
         /// example files that have been discovered.
         /// If 'discoverExamples' is false, every time an example is used in the
         /// Swagger file, RESTler will first look for it in this directory.
-        ExamplesDirectory = workDirectory ++ "Examples"
+        ExamplesDirectory = match compileConfig.ExamplesDirectory with None -> workDirectory ++ "Examples" | Some d -> d
     
         /// Perform data fuzzing
-        DataFuzzing = true
+        DataFuzzing = compileConfig.DataFuzzing
     
         // When true, only fuzz the GET requests
         ReadOnlyFuzz = compileConfig.ReadOnlyFuzz
     
-        ResolveQueryDependencies = true
+        ResolveQueryDependencies = compileConfig.ResolveQueryDependencies
     
-        ResolveBodyDependencies = true
+        ResolveBodyDependencies = compileConfig.ResolveBodyDependencies
     
         UseRefreshableToken = compileConfig.UseRefreshableToken
     

@@ -15,7 +15,10 @@
         "toolName": "RESTler",
         "outputFolder": "compile",
         "toolConfiguration": {
-          "task": "Compile"
+          "task": "Compile",
+          "compileConfiguration" : {
+            "discoverExamples" : false
+          }
         }
       }
     ]

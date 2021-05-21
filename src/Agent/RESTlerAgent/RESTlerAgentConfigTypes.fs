@@ -56,17 +56,35 @@ type CompileConfiguration =
         MutationsSeed : int64 option
 
         CustomDictionary: CustomDictionary option
+
+        DiscoverExamples : bool
+        ExamplesDirectory : string option
+
+        DataFuzzing : bool
+        ResolveQueryDependencies: bool
+        ResolveBodyDependencies : bool
+        UseBodyExamples : bool
+        UseQueryExamples : bool
+        IncludeOptionalParameters : bool
     }
 
     static member Empty : CompileConfiguration =
         {
-            InputJsonGrammarPath = None;
-            InputFolderPath = None;
-            ReadOnlyFuzz = false;
-            AllowGetProducers = false;
-            UseRefreshableToken = false;
+            InputJsonGrammarPath = None
+            InputFolderPath = None
+            ReadOnlyFuzz = false
+            AllowGetProducers = false
+            UseRefreshableToken = false
             MutationsSeed = None;
             CustomDictionary = None
+            DiscoverExamples = true
+            ExamplesDirectory = None
+            DataFuzzing = true
+            ResolveQueryDependencies = true
+            ResolveBodyDependencies = true
+            UseBodyExamples = true
+            UseQueryExamples = true
+            IncludeOptionalParameters = true
         }
 
 
