@@ -233,7 +233,7 @@ type webhooksController(configuration : IConfiguration, telemetryClient : Teleme
                                               Message = "Missing required query string"
                                               Target = method
                                               Details = [||]
-                                              InnerError = {Message = "name"}
+                                              InnerError = {Message = "webhookName"}
                                              }}
 
 
