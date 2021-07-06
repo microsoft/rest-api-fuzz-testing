@@ -235,6 +235,10 @@
                         "type": "boolean",
                         "description": "Use SSL when connecting to the server"
                     },
+                    "showAuthToken": {
+                        "type": "boolean",
+                        "description": "Print authentication token value in RESTler network logs if set to true. Omit token from network logs if set to False or missing."
+                    },
                     "authenticationTokenRefreshIntervalSeconds" : {
                         "type": "integer",
                         "description": "Authentication token refresh interval",
