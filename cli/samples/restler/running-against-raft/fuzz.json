@@ -42,6 +42,7 @@
           "runConfiguration": {
             "inputFolderPath": "/job-compile/RESTler-compile",
             "useSsl": true,
+            "showAuthToken" : true,
             "producerTimingDelay": 5,
             "maxRequestExecutionTime" : 300
           }

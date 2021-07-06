@@ -133,6 +133,9 @@ type RunConfiguration =
         /// Specifies to use SSL when connecting to the server
         UseSsl : bool option
 
+        /// Specifies whether to show contents of auth token in RESTler logs
+        ShowAuthToken : bool option
+
         /// Token Refresh Interval
         AuthenticationTokenRefreshIntervalSeconds: int option
 
@@ -185,6 +188,7 @@ type RunConfiguration =
             WaitForAsyncResourceCreation = None
             PerResourceSettings = None
             Duration = None
+            ShowAuthToken = None
         }
 
 
