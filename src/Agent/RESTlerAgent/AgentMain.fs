@@ -286,6 +286,8 @@ let createRESTlerEngineParameters
         /// Specifies to use SSL when connecting to the server
         UseSsl = match runConfiguration.UseSsl with None -> true | Some useSsl -> useSsl
 
+        ShowAuthToken = match runConfiguration.ShowAuthToken with None -> false | Some showAuthToken -> showAuthToken
+
         /// Path regex for filtering tested endpoints
         PathRegex = runConfiguration.PathRegex
 

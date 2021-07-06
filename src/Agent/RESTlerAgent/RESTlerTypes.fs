@@ -63,6 +63,9 @@ module Engine =
             /// Specifies to use SSL when connecting to the server
             UseSsl : bool
 
+            /// Specifies whether to show contents of auth token in RESTler logs
+            ShowAuthToken : bool
+
             /// The string to use in overriding the Host for each request
             Host : string option
 
@@ -250,6 +253,7 @@ module Engine =
                     path_regex = p.PathRegex
                     global_producer_timing_delay = p.ProducerTimingDelay
                     no_ssl = not p.UseSsl
+                    no_tokens_in_logs = not p.ShowAuthToken
                     fuzzing_mode = fuzzingMode
                     token_refresh_cmd = tokenRefreshCommand
                     token_refresh_interval = tokenRefreshInterval

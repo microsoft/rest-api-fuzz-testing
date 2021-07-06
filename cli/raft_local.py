@@ -701,7 +701,7 @@ class RaftLocalCLI():
             try:
                 self.docker_remove_containers(test_target_container_names)
             except Exception as ex:
-                print(f'Faeild to remove test target containers due to: {ex}')
+                print(f'Failed to remove test target containers due to: {ex}')
 
             try:
                 self.docker_remove_bridge(bridge_name)
