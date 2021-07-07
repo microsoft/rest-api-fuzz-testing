@@ -138,6 +138,10 @@
                         "type": "boolean",
                         "description": "Use refreshable token for authenticating with service under test"
                     },
+                    "trackFuzzedParameterNames": {
+                        "type": "boolean",
+                        "description": "True by default. Every fuzzable primitive will include an additional parameter param_name which is the name of the property\r\nor parameter being fuzzed. These will be used to capture fuzzed parameters\r\nin tracked_parameters in the spec coverage file."
+                    },
                     "mutationsSeed": {
                         "type": "integer",
                         "description": "Use the seed to generate random value for empty/null customDictitonary fields\r\nif not set then default hard-coded RESTler values are used for populating customDictionary fields",
@@ -269,6 +273,10 @@
                     "ignoreFeedback":{
                         "type": "boolean",
                         "description": "Ignore feedback from response"
+                    },
+                    "testAllCombinations":{
+                        "type": "boolean",
+                        "description": "By default, test mode will try to execute each request successfully once. This means that, if there are 5 possible values for a parameter, and the request\r\nis successfully executed when passing the first value, the remaining 4 will not be tested.\r\nIn some cases, such as for differential regression testing, it is desired to test all of the specified parameter values in Test mode.\r\nSetting TestAllCombinations to true in test mode in order to try all parameter values\r\n(up to max_combinations).\r\nResults for all parameter combinations will be reported in the spec coverage file."
                     },
                     "includeUserAgent":{
                         "type": "boolean",

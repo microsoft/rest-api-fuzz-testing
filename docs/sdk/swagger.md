@@ -748,6 +748,7 @@ set to &#x27;false&#x27; by default.
 In limited cases when GET is a valid producer, the user
 should add an annotation for it. </div>
 <div class="param">useRefreshableToken (optional)</div><div class="param-desc"><span class="param-type"><a href="#boolean">Boolean</a></span> Use refreshable token for authenticating with service under test </div>
+<div class="param">trackFuzzedParameterNames (optional)</div><div class="param-desc"><span class="param-type"><a href="#boolean">Boolean</a></span> True by default. Every fuzzable primitive will include an additional parameter param_name which is the name of the property or parameter being fuzzed. These will be used to capture fuzzed parameters iin tracked_parameters in the spec coverage file </div>
 <div class="param">mutationsSeed (optional)</div><div class="param-desc"><span class="param-type"><a href="#long">Long</a></span> Use the seed to generate random value for empty/null customDictitonary fields
 if not set then default hard-coded RESTler values are used for populating customDictionary fields format: int64</div>
 <div class="param">customDictionary (optional)</div><div class="param-desc"><span class="param-type"><a href="#CustomDictionary">CustomDictionary</a></span>  </div>
@@ -906,6 +907,11 @@ For Replay task: path to RESTler Fuzz or Test run that contains bug buckets to r
 <div class="param">useSsl (optional)</div><div class="param-desc"><span class="param-type"><a href="#boolean">Boolean</a></span> Use SSL when connecting to the server </div>
 <div class="param">pathRegex (optional)</div><div class="param-desc"><span class="param-type"><a href="#string">String</a></span> Path regex for filtering tested endpoints </div>
 <div class="param">authenticationTokenRefreshIntervalSeconds (optional)</div><div class="param-desc"><span class="param-type"><a href="#integer">Integer</a></span> Authentciation token refresh interval format: int32</div>
+<div class="param">ignoreBugHashes (optional)</div><div class="param-desc"><span class="param-type"><a href="#string">array[String]</a></span> List of bug hashes to ignore when posting Bug Found webhook </div>
+<div class="param">maxRequestExecutionTime (optional)</div><div class="param-desc"><span class="param-type"><a href="#integer">Integer</a></span> Maximum request execution time </div>
+<div class="param">ignoreDependencies (optional)</div><div class="param-desc"><span class="param-type"><a href="#boolean">Boolean</a></span> Ignore resource dependencies </div>
+<div class="param">ignoreFeedback (optional)</div><div class="param-desc"><span class="param-type"><a href="#boolean">Boolean</a></span> Ignore feedback from responses </div>
+<div class="param">testAllCombinations (optional)</div><div class="param-desc"><span class="param-type"><a href="#boolean">Boolean</a></span> By default, test mode will try to execute each request successfully once. This means that, if there are 5 possible values for a parameter, and the request is successfully executed when passing the first value, the remaining 4 will not be tested. In some cases, such as for differential regression testing, it is desired to test all of the specified parameter values in Test mode. Setting TestAllCombinations to true in test mode in order to try all parameter values (up to max_combinations). Results for all parameter combinations will be reported in the spec coverage file </div>
 </div>  <!-- field-items -->
   </div>
   <div class="model">

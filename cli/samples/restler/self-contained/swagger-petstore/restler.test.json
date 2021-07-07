@@ -36,7 +36,6 @@
           "toolConfiguration": {
             "task": "Test",
             "runConfiguration": {
-              "useSsl" : false,
               "inputFolderPath": "/job-compile/compile",
               "ignoreBugHashes" : [
                 "PayloadBodyChecker_500_7c2ae3b8c78eabad55a8075b487322dbbe146e46",

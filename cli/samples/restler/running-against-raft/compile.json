@@ -13,6 +13,7 @@
         "toolConfiguration": {
           "task": "compile",
           "compileConfiguration": {
+            "trackFuzzedParameterNames" : true,
             "useRefreshableToken": true,
             "customDictionary": {
               "customPayload": {
