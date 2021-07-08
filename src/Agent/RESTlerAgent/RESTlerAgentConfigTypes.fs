@@ -67,6 +67,8 @@ type CompileConfiguration =
         UseBodyExamples : bool
         UseQueryExamples : bool
         IncludeOptionalParameters : bool
+
+        TrackFuzzedParameterNames : bool option
     }
 
     static member Empty : CompileConfiguration =
@@ -87,6 +89,7 @@ type CompileConfiguration =
             UseBodyExamples = true
             UseQueryExamples = true
             IncludeOptionalParameters = true
+            TrackFuzzedParameterNames = None
         }
 
 
@@ -136,6 +139,9 @@ type RunConfiguration =
         /// Specifies whether to show contents of auth token in RESTler logs
         ShowAuthToken : bool option
 
+        /// Specifies whether to test all combinations in 'test' mode
+        TestAllCombinations : bool option
+
         /// Token Refresh Interval
         AuthenticationTokenRefreshIntervalSeconds: int option
 
@@ -173,6 +179,7 @@ type RunConfiguration =
             GrammarPy = None
             InputFolderPath = None
             ProducerTimingDelay = None
+            TestAllCombinations = None
             UseSsl = None
             AuthenticationTokenRefreshIntervalSeconds = None
             PathRegex = None

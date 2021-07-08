@@ -37,7 +37,6 @@
         "toolConfiguration": {
           "task": "Fuzz",
           "runConfiguration": {
-            "useSsl" : false,
             "inputFolderPath": "/job-compile/compile",
             "IgnoreBugHashes" : [
               "PayloadBodyChecker_500_3d6e2d1e897967f3bc14cd8f08252a98b25c4d48",

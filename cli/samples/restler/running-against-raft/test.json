@@ -37,7 +37,8 @@
           "task": "Test",
           "runConfiguration": {
             "inputFolderPath": "/job-compile/RESTler-compile",
-            "maxRequestExecutionTime" : 300
+            "maxRequestExecutionTime" : 300,
+            "testAllCombinations" : true
           }
         }
       }

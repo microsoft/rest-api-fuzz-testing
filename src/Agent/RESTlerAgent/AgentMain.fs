@@ -223,17 +223,18 @@ let createRESTlerEngineParameters
     (task: Raft.Job.RaftTask) (checkerOptions:(string*string) list)
     (runConfiguration: RunConfiguration) (authenicationUrl: System.Uri) : Raft.RESTlerTypes.Engine.EngineParameters =
     
-    let host, ip, port =
+    let useSsl, host, ip, port =
         match task.TargetConfiguration with
-        | None -> None, None, None
+        | None -> true, None, None, None
         | Some targetConfig ->
             match targetConfig.Endpoint with
-            | None -> None, None, None
+            | None -> true, None, None, None
             | Some endpoint ->
+                let useSsl = String.Compare("https", endpoint.Scheme, true) = 0
                 match endpoint.HostNameType with
-                | System.UriHostNameType.Dns ->
-                    Some(endpoint.Host), None, Some(endpoint.Port)
-                | _ -> None, Some(endpoint.Host), Some(endpoint.Port)
+                | System.UriHostNameType.Dns -> 
+                    useSsl, Some(endpoint.Host), None, Some(endpoint.Port)
+                | _ -> useSsl, None, Some(endpoint.Host), Some(endpoint.Port)
 
     {
         /// File path to the REST-ler (python) grammar.
@@ -284,9 +285,9 @@ let createRESTlerEngineParameters
         CheckerOptions = checkerOptions
  
         /// Specifies to use SSL when connecting to the server
-        UseSsl = match runConfiguration.UseSsl with None -> true | Some useSsl -> useSsl
+        UseSsl = Option.defaultValue useSsl runConfiguration.UseSsl
 
-        ShowAuthToken = match runConfiguration.ShowAuthToken with None -> false | Some showAuthToken -> showAuthToken
+        ShowAuthToken = Option.defaultValue false runConfiguration.ShowAuthToken
 
         /// Path regex for filtering tested endpoints
         PathRegex = runConfiguration.PathRegex
@@ -387,6 +388,8 @@ let createRESTlerCompilerConfiguration (workDirectory: string) (grammar: Grammar
         // In limited cases when GET is a valid producer, the user
         // should add an annotation for it.
         AllowGetProducers = compileConfig.AllowGetProducers
+
+        TrackFuzzedParameterNames = Option.defaultValue true compileConfig.TrackFuzzedParameterNames
     }
 
 
@@ -870,7 +873,6 @@ let main argv =
                         return Raft.JobEvents.TaskCompleted, None, 0, summary
 
                     | TaskType.Test ->
-                        printfn "Running directed-smoke-test"
                         let jobConfiguration =
                             match restlerPayload.RunConfiguration with
                             | None -> RunConfiguration.Empty
@@ -878,17 +880,31 @@ let main argv =
                         match jobConfiguration.InputFolderPath with
                         | Some p -> copyDir p workDirectory (set [taskConfigurationPath])
                         | None -> ()
+
+                        let testMode = 
+                            match jobConfiguration.TestAllCombinations with
+                            | None | Some false -> "directed-smoke-test"
+                            | Some true -> "test-all-combinations"
+
+                        printfn "Running %s" testMode
                         do! report Raft.JobEvents.Running (None, None)
-                        do! test "directed-smoke-test" [] jobConfiguration
+                        do! test testMode [] jobConfiguration
                         let! summary = Raft.RESTlerDriver.processRunSummary workDirectory globalRunStartTime
                         return Raft.JobEvents.TaskCompleted, None, 0, summary
         
                     | TaskType.TestFuzzLean ->
-                        printfn "Running directed-smoke-test"
+
+                        printfn "Running test fuzz lean"
                         let jobConfiguration =
                             match restlerPayload.RunConfiguration with
                             | None -> RunConfiguration.Empty
                             | Some jobConfiguration -> jobConfiguration
+
+                        match jobConfiguration.TestAllCombinations with
+                        | None | Some false ->
+                            printfn "WARNING: Test All Combination settings is not supported in test fuzz lean mode"
+                        | Some true -> ()
+
                         match jobConfiguration.InputFolderPath with
                         | Some p -> copyDir p workDirectory (set [taskConfigurationPath])
                         | None -> ()

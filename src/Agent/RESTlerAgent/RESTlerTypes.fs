@@ -334,6 +334,11 @@ module Compiler =
             // In limited cases when GET is a valid producer, the user
             // should add an annotation for it.
             AllowGetProducers : bool
+
+            // When this switch is on, the generated grammar will contain
+            // parameter names for all fuzzable values.  For example:
+            // restler_fuzzable_string("1", param_name="num_items")
+            TrackFuzzedParameterNames: bool
         }
     
     type MutationsDictionary =
