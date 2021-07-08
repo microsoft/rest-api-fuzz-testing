@@ -12,7 +12,7 @@
     "tasks": [
       {
         "toolName": "RESTler",
-        "outputFolder": "RESTLer-test-fuzz-lean-1",
+        "outputFolder": "RESTler-test-fuzz-lean-1",
         "keyVaultSecrets": [ "RaftServicePrincipal" ],
         "authenticationMethod": {
           "MSAL": "RaftServicePrincipal"
@@ -28,7 +28,23 @@
       },
       {
         "toolName": "RESTler",
-        "outputFolder": "RESTler-test-2",
+        "outputFolder": "RESTler-test-all-combinations-2",
+        "keyVaultSecrets": [ "RaftServicePrincipal" ],
+        "authenticationMethod": {
+          "MSAL": "RaftServicePrincipal"
+        },
+        "toolConfiguration": {
+          "task": "TestAllCombinations",
+          "runConfiguration": {
+            "inputFolderPath": "/job-compile/RESTler-compile",
+            "authenticationTokenRefreshIntervalSeconds": 300,
+            "maxRequestExecutionTime" : 300
+          }
+        }
+      },
+      {
+        "toolName": "RESTler",
+        "outputFolder": "RESTler-test-3",
         "keyVaultSecrets": [ "RaftServicePrincipal" ],
         "authenticationMethod": {
           "MSAL": "RaftServicePrincipal"
@@ -37,8 +53,7 @@
           "task": "Test",
           "runConfiguration": {
             "inputFolderPath": "/job-compile/RESTler-compile",
-            "maxRequestExecutionTime" : 300,
-            "testAllCombinations" : true
+            "maxRequestExecutionTime" : 300
           }
         }
       }

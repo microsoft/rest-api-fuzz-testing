@@ -895,7 +895,7 @@ see: https://docs.microsoft.com/en-us/azure/container-instances/container-instan
   </div>
   <div class="model">
 <h3><a name="RunConfiguration"><code>RunConfiguration</code></a> <a class="up" href="#__Models">Up</a></h3>
-<div class='model-description'>RESTler job Test, Fuzz or Replay configuration</div>
+<div class='model-description'>RESTler job Test, TestFuzzLean, TestAllCombinations, Fuzz or Replay configuration</div>
 <div class="field-items">
   <div class="param">grammarPy (optional)</div><div class="param-desc"><span class="param-type"><a href="#string">String</a></span> Path to grammar py relative to compile folder path. If not set then default "grammar.py" grammar is assumed </div>
 <div class="param">inputFolderPath (optional)</div><div class="param-desc"><span class="param-type"><a href="#string">String</a></span> For Test or Fuzz tasks: Grammar is produced by compile step. The compile step
@@ -911,7 +911,6 @@ For Replay task: path to RESTler Fuzz or Test run that contains bug buckets to r
 <div class="param">maxRequestExecutionTime (optional)</div><div class="param-desc"><span class="param-type"><a href="#integer">Integer</a></span> Maximum request execution time </div>
 <div class="param">ignoreDependencies (optional)</div><div class="param-desc"><span class="param-type"><a href="#boolean">Boolean</a></span> Ignore resource dependencies </div>
 <div class="param">ignoreFeedback (optional)</div><div class="param-desc"><span class="param-type"><a href="#boolean">Boolean</a></span> Ignore feedback from responses </div>
-<div class="param">testAllCombinations (optional)</div><div class="param-desc"><span class="param-type"><a href="#boolean">Boolean</a></span> By default, test mode will try to execute each request successfully once. This means that, if there are 5 possible values for a parameter, and the request is successfully executed when passing the first value, the remaining 4 will not be tested. In some cases, such as for differential regression testing, it is desired to test all of the specified parameter values in Test mode. Setting TestAllCombinations to true in test mode in order to try all parameter values (up to max_combinations). Results for all parameter combinations will be reported in the spec coverage file </div>
 </div>  <!-- field-items -->
   </div>
   <div class="model">
