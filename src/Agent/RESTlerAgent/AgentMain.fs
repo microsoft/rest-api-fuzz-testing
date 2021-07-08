@@ -223,17 +223,18 @@ let createRESTlerEngineParameters
     (task: Raft.Job.RaftTask) (checkerOptions:(string*string) list)
     (runConfiguration: RunConfiguration) (authenicationUrl: System.Uri) : Raft.RESTlerTypes.Engine.EngineParameters =
     
-    let host, ip, port =
+    let useSsl, host, ip, port =
         match task.TargetConfiguration with
-        | None -> None, None, None
+        | None -> true, None, None, None
         | Some targetConfig ->
             match targetConfig.Endpoint with
-            | None -> None, None, None
+            | None -> true, None, None, None
             | Some endpoint ->
+                let useSsl = String.Compare("https", endpoint.Scheme, true) = 0
                 match endpoint.HostNameType with
-                | System.UriHostNameType.Dns ->
-                    Some(endpoint.Host), None, Some(endpoint.Port)
-                | _ -> None, Some(endpoint.Host), Some(endpoint.Port)
+                | System.UriHostNameType.Dns -> 
+                    useSsl, Some(endpoint.Host), None, Some(endpoint.Port)
+                | _ -> useSsl, None, Some(endpoint.Host), Some(endpoint.Port)
 
     {
         /// File path to the REST-ler (python) grammar.
@@ -284,7 +285,7 @@ let createRESTlerEngineParameters
         CheckerOptions = checkerOptions
  
         /// Specifies to use SSL when connecting to the server
-        UseSsl = Option.defaultValue true runConfiguration.UseSsl
+        UseSsl = Option.defaultValue useSsl runConfiguration.UseSsl
 
         ShowAuthToken = Option.defaultValue false runConfiguration.ShowAuthToken
 
