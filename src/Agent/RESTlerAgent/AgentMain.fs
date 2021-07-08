@@ -880,30 +880,34 @@ let main argv =
                         match jobConfiguration.InputFolderPath with
                         | Some p -> copyDir p workDirectory (set [taskConfigurationPath])
                         | None -> ()
-
-                        let testMode = 
-                            match jobConfiguration.TestAllCombinations with
-                            | None | Some false -> "directed-smoke-test"
-                            | Some true -> "test-all-combinations"
-
+                        let testMode = "directed-smoke-test"
                         printfn "Running %s" testMode
                         do! report Raft.JobEvents.Running (None, None)
                         do! test testMode [] jobConfiguration
                         let! summary = Raft.RESTlerDriver.processRunSummary workDirectory globalRunStartTime
                         return Raft.JobEvents.TaskCompleted, None, 0, summary
-        
-                    | TaskType.TestFuzzLean ->
+                    
+                    | TaskType.TestAllCombinations ->
+                        let jobConfiguration =
+                            match restlerPayload.RunConfiguration with
+                            | None -> RunConfiguration.Empty
+                            | Some jobConfiguration -> jobConfiguration
+                        match jobConfiguration.InputFolderPath with
+                        | Some p -> copyDir p workDirectory (set [taskConfigurationPath])
+                        | None -> ()
+                        let testMode = "test-all-combinations"
+                        printfn "Running %s" testMode
+                        do! report Raft.JobEvents.Running (None, None)
+                        do! test testMode [] jobConfiguration
+                        let! summary = Raft.RESTlerDriver.processRunSummary workDirectory globalRunStartTime
+                        return Raft.JobEvents.TaskCompleted, None, 0, summary
 
+                    | TaskType.TestFuzzLean ->
                         printfn "Running test fuzz lean"
                         let jobConfiguration =
                             match restlerPayload.RunConfiguration with
                             | None -> RunConfiguration.Empty
                             | Some jobConfiguration -> jobConfiguration
-
-                        match jobConfiguration.TestAllCombinations with
-                        | None | Some false ->
-                            printfn "WARNING: Test All Combination settings is not supported in test fuzz lean mode"
-                        | Some true -> ()
 
                         match jobConfiguration.InputFolderPath with
                         | Some p -> copyDir p workDirectory (set [taskConfigurationPath])

@@ -274,10 +274,6 @@
                         "type": "boolean",
                         "description": "Ignore feedback from response"
                     },
-                    "testAllCombinations":{
-                        "type": "boolean",
-                        "description": "By default, test mode will try to execute each request successfully once. This means that, if there are 5 possible values for a parameter, and the request\r\nis successfully executed when passing the first value, the remaining 4 will not be tested.\r\nIn some cases, such as for differential regression testing, it is desired to test all of the specified parameter values in Test mode.\r\nSetting TestAllCombinations to true in test mode in order to try all parameter values\r\n(up to max_combinations).\r\nResults for all parameter combinations will be reported in the spec coverage file."
-                    },
                     "includeUserAgent":{
                         "type": "boolean",
                         "description": "Include RESTler user agent"
@@ -339,7 +335,7 @@
                         "type": "string",
 						"description": "RESTLer task types",
                         "nullable": false,
-                        "enum" : ["compile", "test", "fuzz", "replay", "testFuzzLean", "fuzzRandomWalk", "fuzzBfsCheap"]
+                        "enum" : ["compile", "test", "fuzz", "replay", "testFuzzLean", "testAllCombinations", "fuzzRandomWalk", "fuzzBfsCheap"]
                     },
                     "compileConfiguration": {
                         "$ref": "#/components/schemas/CompileConfiguration"
