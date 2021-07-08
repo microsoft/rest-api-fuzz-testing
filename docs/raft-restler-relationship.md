@@ -20,7 +20,7 @@ to 443 when using SSL and 80 when not using a secure connection. If for some rea
 find that you still need to specify the IP and port number then manually provided values 
 in TargetEndpoint configuration will override any lookup or default values.
 
-## RESTler mode of opearation
+## RESTler mode of operation
 
 RESTler needs to compile the Swagger specifications into RESTler grammar as a first step. The output of the compile step is then consumed by any of the following steps: Test, TestFuzzLean, Fuzz.
 To enable passing of data from one step to the next RAFT allows any file share in the storage account to be mounted by any task.
