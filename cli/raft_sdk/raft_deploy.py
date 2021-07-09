@@ -984,7 +984,7 @@ class RaftServiceCLI():
             json.dump(defaults, d, indent=4)
 
     def test_az_version(self):
-        supported_versions = ['2.20.0', '2.21.0']
+        supported_versions = ['2.25.0', '2.26.0']
         # az sometimes reports the version with an asterisk.
         # Perhaps when a new version of the CLI is available.
         tested_az_cli_versions = (
