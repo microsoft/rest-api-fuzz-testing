@@ -3,6 +3,7 @@ import os
 import logging
 from logging import StreamHandler
 import shutil
+import json
 
 run_directory = os.environ['RAFT_TOOL_RUN_DIRECTORY']
 raft_libs_dir = os.path.join(run_directory, '..', '..', 'libs', 'python3')
@@ -31,6 +32,30 @@ class StatusReporter(StreamHandler):
                 raftUtils.report_status_running(self.details)
 
 zap = __import__("zap-api-scan")
+
+def post_bugs(target_index):
+    if os.path.exists(f'/zap/wrk/{target_index}-report.json'):
+        print(f'Using file {target_index}-report.json for reported bugs.')
+        with open(f'/zap/wrk/{target_index}-report.json') as f:
+            reportData = json.load(f)
+
+        # Walk though the report, flattening the alert structure for bug reporting.
+        # The only nested item is the instances array.
+        for site in reportData['site']:
+            print(str(len(site['alerts'])) + " bugs found.")
+            for alert in site['alerts']:
+                bugDetails = {}
+                for item in alert:
+                    if item == 'instances':
+                        instanceList = alert['instances']
+                        for instanceCount in range(0, len(instanceList)):
+                            for instanceItem in instanceList[instanceCount]:
+                                bugDetails.update({"Instance" + str(instanceCount) + "-" + instanceItem : instanceList[instanceCount][instanceItem]})
+                    else:
+                        bugDetails.update({item : alert[item]})
+                raftUtils.report_bug(bugDetails)
+    else:
+        print(f'File {target_index}-report.json does NOT exist.')
 
 def run_zap(target_index, targets_total, host, target, token):
     if token:
@@ -87,12 +112,14 @@ def run_zap(target_index, targets_total, host, target, token):
 
     raftUtils.log_trace(f"ZAP exited with exit code: {r}")
     shutil.copy('/zap/zap.out', f'/zap/wrk/{target_index}-zap.out')
+    post_bugs(target_index)
 
     if r <= 2:
         r = 0
         
     if target_index + 1 == targets_total:
         raftUtils.report_status_completed(details)
+
     return r
 
 def run(target_index, targets_total, host, target, token):
@@ -104,7 +131,8 @@ def run(target_index, targets_total, host, target, token):
         raftUtils.report_status_error({"Error" : f"{ex}"})
         raise
     finally:
-        raftUtils.flush() 
+        raftUtils.flush()
+        os.sys.stdout.flush()
 
 
 if __name__ == "__main__":
