@@ -30,6 +30,12 @@ class StatusReporter(StreamHandler):
             if i != -1:
                 self.details["Scan progress"] = txt[i :]
                 raftUtils.report_status_running(self.details)
+            else:
+                progress='Passive scanning complete'
+                i = txt.find(progress)
+                if i != -1:
+                    self.details["Scan progress"] = "Active and Passive Scan progress %100"
+                    raftUtils.report_status_running(self.details)
 
 zap = __import__("zap-api-scan")
 
@@ -56,6 +62,18 @@ def post_bugs(target_index):
                 raftUtils.report_bug(bugDetails)
     else:
         print(f'File {target_index}-report.json does NOT exist.')
+
+def count_bugs(target_index):
+    bugCount = 0
+    if os.path.exists(f'/zap/wrk/{target_index}-report.json'):
+        with open(f'/zap/wrk/{target_index}-report.json') as f:
+            reportData = json.load(f)
+
+        # Every alert is a bug
+        for site in reportData['site']:
+            bugCount = len(site['alerts'])
+
+    return bugCount
 
 def run_zap(target_index, targets_total, host, target, token):
     if token:
@@ -85,7 +103,7 @@ def run_zap(target_index, targets_total, host, target, token):
         pass
 
     try:
-        details = {"targetIndex": target_index, "numberOfTargets" : targets_total, "target": target}
+        details = {"targetIndex": target_index, "numberOfTargets" : targets_total, "target": target, "totalBugCount": 0}
         print(f"Starting ZAP target: {target} host_config: {host_config}")
 
         if os.path.exists(target):
@@ -94,9 +112,11 @@ def run_zap(target_index, targets_total, host, target, token):
 
         raftUtils.log_trace(f"Starting ZAP")
         raftUtils.report_status_running(details)
+
         status_reporter = StatusReporter(details)
         logger = logging.getLogger()
         logger.addHandler(status_reporter)
+
         zap.main([ '-t', target,
                    '-f', 'openapi',
                    '-J', f'{target_index}-report.json',
@@ -104,14 +124,17 @@ def run_zap(target_index, targets_total, host, target, token):
                    '-w', f'{target_index}-report.md',
                    '-x', f'{target_index}-report.xml',
                    '-d'] + zap_auth_config + host_config)
-        details["Scan progress"] = "Active scan progress %: 100"
-        raftUtils.report_status_running(details)
 
     except SystemExit as e:
         r = e.code
 
     raftUtils.log_trace(f"ZAP exited with exit code: {r}")
     shutil.copy('/zap/zap.out', f'/zap/wrk/{target_index}-zap.out')
+
+    # Update the status with the total bug count.
+    details["totalBugCount"] = count_bugs(target_index)
+    raftUtils.report_status_running(details)
+
     post_bugs(target_index)
 
     if r <= 2:
