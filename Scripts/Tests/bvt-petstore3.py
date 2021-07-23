@@ -151,8 +151,11 @@ def bvt(cli, definitions, subs):
         print('Validating that bugs posted events matches total bugs found in job status')
         total_bugs_found = 0
         for r in job_status_events:
-            if r['Data']['State'] == 'Completed' and r['Data']['AgentName'] != r['Data']['JobId'] and r['Data']['Tool'] == 'RESTler':
-                total_bugs_found += r['Data']['Metrics']['TotalBugBucketsCount']
+            if r['Data']['State'] == 'Completed' and r['Data']['AgentName'] != r['Data']['JobId']:
+                if r['Data']['Tool'] == 'RESTler':
+                    total_bugs_found += r['Data']['Metrics']['TotalBugBucketsCount']
+                elif  r['Data']['Tool'] == 'ZAP':
+                    total_bugs_found += int(r['Data']['Details']['totalBugCount'])
 
         print(f'Total bugs found: {total_bugs_found}')
         print(f'Number of Bug found events: {len(bug_found_events)}')
