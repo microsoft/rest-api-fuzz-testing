@@ -3,3 +3,4 @@ requests~=2.25.1
 tabulate~=0.8.9
 pyyaml~=5.4.1
 python-dateutil~=2.4.1
+opencensus-ext-azure~=1.0.8

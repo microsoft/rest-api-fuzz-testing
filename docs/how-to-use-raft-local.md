@@ -93,3 +93,6 @@ deployed instance of [PetStore](https://petstore3.swagger.io) that can be launch
 
 Example command line to create a local job:</br>
 `python raft_local.py job create --file <jobdefinitionfile>`
+
+### Telemetry
+To prevent sending anonymous telemetry when running locally use the `--no-telemetry flag`.
