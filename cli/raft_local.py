@@ -5,15 +5,19 @@ import textwrap
 import os
 import subprocess
 import uuid
-import pathlib
 import json
 import datetime
 import time
 import requests
+import logging
+
+from datetime import datetime
 from dateutil import parser as DateParser
 from subprocess import PIPE
-from raft_sdk.raft_common import RaftDefinitions, RaftJsonDict, get_version
-from raft_sdk.raft_service import RaftJobConfig, RaftJobError, print_status
+from raft_sdk.raft_common import  RaftJsonDict, get_version
+from raft_sdk.raft_service import RaftJobConfig, print_status
+
+from opencensus.ext.azure.log_exporter import AzureEventHandler
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 json_hook = RaftJsonDict.raft_json_object_hook
@@ -132,9 +136,12 @@ def trigger_webhook(url, data, metadata=None):
         
 
 class RaftLocalCLI():
-    def __init__(self, network='host'):
+    def __init__(self, network='host', telemetry=True):
+        # This will hole a cumulative count of the bugs found over the course of the job. 
         self.bugs = []
         self.status = []
+        self.appinsights_instrumentation_key = '9d67f59d-4f44-475c-9363-d0ae7ea61e95'
+        self.telemetry = telemetry
 
         self.network = network
         self.work_directory = work_directory
@@ -148,6 +155,55 @@ class RaftLocalCLI():
             os.mkdir(self.work_directory)
         self.storage, self.secrets_path, self.events_sink =\
             init_local()
+
+        self.source = "local"
+        self.logger = logging.getLogger(__name__)
+        logging.basicConfig(level=logging.INFO)
+        if (telemetry):  
+            ai_key = 'InstrumentationKey=' + self.appinsights_instrumentation_key
+            handler = AzureEventHandler(connection_string=ai_key)
+            handler.add_telemetry_processor(self.telemetry_processor)
+            self.logger.addHandler(handler)
+            
+    # Remove identifying information
+    def telemetry_processor(self, envelope):
+        envelope.tags['ai.cloud.roleInstance'] = ''
+        return True
+
+    def common_custom_dimensions(self, units, count):
+        return {
+                'SiteHash' : str(uuid.getnode()), 
+                'Source' : self.source,
+                'TimeStamp' : datetime.utcnow().strftime("%d/%m/%Y %H:%M:%S"),
+                'Units' : units,
+                'Version' : get_version(),
+                'Count' : count
+                }
+
+    # These properties are used for the Created and Completed events
+    def log_telemetry(self, name, units, count):
+        common = self.common_custom_dimensions(units, count)
+        common.update({'Name' : name})
+        return {'custom_dimensions' : common }
+
+    # These properties are used for the BugsFound event
+    def log_bugs_found_telemetry(self, toolname, units, count):
+        common = self.common_custom_dimensions(units, count)
+        common.update({'ToolName' : toolname})
+        return {'custom_dimensions' : common }
+
+    # Record how many bugs were found by each tool
+    def log_bugs_per_tool(self):
+        tools = {}
+        for bug in self.bugs:
+            toolname = bug['Message']['Tool']
+            if toolname in tools:
+                tools[toolname] += 1
+            else:
+                tools[toolname] = 1
+
+        for toolname in tools:
+            self.logger.info("BugsFound", extra=self.log_bugs_found_telemetry('Task: ' + toolname, 'Bugs', tools[toolname]))
 
     def mount_read_write(self, source, target):
         return f'--mount type=bind,source="{source}",target="{target}" '
@@ -165,6 +221,8 @@ class RaftLocalCLI():
         env += self.env_variable('RAFT_CONTAINER_GROUP_NAME', job_id)
         env += self.env_variable('RAFT_WORK_DIRECTORY', work_dir)
         env += self.env_variable('RAFT_SITE_HASH', '0')
+        if (self.telemetry):
+            env += self.env_variable('RAFT_APP_INSIGHTS_KEY', self.appinsights_instrumentation_key)
 
         # If we are running in a github action (or some other unique environment)
         # we will set this value before running
@@ -174,6 +232,7 @@ class RaftLocalCLI():
             env += self.env_variable('RAFT_LOCAL', 'Developer')
         else:
             env += self.env_variable('RAFT_LOCAL', customLocal)
+            self.source = customLocal
         return env
 
     def process_job_events_sink(self, job_events_path):
@@ -208,7 +267,7 @@ class RaftLocalCLI():
                 status.append(job_status[s]['Message'])
             self.status = status
         if len(bugs) > 0:
-            self.bugs = bugs
+            self.bugs = self.bugs + bugs
 
     def docker_create_bridge(self, network, job_id):
         if network == 'host':
@@ -399,21 +458,22 @@ class RaftLocalCLI():
         secrets = []
         testTasks = job_config.config.get('testTasks')
         if testTasks.get('tasks'):
-            for tt in testTasks['tasks']:
-                if tt.get('keyVaultSecrets'):
-                    for s in tt['keyVaultSecrets']:
+            for testTask in testTasks['tasks']:
+                if testTask.get('keyVaultSecrets'):
+                    for s in testTask['keyVaultSecrets']:
                         secrets.append(s)
         return secrets
-
-
+        
     def start_test_tasks(self, job_config, task_index,\
             test_services_startup_delay, job_id, work_dir,\
             job_dir, job_events, bridge_name, agent_utilities_url):
 
         testTasks = job_config.config.get('testTasks')
         if testTasks.get('tasks'):
-            for tt in testTasks['tasks']:
-                config = self.tools[tt['toolName']]
+            for testTask in testTasks['tasks']:
+                # Record in telemetry that we are using a particular tool
+                self.logger.info("Created", extra=self.log_telemetry("Task: " + testTask['toolName'], "task", 1))
+                config = self.tools[testTask['toolName']]
                 std_out = docker('pull ' + config['container'])
                 print(std_out)
 
@@ -424,8 +484,8 @@ class RaftLocalCLI():
                 if target_config.get('localRun'):
                     testTasks['targetConfiguration'] = target_config['localRun']
 
-            for tt in testTasks['tasks']:
-                config = self.tools[tt['toolName']]
+            for testTask in testTasks['tasks']:
+                config = self.tools[testTask['toolName']]
                 env = self.common_environment_variables(job_id, work_dir)
 
                 if (config.get('environmentVariables')):
@@ -441,7 +501,7 @@ class RaftLocalCLI():
                 args = map(lambda a: f'"{a}"', config['run']['shellArguments'])
                 cmd = f"{shell} {' '.join(args)}"
 
-                if tt.get('isIdling'):
+                if testTask.get('isIdling'):
                     args = map(lambda a: f'"{a}"', config['idle']['shellArguments'])
                     run_cmd = f"{shell} {' '.join(args)}"
                     startup_delay = 0
@@ -449,9 +509,9 @@ class RaftLocalCLI():
                     run_cmd = cmd
                     startup_delay = test_services_startup_delay
 
-                task_dir = os.path.join(job_dir, tt['outputFolder'])
+                task_dir = os.path.join(job_dir, testTask['outputFolder'])
                 os.mkdir(task_dir)
-                task_events = os.path.join(job_events, tt['outputFolder'])
+                task_events = os.path.join(job_events, testTask['outputFolder'])
                 os.mkdir(task_events)
 
                 with open(os.path.join(task_dir, 'task-run.sh'), 'w') as tc:
@@ -460,12 +520,12 @@ class RaftLocalCLI():
 
                 env += self.env_variable('RAFT_STARTUP_DELAY', startup_delay)
                 env += self.env_variable('RAFT_RUN_CMD', run_cmd)
-                env += self.env_variable('RAFT_TOOL_RUN_DIRECTORY', self.tool_paths[tt['toolName']])
+                env += self.env_variable('RAFT_TOOL_RUN_DIRECTORY', self.tool_paths[testTask['toolName']])
                 env += self.env_variable('RAFT_POST_RUN_COMMAND', '')
                 env += self.env_variable('RAFT_CONTAINER_SHELL', shell)
 
-                if tt.get('keyVaultSecrets'):
-                    for s in tt['keyVaultSecrets']:
+                if testTask.get('keyVaultSecrets'):
+                    for s in testTask['keyVaultSecrets']:
                         with open(os.path.join(self.secrets_path, s), 'r') as secret_file:
                             secret = secret_file.read()
                             env += self.env_variable(f'RAFT_{s}', secret.strip())
@@ -473,13 +533,13 @@ class RaftLocalCLI():
 
                 # create task_config json, and save it to task_dir
                 with open(os.path.join(task_dir, 'task-config.json'), 'w') as tc:
-                    if not(tt.get('targetConfiguration')):
-                        tt['targetConfiguration'] = testTasks['targetConfiguration']
+                    if not(testTask.get('targetConfiguration')):
+                        testTask['targetConfiguration'] = testTasks['targetConfiguration']
 
-                    if not(tt.get('Duration')) and testTasks.get('Duration'):
-                        tt['Duration'] = testTasks['Duration']
+                    if not(testTask.get('Duration')) and testTasks.get('Duration'):
+                        testTask['Duration'] = testTasks['Duration']
 
-                    json.dump(tt, tc, indent=4)
+                    json.dump(testTask, tc, indent=4)
 
                 mounts = self.mount_read_write(task_dir, work_dir)
                 mounts += self.mount_read_write(task_events, '/raft-events-sink')
@@ -493,7 +553,7 @@ class RaftLocalCLI():
                     for v in job_config.config.get("readWriteFileShareMounts"):
                         mounts += self.mount_read_write(os.path.join(self.storage, v['FileShareName']), v['MountPath'])
 
-                container_name = f'raft-{tt["toolName"]}-{job_id}-{task_index}'
+                container_name = f'raft-{testTask["toolName"]}-{job_id}-{task_index}'
 
                 # add command to execute
                 cmd = self.docker_run_cmd(
@@ -564,6 +624,19 @@ class RaftLocalCLI():
 
             all_exited, _, infos = self.check_containers_exited(containers)
             if all_exited:
+                # Some status and bugs are not processed once the tasks finish
+                # so process them now
+                self.process_job_events_sink(job_events_path)
+                print_status(self.status)
+
+                # Trigger bug found webhook for all the bugs we found.
+                # Since self.bugs is a cumulative list of bugs found, just trigger
+                # the webhooks once at the end of the run so there aren't multiple triggers
+                # happening.
+                if bug_found_webhook_url:
+                    for bug in self.bugs:
+                        trigger_webhook(bug_found_webhook_url, [bug], metadata)
+
                 exit_infos = []
                 for j in infos:
                     exit_infos.append(
@@ -576,13 +649,9 @@ class RaftLocalCLI():
                 return exit_infos
             else:
                 self.process_job_events_sink(job_events_path)
-
-                if bug_found_webhook_url:
-                    for bug in self.bugs:
-                        trigger_webhook(bug_found_webhook_url, [bug], metadata)
-
                 print_status(self.status)
 
+                # Trigger job status webhook
                 if job_status_webhook_url:
                     for k in self.status:
                         trigger_webhook(job_status_webhook_url, [{'Message' : k}], metadata)
@@ -662,12 +731,25 @@ class RaftLocalCLI():
                 if 'metadata' in job_config.config['webhook']:
                     metadata = job_config.config['webhook']['metadata']
 
+            # Record in telemetry we've created a job
+            self.logger.info("Created", extra=self.log_telemetry("Job", "job", 1))
+
             stats = self.wait_for_container_termination(test_task_container_names,\
                         test_target_container_names, [agent_utils],\
                         job_events, duration, metadata,\
                         job_status_webhook_url, bug_found_webhook_url)
             if stats:
                 print(stats)
+
+            # Log the completion telemetry here so if there is a failure it's not logged. 
+            self.logger.info("Completed", extra=self.log_telemetry("Job", "job", 1))
+            # iterate through the tools and mark them as completed. 
+            testTasks = job_config.config.get('testTasks')
+            if testTasks.get('tasks'):
+                for testTask in testTasks['tasks']:
+                    # Record in telemetry that we are using a particular tool
+                    self.logger.info("Completed", extra=self.log_telemetry("Task: " + testTask['toolName'], "task", 1))
+
         finally:
             if len(test_task_container_names) > 0:
                 self.docker_stop_containers(test_task_container_names)
@@ -679,6 +761,7 @@ class RaftLocalCLI():
 
             try:
                 self.docker_stop_containers(test_target_container_names)
+
             except Exception as ex:
                 print(f'Failed to stop test target containers due to {ex}')
 
@@ -688,8 +771,7 @@ class RaftLocalCLI():
             except Exception as ex:
                 print(f'Failed to stop agent utilities due to {ex}')
 
-            #self.print_logs([agent_utils])
-            #self.print_logs(test_task_container_names)
+            self.log_bugs_per_tool()
 
             print("Job finished, cleaning up job containers")
             print(f"------------------------  Job results: {job_dir}")
@@ -707,6 +789,7 @@ class RaftLocalCLI():
                 self.docker_remove_bridge(bridge_name)
             except Exception as ex:
                 print(f'Failed to remove bridge {bridge_name} due to {ex}')
+
         return {'jobId' : job_id}
 
     def poll(self, job_id):
@@ -732,7 +815,7 @@ def run(args):
         print(f'Created events_sink folder: {event_sink}')
 
     if job_action == 'create':
-        cli = RaftLocalCLI(network=args.get('network'))
+        cli = RaftLocalCLI(network=args.get('network'), telemetry=args.get('no_telemetry'))
         json_config_path = args.get('file')
         if json_config_path is None:
             ArgumentRequired('--file')
@@ -753,7 +836,7 @@ def run(args):
             job_config.config['duration'] = duration
 
         cli.new_job(job_config, args.get('jobStatusWebhookUrl'), args.get('bugFoundWebhookUrl'))
-
+        
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -824,6 +907,13 @@ On Windows you can use WSL2 (https://docs.microsoft.com/en-us/windows/wsl/compar
 
 bridge - create a network-bridge with a random name.
 This allows running of multiple jobs in parallel on the same device.
+        '''))
+
+    job_parser.add_argument(
+        '--no-telemetry',
+        action='store_false',
+        help=textwrap.dedent('''\
+Use this flag to turn off anonymous telemetry
         '''))
 
     args = parser.parse_args()
