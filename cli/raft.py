@@ -56,6 +56,31 @@ json_hook = raft_sdk.raft_common.RaftJsonDict.raft_json_object_hook
 version = raft_sdk.raft_common.get_version()
 
 
+def compatability_test(service_cli):
+    # Verify that the major version numbers of the CLI
+    # and the service are the same.
+    # https://github.com/microsoft/rest-api-fuzz-testing/docs/raft-updates.md
+    # for a discussion on versions.
+    # Major version numbers are incremented on breaking changes
+    # Minor version numbers are incremented with CLI changes.
+    # So for this check we only need to verify major version numbers.
+
+    cli_version = raft_sdk.raft_common.get_version()
+    cli_version_parts = cli_version.split('.')
+    cli_major = cli_version_parts[0]
+
+    info = service_cli.service_info()
+    service_version_parts = info['version'].split('.')
+    service_major = service_version_parts[0]
+
+    if (cli_major != service_major):
+        error_message = 'The CLI and service MUST be on '
+        error_message + 'the same major version. '
+        error_message += f'CLI version = {cli_version} '
+        error_message += f'Service version = {info["version"]}'
+        raise Exception(error_message)
+
+
 def run(args):
     def validate(defaults):
         s = defaults.get('subscription')
@@ -106,11 +131,13 @@ def run(args):
     job_action = args.get('job-action')
     webhook_action = args.get('webhook-action')
 
+    service_cli = RaftServiceCLI(
+                    defaults,
+                    defaults_path,
+                    args.get('secret'))
+    compatability_test(service_cli)
+
     if service_action:
-        service_cli = RaftServiceCLI(
-                            defaults,
-                            defaults_path,
-                            args.get('secret'))
         if service_action == 'restart':
             service_cli.restart()
         elif service_action == 'info':
