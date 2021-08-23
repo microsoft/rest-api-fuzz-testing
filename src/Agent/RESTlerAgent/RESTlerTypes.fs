@@ -20,6 +20,17 @@ module Engine =
             RefreshArgs : string
         }
 
+    type CertAuthentication =
+        {
+            //Path to your X.509 certificate in PEM format. Provide for Certificate Based Authentication
+            CertificatePath: string
+        }
+
+
+    type Authentication =
+        | NoAuth
+        | Token of RefreshableTokenOptions
+        | Cert of CertAuthentication
 
     type EnginePerResourceSetting =
         {
@@ -55,7 +66,7 @@ module Engine =
             MaxDurationHours : float option
 
             /// The authentication options, when tokens are required
-            RefreshableTokenOptions : RefreshableTokenOptions option
+            RefreshableTokenOptions : Authentication
 
             /// The delay in seconds after invoking an API that creates a new resource
             ProducerTimingDelay : int
@@ -161,6 +172,8 @@ module Engine =
             //in hours
             time_budget : float option
 
+            client_certificate_path: string option
+
             token_refresh_cmd : string option
 
             //seconds
@@ -229,6 +242,8 @@ module Engine =
                 //seconds
                 token_refresh_interval = None
 
+                client_certificate_path = None
+
                 //if set - poll for resource to be created before
                 //proceeding
                 wait_for_async_resource_creation = true
@@ -239,11 +254,13 @@ module Engine =
             }
 
         static member FromEngineParameters (fuzzingMode: string option) (p : EngineParameters) =
-            let tokenRefreshInterval, tokenRefreshCommand =
+            let tokenRefreshInterval, tokenRefreshCommand, authCertificatePath =
                 match p.RefreshableTokenOptions with
-                | None -> None, None
-                | Some options ->
-                    (Some options.RefreshInterval), (Some (sprintf "%s %s" options.RefreshExec options.RefreshArgs))
+                | NoAuth -> None, None, None
+                | Token options ->
+                    (Some options.RefreshInterval), (Some (sprintf "%s %s" options.RefreshExec options.RefreshArgs)), None
+                | Cert options ->
+                    None, None, (Some options.CertificatePath)
             {
                 Settings.Default with
                     host = p.Host
@@ -255,6 +272,7 @@ module Engine =
                     no_ssl = not p.UseSsl
                     no_tokens_in_logs = not p.ShowAuthToken
                     fuzzing_mode = fuzzingMode
+                    client_certificate_path = authCertificatePath
                     token_refresh_cmd = tokenRefreshCommand
                     token_refresh_interval = tokenRefreshInterval
                     max_request_execution_time = Option.defaultValue Settings.Default.max_request_execution_time p.MaxRequestExecutionTime 

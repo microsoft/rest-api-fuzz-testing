@@ -341,8 +341,8 @@ module private RESTlerInternal =
         async {
             do!
                 match parameters.RefreshableTokenOptions with
-                | None -> async.Return()
-                | Some t -> validateAuthentication workingDirectory t
+                | Raft.RESTlerTypes.Engine.NoAuth | Raft.RESTlerTypes.Engine.Cert _ -> async.Return()
+                | Raft.RESTlerTypes.Engine.Token t -> validateAuthentication workingDirectory t
 
             let testParameters = getCommonParameters workingDirectory (Some testType) parameters
             do! runRestlerEngine restlerRootDirectory workingDirectory testParameters
@@ -353,8 +353,8 @@ module private RESTlerInternal =
         async {
             do!
                 match parameters.RefreshableTokenOptions with
-                | None -> async.Return()
-                | Some t -> validateAuthentication workingDirectory t
+                | Raft.RESTlerTypes.Engine.NoAuth | Raft.RESTlerTypes.Engine.Cert _ -> async.Return()
+                | Raft.RESTlerTypes.Engine.Token t -> validateAuthentication workingDirectory t
 
             let fuzzingParameters = getCommonParameters workingDirectory (Some fuzzType) parameters
             do! runRestlerEngine restlerRootDirectory workingDirectory fuzzingParameters
@@ -364,8 +364,8 @@ module private RESTlerInternal =
         async {
             do!
                 match parameters.RefreshableTokenOptions with
-                | None -> async.Return()
-                | Some t -> validateAuthentication workingDirectory t
+                | Raft.RESTlerTypes.Engine.NoAuth | Raft.RESTlerTypes.Engine.Cert _ -> async.Return()
+                | Raft.RESTlerTypes.Engine.Token t -> validateAuthentication workingDirectory t
 
             let replayParameters =
                 (getCommonParameters workingDirectory None parameters)

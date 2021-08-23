@@ -74,9 +74,30 @@ key vault is expected to be a string.
 
 The string is passed to the container in an environment variable. 
 
+## Certificate (RESTler only at this time)
+
+Authentication using a certificate is supported by RESTler.
+You have to pass the authentication certificate using file shares in RAFT.
+
+Using **Cert** as the authentication method key, use the path to the certificate as the value.
+The certificate must be an X.509 certificate in PEM format.
+
+See `ReadOnlyFileShareMounts` section in [JobDefinition documentation](./schema/jobdefinition.md)
+for details on how to mount file shares.
+
+``` 
+"tasks": [
+    {
+      "toolName" : "RESTler",
+      "authenticationMethod": {
+        "Cert": "/path/to/cert"
+      }
+    },
+```
+
 
 ## Agent-Utilities container
-Starting with v4 of RAFT - a deicated utilities docker container is deployed with every job run. This container is responsible
+Starting with v4 of RAFT - a dedicated utilities docker container is deployed with every job run. This container is responsible
 for performing authentication with a service under test and processing events from tools.
 
 You do not need to do anything special to update agent utilites when running RAFT local, since agent utilities used directly from your CLI folder. To update agent utiliites when
