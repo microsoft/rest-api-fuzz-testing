@@ -260,22 +260,29 @@ let createRESTlerEngineParameters
             match task.AuthenticationMethod with
             | Some c ->
                 if c.IsEmpty then
-                    None
+                    Raft.RESTlerTypes.Engine.NoAuth
                 else
-                    let authConfig : Raft.RESTlerTypes.Engine.RefreshableTokenOptions =
-                        {
-                            RefreshInterval = Option.defaultValue (int <| TimeSpan.FromHours(1.0).TotalSeconds) runConfiguration.AuthenticationTokenRefreshIntervalSeconds
-                            RefreshExec = "python3"
-                            RefreshArgs =
-                                let url =
-                                    let auth = Seq.head c
-                                    let authType, authSecretName = auth.Key, auth.Value
-                                    System.Uri(authenicationUrl, sprintf "auth/%s/%s" authType authSecretName)
-                                sprintf """-c "import requests; import json; r=requests.get('%s'); assert r.ok, r.text; print(\"{u'user1':{}}\nAuthorization: \" + json.loads(r.text)['token'])"  """ url.AbsoluteUri
-                        }
-                    printfn "Refreshable token configuration : %A" authConfig
-                    Some authConfig
-            | None -> None
+                    let auth = Seq.head c
+                    let authType, authSecret = auth.Key, auth.Value
+
+                    if authType.ToLower().Trim() = "cert" then
+                        if IO.File.Exists authSecret then
+                            Raft.RESTlerTypes.Engine.Cert {CertificatePath = authSecret}
+                        else
+                            failwithf "Failed to find authentication certificate: %s" authSecret
+                    else
+                        let authConfig : Raft.RESTlerTypes.Engine.RefreshableTokenOptions =
+                            {
+                                RefreshInterval = Option.defaultValue (int <| TimeSpan.FromHours(1.0).TotalSeconds) runConfiguration.AuthenticationTokenRefreshIntervalSeconds
+                                RefreshExec = "python3"
+                                RefreshArgs =
+                                    let url =
+                                        System.Uri(authenicationUrl, sprintf "auth/%s/%s" authType authSecret)
+                                    sprintf """-c "import requests; import json; r=requests.get('%s'); assert r.ok, r.text; print(\"{u'user1':{}}\nAuthorization: \" + json.loads(r.text)['token'])"  """ url.AbsoluteUri
+                            }
+                        printfn "Refreshable token configuration : %A" authConfig
+                        Raft.RESTlerTypes.Engine.Token authConfig
+            | None -> Raft.RESTlerTypes.Engine.NoAuth
 
         /// The delay in seconds after invoking an API that creates a new resource
         ProducerTimingDelay = Option.defaultValue 10 runConfiguration.ProducerTimingDelay
