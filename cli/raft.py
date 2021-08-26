@@ -135,7 +135,13 @@ def run(args):
                     defaults,
                     defaults_path,
                     args.get('secret'))
-    compatability_test(service_cli)
+
+    # If we try to run the compatibility test before deployment
+    # it will fail because we don't have a clientId and tenantId
+    # It does no harm to avoid the compatibility test for
+    # all service actions.
+    if not service_action:
+        compatability_test(service_cli)
 
     if service_action:
         if service_action == 'restart':
