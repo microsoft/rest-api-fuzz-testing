@@ -11,7 +11,6 @@ import time
 import requests
 import logging
 
-from datetime import datetime
 from dateutil import parser as DateParser
 from subprocess import PIPE
 from raft_sdk.raft_common import  RaftJsonDict, get_version
@@ -174,7 +173,7 @@ class RaftLocalCLI():
         return {
                 'SiteHash' : str(uuid.getnode()), 
                 'Source' : self.source,
-                'TimeStamp' : datetime.utcnow().strftime("%d/%m/%Y %H:%M:%S"),
+                'TimeStamp' : datetime.datetime.utcnow().strftime("%d/%m/%Y %H:%M:%S"),
                 'Units' : units,
                 'Version' : get_version(),
                 'Count' : count
@@ -195,8 +194,15 @@ class RaftLocalCLI():
     # Record how many bugs were found by each tool
     def log_bugs_per_tool(self):
         tools = {}
+        
         for bug in self.bugs:
-            toolname = bug['Message']['Tool']
+            # When running locally in raft-action the key is
+            # Data instead of Message.
+            if 'Message' in bug:
+                key = 'Message'
+            else:
+                key = 'Data'
+            toolname = bug[key]['Tool']
             if toolname in tools:
                 tools[toolname] += 1
             else:
