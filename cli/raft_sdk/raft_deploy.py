@@ -75,10 +75,18 @@ class RaftServiceCLI():
 
         if not secret:
             self.is_logged_in()
+        else:
+            # If we are given a secret on the command line, then we assume that
+            # we are running in some automation context and need
+            # to login this way.
+            az(f'login --service-principal -u {self.context["clientId"]} -p {secret} --tenant {self.context["tenantId"]}')
 
         az(f'account set --subscription {self.definitions.subscription}')
 
     def is_logged_in(self):
+        # If your not logged in this command will throw
+        # an exception and say in the error message
+        # that you need to login.
         az('ad signed-in-user show')
 
     def hash(self, txt):
