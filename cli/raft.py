@@ -5,6 +5,7 @@ import json
 import os
 import uuid
 import textwrap
+import sys
 
 import raft_sdk.raft_common
 from raft_sdk.raft_service import RaftCLI, RaftJobConfig
@@ -574,5 +575,7 @@ Identifies the webhook hook event, for example JobStatus or BugFound'''))
 if __name__ == "__main__":
     try:
         main()
+        sys.exit(0)
     except Exception as ex:
         print(ex)
+        sys.exit(1)

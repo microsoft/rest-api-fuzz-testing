@@ -35,7 +35,9 @@ CLI //root folder where you downloaded the CLI
 * The `storage` folder will contain all of the data produced by RAFT job runs. 
 * The `secrets` folder is a user maintained folder. </br>
   The files in this folder are the names of the secret used in the job definition file.
-  These files should not have an extension.
+  These files should not have an extension.</br>
+  **Note:** The contents of the secret file must not contain line breaks. This data is passed
+  on the docker command line. Line breaks will cause the docker command to fail. 
 
   For example if my RAFT job configuration requires a text token. 
   I can store the token in file `MyToken` under `CLI/local/secrets/MyToken` and use `MyToken` 
