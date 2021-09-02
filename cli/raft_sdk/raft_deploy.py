@@ -992,7 +992,7 @@ class RaftServiceCLI():
             json.dump(defaults, d, indent=4)
 
     def test_az_version(self):
-        supported_versions = ['2.25.0', '2.26.0']
+        supported_versions = ['2.27.2']
         # az sometimes reports the version with an asterisk.
         # Perhaps when a new version of the CLI is available.
         tested_az_cli_versions = (
@@ -1102,7 +1102,11 @@ class RaftServiceCLI():
            f" --location {self.context['region']}")
         print(f"Deployment Resource Group: {self.definitions.resource_group}")
 
-        self.init_key_vault()
+        try:
+            self.init_key_vault()
+        except RaftAzCliException as ex:
+            if ex.error_message == f'The specified vault: {self.definitions.key_vault} already exists':
+                pass
 
         service_principal = {}
         if skip_sp_deployment:
