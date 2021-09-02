@@ -1208,7 +1208,8 @@ class RaftServiceCLI():
                 container_registry_username,
                 container_registry_password)
 
-        self.add_resource_providers()
+        if not skip_sp_deployment:
+            self.add_resource_providers()
 
         self.context['clientId'] = service_principal['appId']
         self.context['tenantId'] = service_principal['tenant']
