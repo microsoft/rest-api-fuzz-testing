@@ -1,6 +1,23 @@
 # REST API Fuzz Testing (RAFT)
 
-## A self hosted REST API Fuzzing-As-A-Service platform 
+<b><i>Dear RAFT Users,
+<br>
+
+Thank you for your usage of the RAFT fuzzing-as-a-service platform over the past year.  We have learned from many of you about your use cases for REST API Fuzzing, and these learnings will be applied to the future development of RESTler and related tooling at Microsoft.
+
+Support for RAFT will end on January 28th.  The project will be archived, which means that the code will still be available for use, but will not be maintained.
+
+Please email anlamb@microsoft.com prior to January 28th with any questions or concerns.
+
+Thank you so much to all of the contributors and users of RAFT for being a part of our journey.
+</i></b>
+
+<br>
+<br>
+
+
+
+## A self hosted REST API Fuzzing-As-A-Service platform
 RAFT enables painless fuzzing of REST API's using multiple fuzzers in parallel. Using a single command line
 baked into your CI/CD pipeline developers can launch fuzz jobs against their services.
 
@@ -31,7 +48,7 @@ Following Swagger/OpenAPI tools are currently supported by RAFT
 - Pre-populating RESTler fuzzing dictionary based on `mutationSeed`
 - Avoid triggering BugFound events for bug hashes via `ignoreBugHashes` configured by user
 
-As a platform, RAFT is designed to host any API fuzzers that are packaged into a docker container. 
+As a platform, RAFT is designed to host any API fuzzers that are packaged into a docker container.
 These can be configured and used in the system via configuration files and require no code changes to integrate.
 
 ### Getting Started
@@ -55,7 +72,7 @@ use the [samples](docs/samples.md) to try out the service and fuzzers!
 ### Swagger Documentation
 Once the service is created, you can examine the REST interface of the service by browsing to the swagger page at https://\<deploymentName\>-raft-apiservice.azurewebsites.net/swagger
 
-### Interesting in native code fuzzing? 
+### Interesting in native code fuzzing?
 Take a look at our sibling project [OneFuzz](https://github.com/microsoft/onefuzz)
 
 ### Microsoft Open Source Code of Conduct
